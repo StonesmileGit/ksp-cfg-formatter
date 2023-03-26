@@ -32,7 +32,7 @@ fn bench_sock(bench: &mut Criterion) {
     bench.bench_function("sock", |b| {
         b.iter(|| {
             let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
-            formatter.format_text(black_box(&text));
+            let _ = formatter.format_text(black_box(&text));
         })
     });
 }

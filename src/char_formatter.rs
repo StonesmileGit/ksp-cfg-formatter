@@ -3,7 +3,9 @@ use regex::Regex;
 use std::time::{Duration, Instant};
 /// Defines which End of Line sequence to be used
 ///
-/// TODO: Explain in detail
+/// Can have the values `LF`, `CRLF` or `Identify`.
+///
+/// When using `Identify`, the formatter tries to figure out what sequence to use, based on the provided text.
 ///
 /// Example:
 /// ```
@@ -15,7 +17,7 @@ use std::time::{Duration, Instant};
 /// let formatter = Formatter::new(indentation, false, line_return);
 /// ```
 #[derive(PartialEq, Eq, Clone, Copy)]
-#[allow(clippy::upper_case_acronyms, dead_code)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum LineReturn {
     /// Line Feed. Used on Linux
     LF,
@@ -57,11 +59,7 @@ impl std::fmt::Display for Indentation {
 
 impl From<Option<usize>> for Indentation {
     fn from(setting: Option<usize>) -> Self {
-        if let Some(n) = setting {
-            Self::Spaces(n)
-        } else {
-            Self::Tabs
-        }
+        setting.map_or(Self::Tabs, Self::Spaces)
     }
 }
 
@@ -95,6 +93,7 @@ impl Formatter {
     ///
     /// let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
     /// ```
+    #[must_use]
     pub const fn new(indentation: Indentation, inline: bool, line_return: LineReturn) -> Self {
         Self {
             indentation,
@@ -119,6 +118,7 @@ impl Formatter {
     /// # let input = "";
     /// let output = formatter.format_text(input);
     /// ```
+    #[must_use]
     pub fn format_text(&self, text: &str) -> String {
         let mut indent = 0;
         for char in text.chars() {
@@ -197,6 +197,7 @@ impl Formatter {
     }
 
     /// Sets the `EoL` sequence based on settings
+    #[must_use]
     pub fn crlf(text: &str, line_return: LineReturn) -> String {
         let mut line_return_local = &line_return;
         if line_return == LineReturn::Identify {
@@ -214,6 +215,7 @@ impl Formatter {
     }
 
     /// takes an un-indented text and indents it based on open blocks
+    #[must_use]
     pub fn indentation(text: &str, indentation: Indentation) -> String {
         let indentation_string = indentation.to_string();
         let mut output: String = String::new();
@@ -265,6 +267,7 @@ impl Formatter {
     }
 
     /// Removes tabs and spaces at the end of a line
+    #[must_use]
     pub fn remove_trailing_whitespace(text: &str) -> String {
         lazy_static! {
             static ref PATTERN: Regex = Regex::new(r"(?m)[\t ]+\r*$").unwrap();
@@ -273,6 +276,7 @@ impl Formatter {
     }
 
     /// Removes tabs and spaces at the beginning of every line
+    #[must_use]
     pub fn remove_leading_whitespace(text: &str) -> String {
         lazy_static! {
             static ref PATTERN: Regex = Regex::new(r"(?m)^[\t ]+").unwrap();
@@ -281,6 +285,7 @@ impl Formatter {
     }
 
     /// Removes leading and trailing newlines
+    #[must_use]
     pub fn remove_leading_and_trailing_newlines(text: &str) -> String {
         lazy_static! {
             static ref START_PATTERN: Regex = Regex::new(r"^(\r*\n)*").unwrap();
@@ -319,7 +324,7 @@ impl Formatter {
                         inline,
                         char_iter,
                     ));
-                    let _ = &potential_identifier.clear();
+                    potential_identifier.clear();
                 }
                 // Closing a block
                 (_, '}') => {

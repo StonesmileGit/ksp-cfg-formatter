@@ -8,7 +8,9 @@ use std::time::Instant;
 
 /// Defines which End of Line sequence to be used
 ///
-/// TODO: Explain in detail
+/// Can have the values `LF`, `CRLF` or `Identify`.
+///
+/// When using `Identify`, the formatter tries to figure out what sequence to use, based on the provided text.
 ///
 /// Example:
 /// ```
@@ -20,7 +22,7 @@ use std::time::Instant;
 /// let formatter = Formatter::new(indentation, false);
 /// ```
 #[derive(PartialEq, Eq, Clone, Copy)]
-#[allow(clippy::upper_case_acronyms, dead_code)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum LineReturn {
     /// Line Feed. Used on Linux
     LF,
@@ -62,11 +64,7 @@ impl std::fmt::Display for Indentation {
 
 impl From<Option<usize>> for Indentation {
     fn from(setting: Option<usize>) -> Self {
-        if let Some(n) = setting {
-            Self::Spaces(n)
-        } else {
-            Self::Tabs
-        }
+        setting.map_or(Self::Tabs, Self::Spaces)
     }
 }
 
@@ -100,6 +98,7 @@ impl Formatter {
     ///
     /// let formatter = Formatter::new(Indentation::Tabs, false);
     /// ```
+    #[must_use]
     pub const fn new(indentation: Indentation, inline: bool, line_return: LineReturn) -> Self {
         Self {
             indentation,
@@ -108,7 +107,6 @@ impl Formatter {
         }
     }
 
-    // Formats the provided text according to the settings of the Formatter
     /// Takes the provided text and formats it according to the settings of the `Formatter`
     ///
     /// TODO: Explain the parts of the formatter.
@@ -124,6 +122,7 @@ impl Formatter {
     /// # let input = "".to_owned();
     /// let output = formatter.format_text(&input);
     /// ```
+    #[must_use]
     pub fn format_text(&self, text: &str) -> String {
         let debug_print = false;
         let total = Instant::now();
@@ -383,6 +382,8 @@ pub fn indentation(cursor: &mut CursorMut<Token>, indentation: Indentation) {
 }
 
 /// blah
+/// # Panics
+/// This function panics if any token in the stream is an Error
 pub fn format_blocks(cursor: &mut CursorMut<Token>, top_level: &bool, inline: &bool) {
     // println!("cursor pos: {}", cursor.index().unwrap());
     if !top_level {
@@ -412,8 +413,7 @@ pub fn format_blocks(cursor: &mut CursorMut<Token>, top_level: &bool, inline: &b
                 format_blocks(cursor, &false, inline);
                 debug_assert!(
                     matches!(cursor.current(), Some(Token::ClosingBracket)),
-                    "token was {:?}",
-                    cursor,
+                    "token was {cursor:?}",
                 );
                 // cursor is now after the block. We want to prepend the "first" list to the cursor.
                 let mut len: usize = 0;
@@ -474,8 +474,7 @@ fn format_block(cursor: &mut CursorMut<Token>, inline: bool) {
     // Assume standing on final closing bracket.
     debug_assert!(
         matches!(cursor.current(), Some(Token::ClosingBracket)),
-        "token in formatting was {:?}",
-        cursor,
+        "token in formatting was {cursor:?}",
     );
     // Add newline before if wanted
     if !one_line && !is_empty {
@@ -483,8 +482,7 @@ fn format_block(cursor: &mut CursorMut<Token>, inline: bool) {
     }
     debug_assert!(
         matches!(cursor.current(), Some(Token::ClosingBracket)),
-        "token in formatting was {:?}",
-        cursor,
+        "token in formatting was {cursor:?}",
     );
 
     // finally append "last" before returning

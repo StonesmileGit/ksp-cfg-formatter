@@ -1,4 +1,4 @@
-use ksp_cfg_formatter::token_formatter::{Formatter, Indentation};
+use ksp_cfg_formatter::token_formatter::{Formatter, Indentation, LineReturn};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use std::{
@@ -15,7 +15,7 @@ fn read_local_path(path: &str) -> String {
 #[test]
 fn simple() {
     let text = read_local_path("tests/simple.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, false);
+    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
     let formatted_text = formatter.format_text(&text);
     assert_eq!(text, formatted_text);
 }
@@ -23,7 +23,7 @@ fn simple() {
 #[test]
 fn sock() {
     let text = read_local_path("tests/sock.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, false);
+    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
     let formatted_text = formatter.format_text(&text);
     assert_eq!(text, formatted_text);
 }
@@ -31,7 +31,7 @@ fn sock() {
 #[test]
 fn rn_cygnus() {
     let text = read_local_path("tests/RO_RN_Cygnus.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, false);
+    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
     let formatted_text = formatter.format_text(&text);
     assert_eq!(text, formatted_text);
 }

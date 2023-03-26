@@ -3,7 +3,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ksp_cfg_formatter::token_formatter::{
     format_blocks, indentation, remove_leading_and_trailing_newlines, remove_leading_whitespace,
-    remove_trailing_whitespace, Formatter, Indentation, Token,
+    remove_trailing_whitespace, Formatter, Indentation, LineReturn, Token,
 };
 use logos::Logos;
 use std::{
@@ -31,7 +31,7 @@ fn bench_sock(bench: &mut Criterion) {
     let text = read_local_path("tests/sock.cfg");
     bench.bench_function("sock", |b| {
         b.iter(|| {
-            let formatter = Formatter::new(Indentation::Tabs, false);
+            let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
             formatter.format_text(black_box(&text));
         })
     });

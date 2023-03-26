@@ -89,6 +89,7 @@ impl From<usize> for Indentation {
 pub struct Formatter {
     indentation: Indentation,
     inline: bool,
+    line_return: LineReturn,
 }
 
 impl Formatter {
@@ -100,10 +101,11 @@ impl Formatter {
     ///
     /// let formatter = Formatter::new(Indentation::Tabs, false);
     /// ```
-    pub const fn new(indentation: Indentation, inline: bool) -> Self {
+    pub const fn new(indentation: Indentation, inline: bool, line_return: LineReturn) -> Self {
         Self {
             indentation,
             inline,
+            line_return,
         }
     }
 
@@ -141,6 +143,10 @@ impl Formatter {
         let formatting_timer = Instant::now();
 
         let start = Instant::now();
+        let original_line_ending = check_for_crlf(&mut token_list.cursor_front_mut());
+        let check_crlf_time = start.elapsed();
+
+        let start = Instant::now();
         remove_leading_whitespace(&mut token_list.cursor_front_mut());
         let leading_whitespace_time = start.elapsed();
 
@@ -160,6 +166,12 @@ impl Formatter {
         remove_leading_and_trailing_newlines(&mut token_list.cursor_front_mut());
         let newlines_time = start.elapsed();
 
+        let start = Instant::now();
+        if self.line_return != LineReturn::LF && original_line_ending == Token::CRLF {
+            set_line_endings_to_crlf(&mut token_list.cursor_front_mut());
+        }
+        let change_crlf_time = start.elapsed();
+
         let formatting_time = formatting_timer.elapsed();
 
         let start = Instant::now();
@@ -173,11 +185,13 @@ impl Formatter {
 
         if debug_print {
             println!("{tokenize_time:?} Tokenizing input");
+            println!("{check_crlf_time:?} Checking for CRLF");
             println!("{leading_whitespace_time:?} Removed leading whitespace");
             println!("{format_blocks_time:?} Formatted blocks");
             println!("{indentation_time:?} Fixed indentation");
             println!("{trailing_whitespace_time:?} Removed trailing whitespace");
             println!("{newlines_time:?} Trailing whitelines");
+            println!("{change_crlf_time:?} Converting newline chars");
             println!("{to_string_time:?} Converting to string");
             println!("{formatting_time:?} Total formatting");
             println!("{total_time:?} Total");
@@ -190,12 +204,16 @@ impl Formatter {
 #[derive(Logos, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Token<'a> {
     /// Represents a comment. Includes the leading `//`
-    #[regex(r"//.*")]
+    #[regex(r"//[^\r\n]*")]
     Comment(&'a str),
 
     /// Token representing a newline
-    #[regex(r"\r?\n")]
+    #[token("\n")]
     NewLine,
+
+    /// Token representing a newline
+    #[token("\r\n")]
+    CRLF,
 
     /// Token representing an opening bracket, `{`
     #[token(r"{")]
@@ -233,6 +251,7 @@ impl<'a> Display for Token<'a> {
             Token::Error => todo!(),
             Token::NewLine => writeln!(f),
             Token::Equals => write!(f, "="),
+            Token::CRLF => writeln!(f, "\r"),
         }
     }
 }
@@ -251,6 +270,33 @@ fn check_brackets(list: &LinkedList<Token>) -> bool {
         }
     }
     indent == 0
+}
+
+fn check_for_crlf<'a>(cursor: &mut CursorMut<Token>) -> Token<'a> {
+    let mut found_crlf = false;
+    while let Some(token) = cursor.current() {
+        if token == &mut Token::CRLF {
+            found_crlf = true;
+            cursor.insert_after(Token::NewLine);
+            cursor.remove_current();
+        }
+        cursor.move_next();
+    }
+    if found_crlf {
+        Token::CRLF
+    } else {
+        Token::NewLine
+    }
+}
+
+fn set_line_endings_to_crlf(cursor: &mut CursorMut<Token>) {
+    while let Some(token) = cursor.current() {
+        if token == &mut Token::NewLine {
+            cursor.insert_after(Token::CRLF);
+            cursor.remove_current();
+        }
+        cursor.move_next();
+    }
 }
 
 /// Removes leading whitespace

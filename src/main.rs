@@ -1,5 +1,5 @@
 use clap::Parser;
-use ksp_cfg_formatter::token_formatter::{Formatter, Indentation};
+use ksp_cfg_formatter::token_formatter::{Formatter, Indentation, LineReturn};
 use std::{fs, io::BufRead, result::Result, thread};
 use walkdir::WalkDir;
 
@@ -65,7 +65,7 @@ fn main() {
 
 fn format_file(indentaion: &Indentation, args: &Args, text: &str, path: Option<String>) {
     // Set up formatter and use it to format the text
-    let formatter = Formatter::new(*indentaion, args.inline);
+    let formatter = Formatter::new(*indentaion, args.inline, LineReturn::Identify);
     let output = formatter.format_text(text);
 
     // write output to path or stdout

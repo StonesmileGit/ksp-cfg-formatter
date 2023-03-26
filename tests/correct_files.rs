@@ -21,6 +21,14 @@ fn simple() {
 }
 
 #[test]
+fn one_line_nodes() {
+    let text = read_local_path("tests/one_line_nodes.cfg");
+    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
+    let formatted_text = formatter.format_text(&text);
+    assert_eq!(text, formatted_text);
+}
+
+#[test]
 fn sock() {
     let text = read_local_path("tests/sock.cfg");
     let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);

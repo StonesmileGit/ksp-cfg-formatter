@@ -529,7 +529,7 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
                     }
                     cursor.insert_before(Token::Whitespace(" "));
                 }
-            } // Just include it?
+            }
             _ => {}
         }
         cursor.move_next();
@@ -538,6 +538,16 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
 
 fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mut bool) {
     const MAX_LENGTH_ONELINE: usize = 72;
+    let mut debug_string = String::new();
+
+    cursor.move_prev();
+    cursor.move_prev();
+    while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
+        cursor.move_prev();
+        cursor.remove_current();
+    }
+    cursor.move_next();
+    cursor.move_next();
 
     let mut in_block = false;
     let mut on_second_line = false;
@@ -551,7 +561,7 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
                     *is_empty = false;
                 }
             }
-            Token::NewLine => {
+            Token::NewLine | Token::CRLF => {
                 if *is_empty {
                     cursor.remove_current();
                     cursor.move_prev();
@@ -560,27 +570,37 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
                 }
             }
             Token::OpeningBracket => {
-                // LENDEF: How much space does a bracket add? space after so 2
-                length += 2;
+                // LENDEF: How much space does a bracket add? space before and after so 3
+                length += 3;
+                debug_string.push_str("added {: 3\n");
+                if in_block {
+                    *one_line = false;
+                }
                 in_block = true;
                 // println!("When seeing opening bracket: {:?}", cursor);
             }
             Token::ClosingBracket => {
                 // LENDEF: How much space does a closing bracket add? space before so 2
                 length += 2;
+                debug_string.push_str("added }: 2\n");
             }
             Token::Whitespace(whitespace) => {
-                // LENDEF
-                length += whitespace.len();
                 // Remove leading whitespace
                 if *is_empty && in_block {
                     cursor.remove_current();
                     cursor.move_prev();
+                } else if in_block {
+                    // LENDEF
+                    let whitelen = whitespace.chars().count();
+                    length += &whitelen;
+                    debug_string.push_str(format!("added whitespace {whitelen}\n").as_str());
                 }
             }
             Token::Text(text) => {
                 // LENDEF:
-                length += text.len();
+                let textlen = text.chars().count();
+                length += &textlen;
+                debug_string.push_str(format!("added text of len {textlen}\n").as_str());
                 // If we see text inside the block, we know it's non-empty
                 if in_block {
                     *is_empty = false;
@@ -592,6 +612,7 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
             }
             Token::Equals => {
                 // LENDEF: Space not included;
+                debug_string.push_str("added =: 1\n");
                 length += 1;
             }
             Token::Error => todo!(),
@@ -599,6 +620,8 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
         cursor.move_next();
     }
     if length > MAX_LENGTH_ONELINE {
+        // println!("{debug_string}");
+        // println!("length was {length}");
         *one_line = false;
     }
 }

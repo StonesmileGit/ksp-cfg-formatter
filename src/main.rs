@@ -6,7 +6,11 @@ use walkdir::WalkDir;
 #[derive(Parser, Debug, Clone)]
 #[command(author, about, long_about = None)]
 struct Args {
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "file to format. If a folder is provided, all containing files are formatted.
+If no path is provided, text is read from stdin."
+    )]
     path: Option<String>,
 
     #[arg(
@@ -31,7 +35,6 @@ struct Args {
 fn main() {
     // Read CLI arguments
     let args = Args::parse();
-    let indentaion = Indentation::from(args.indentation);
 
     // Read input from either a path or stdin if no path is provided
     if let Some(path) = &args.path {
@@ -42,7 +45,7 @@ fn main() {
             let worker = thread::spawn(move || {
                 let text = fs::read_to_string(&path)
                     .map_or_else(|_| format!("Failed to read text from {path}"), |t| t);
-                format_file(&indentaion, &args, &text, Some(path.clone()));
+                format_file(&args, &text, Some(path.clone()));
             });
             workers.push(worker);
         }
@@ -57,13 +60,14 @@ fn main() {
             text.push_str(&line);
             text.push('\n');
         }
-        format_file(&indentaion, &args, &text, args.path.clone());
+        format_file(&args, &text, args.path.clone());
     }
 }
 
-fn format_file(indentaion: &Indentation, args: &Args, text: &str, path: Option<String>) {
+fn format_file(args: &Args, text: &str, path: Option<String>) {
     // Set up formatter and use it to format the text
-    let formatter = Formatter::new(*indentaion, args.inline, LineReturn::Identify);
+    let indentaion = Indentation::from(args.indentation);
+    let formatter = Formatter::new(indentaion, args.inline, LineReturn::Identify);
     let output = formatter.format_text(text);
 
     // write output to path or stdout

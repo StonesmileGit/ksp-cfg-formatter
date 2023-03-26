@@ -299,6 +299,9 @@ fn set_line_endings_to_crlf(cursor: &mut CursorMut<Token>) {
 
 /// Removes leading whitespace
 pub fn remove_leading_whitespace(cursor: &mut CursorMut<Token>) {
+    while let Some(Token::Whitespace(_)) = cursor.current() {
+        cursor.remove_current();
+    }
     while let Some(token) = cursor.current() {
         if matches!(token, Token::NewLine) {
             if let Some(Token::Whitespace(_)) = cursor.peek_next() {

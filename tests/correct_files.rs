@@ -5,6 +5,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+mod incorrect_files;
 
 fn read_local_path(path: &str) -> String {
     let base_path = env!("CARGO_MANIFEST_DIR");

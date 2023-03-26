@@ -15,13 +15,11 @@ struct Args {
     )]
     inline: bool,
 
-    //TODO: This uses a sentinel value. BAD
     #[arg(
         long,
-        default_value_t = 0,
-        help = "Number of spaces used for indentation. Tabs are used if set to 0 (Default)"
+        help = "Number of spaces used for indentation. Tabs are used if not set"
     )]
-    indentation: usize,
+    indentation: Option<usize>,
 
     #[arg(
         long,

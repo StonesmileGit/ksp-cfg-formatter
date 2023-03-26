@@ -60,13 +60,12 @@ impl std::fmt::Display for Indentation {
     }
 }
 
-impl From<usize> for Indentation {
-    // TODO: This uses sentinel values, change code
-    fn from(n: usize) -> Self {
-        if n == 0 {
-            Self::Tabs
-        } else {
+impl From<Option<usize>> for Indentation {
+    fn from(setting: Option<usize>) -> Self {
+        if let Some(n) = setting {
             Self::Spaces(n)
+        } else {
+            Self::Tabs
         }
     }
 }

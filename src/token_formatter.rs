@@ -6,6 +6,26 @@ use std::{
 use logos::Logos;
 use std::time::Instant;
 
+trait RemoveExt<T> {
+    fn remove_prev(&mut self) -> Option<T>;
+    fn remove_next(&mut self) -> Option<T>;
+}
+
+impl<'a, T> RemoveExt<T> for CursorMut<'a, T> {
+    /// Removes the item sitting before the current item. After removing, the cursor points to the same item as before calling this.
+    fn remove_prev(&mut self) -> Option<T> {
+        self.move_prev();
+        self.remove_current()
+    }
+    /// Removes the item sitting after the current item. After removing, the cursor points to the same item as before calling this.
+    fn remove_next(&mut self) -> Option<T> {
+        self.move_next();
+        let val = self.remove_current();
+        self.move_prev();
+        val
+    }
+}
+
 /// Defines which End of Line sequence to be used
 ///
 /// Can have the values `LF`, `CRLF` or `Identify`.
@@ -304,11 +324,8 @@ pub fn remove_leading_whitespace(cursor: &mut CursorMut<Token>) {
     }
     while let Some(token) = cursor.current() {
         if matches!(token, Token::NewLine) {
-            if let Some(Token::Whitespace(_)) = cursor.peek_next() {
-                cursor.move_next();
-                cursor.remove_current();
-                cursor.move_prev();
-                cursor.move_prev();
+            while matches!(cursor.peek_next(), Some(Token::Whitespace(_))) {
+                cursor.remove_next();
             }
         }
         cursor.move_next();
@@ -319,10 +336,8 @@ pub fn remove_leading_whitespace(cursor: &mut CursorMut<Token>) {
 pub fn remove_trailing_whitespace(cursor: &mut CursorMut<Token>) {
     while let Some(token) = cursor.current() {
         if matches!(token, Token::NewLine) {
-            if let Some(Token::Whitespace(_)) = cursor.peek_prev() {
-                cursor.move_prev();
-                cursor.remove_current();
-                cursor.move_prev();
+            while matches!(cursor.peek_prev(), Some(Token::Whitespace(_))) {
+                cursor.remove_prev();
             }
         }
         cursor.move_next();
@@ -463,8 +478,7 @@ fn format_block(cursor: &mut CursorMut<Token>, inline: bool) {
     debug_assert!(matches!(cursor.current(), Some(Token::ClosingBracket)));
 
     while let Some(Token::NewLine | Token::Whitespace(_)) = cursor.peek_prev() {
-        cursor.move_prev();
-        cursor.remove_current();
+        cursor.remove_prev();
     }
     debug_assert!(matches!(cursor.current(), Some(Token::ClosingBracket)));
     cursor.move_next();
@@ -512,8 +526,7 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
                         cursor.insert_after(Token::NewLine);
                     } else {
                         while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
-                            cursor.move_prev();
-                            cursor.remove_current();
+                            cursor.remove_prev();
                         }
                         cursor.insert_before(Token::Whitespace(" "));
                         if !is_empty {
@@ -525,8 +538,7 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
             Token::ClosingBracket => {
                 if one_line && !is_empty {
                     while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
-                        cursor.move_prev();
-                        cursor.remove_current();
+                        cursor.remove_prev();
                     }
                     cursor.insert_before(Token::Whitespace(" "));
                 }
@@ -544,8 +556,7 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
     cursor.move_prev();
     cursor.move_prev();
     while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
-        cursor.move_prev();
-        cursor.remove_current();
+        cursor.remove_prev();
     }
     cursor.move_next();
     cursor.move_next();

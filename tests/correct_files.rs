@@ -12,34 +12,42 @@ fn read_local_path(path: &str) -> String {
     fs::read_to_string(path).expect("Failed to read path provided")
 }
 
-#[test]
-fn simple() {
-    let text = read_local_path("tests/simple.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
-    let formatted_text = formatter.format_text(&text);
-    assert_eq!(text, formatted_text);
+macro_rules! gen_test {
+    ($func_name:ident, $file:literal) => {
+        #[test]
+        fn $func_name() {
+            let text = read_local_path($file);
+            let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
+            let formatted_text = formatter.format_text(&text);
+            assert_eq!(text, formatted_text);
+        }
+    };
 }
 
-#[test]
-fn one_line_nodes() {
-    let text = read_local_path("tests/one_line_nodes.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
-    let formatted_text = formatter.format_text(&text);
-    assert_eq!(text, formatted_text);
-}
+gen_test!(simple, "tests/simple.cfg");
 
-#[test]
-fn sock() {
-    let text = read_local_path("tests/sock.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
-    let formatted_text = formatter.format_text(&text);
-    assert_eq!(text, formatted_text);
-}
+gen_test!(one_line_nodes, "tests/one_line_nodes.cfg");
 
-#[test]
-fn rn_cygnus() {
-    let text = read_local_path("tests/RO_RN_Cygnus.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
-    let formatted_text = formatter.format_text(&text);
-    assert_eq!(text, formatted_text);
-}
+gen_test!(sock, "tests/sock.cfg");
+
+gen_test!(rn_cygnus, "tests/RO_RN_Cygnus.cfg");
+
+gen_test!(
+    weird_config_comments_in_empty_nodes,
+    "tests/weird_configs/comments_in_empty_nodes.cfg"
+);
+
+gen_test!(
+    weird_config_weird_index_selection,
+    "tests/weird_configs/weird_index_selection.cfg"
+);
+
+gen_test!(
+    weird_config_long_node_with_space,
+    "tests/weird_configs/long_node_with_space.cfg"
+);
+
+gen_test!(
+    weird_config_multiple_equal_signs,
+    "tests/weird_configs/multiple_equal_signs.cfg"
+);

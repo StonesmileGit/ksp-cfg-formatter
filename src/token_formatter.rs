@@ -520,11 +520,7 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
                 // if first opening, add newline before and after if not collapsed
                 if !in_block {
                     in_block = true;
-                    if !one_line && !is_empty {
-                        cursor.insert_before(Token::NewLine);
-                        // TODO: What if there is a comment after the opening bracket?
-                        cursor.insert_after(Token::NewLine);
-                    } else {
+                    if one_line {
                         while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
                             cursor.remove_prev();
                         }
@@ -532,6 +528,10 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
                         if !is_empty {
                             cursor.insert_after(Token::Whitespace(" "));
                         }
+                    } else {
+                        cursor.insert_before(Token::NewLine);
+                        // TODO: What if there is a comment after the opening bracket?
+                        cursor.insert_after(Token::NewLine);
                     }
                 }
             }

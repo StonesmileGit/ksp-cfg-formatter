@@ -404,27 +404,34 @@ pub fn indentation(cursor: &mut CursorMut<Token>, indentation: Indentation) {
 /// This function panics if any token in the stream is an Error
 pub fn format_blocks(cursor: &mut CursorMut<Token>, top_level: &bool, inline: &bool) {
     // println!("cursor pos: {}", cursor.index().unwrap());
-    if !top_level {
-        while let Some(token) = cursor.current() {
-            match token {
-                Token::OpeningBracket => {
-                    cursor.move_next();
-                    break;
-                }
-                _ => cursor.move_next(),
-            }
-        }
-    }
+    let mut in_block = *top_level;
     while let Some(token) = cursor.current() {
         match token {
             Token::OpeningBracket => {
+                if !in_block {
+                    in_block = true;
+                    cursor.move_next();
+                    continue;
+                }
                 // println!("found block");
                 // We have reached the beginning of a new block. Go back and find the identifier, split the list and start recursion
-                // TODO: go back and find identifier
                 while let Some(token) = cursor.current() {
                     match token {
                         Token::Text(_) => break,
                         _ => cursor.move_prev(),
+                    }
+                }
+                while let Some(token) = cursor.current() {
+                    match token {
+                        Token::NewLine => break,
+                        _ => cursor.move_prev(),
+                    }
+                }
+                cursor.move_next();
+                while let Some(token) = cursor.current() {
+                    match token {
+                        Token::Whitespace(_) => cursor.move_next(),
+                        _ => break,
                     }
                 }
                 let first = cursor.split_before();

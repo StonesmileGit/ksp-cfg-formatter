@@ -1,9 +1,9 @@
-use std::{
-    collections::{linked_list::CursorMut, LinkedList},
-    fmt::Display,
-};
+/// Tokenizer documentation
+pub mod tokenizer;
+use tokenizer::Token;
 
 use logos::Logos;
+use std::collections::{linked_list::CursorMut, LinkedList};
 use std::time::Instant;
 
 trait RemoveExt<T> {
@@ -218,62 +218,6 @@ impl Formatter {
     }
 }
 
-/// This enum represents tokens
-#[derive(Logos, Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Token<'a> {
-    /// Represents a comment. Includes the leading `//`
-    #[regex(r"//[^\r\n]*")]
-    Comment(&'a str),
-
-    /// Token representing a newline
-    #[token("\n")]
-    NewLine,
-
-    /// Token representing a newline
-    #[token("\r\n")]
-    CRLF,
-
-    /// Token representing an opening bracket, `{`
-    #[token(r"{")]
-    OpeningBracket,
-
-    /// Token representing a closing bracket, `}`
-    #[token(r"}")]
-    ClosingBracket,
-
-    /// Token representing any whitespace Currently doesn't care about length
-    #[regex(r"[ \t]+")]
-    Whitespace(&'a str),
-
-    /// Token representing =
-    #[token(r"=")]
-    Equals,
-
-    /// Token representing any text
-    #[regex(r"[^{} \t\r\n]+")]
-    Text(&'a str),
-
-    /// Token representing any error
-    #[error]
-    Error,
-}
-
-impl<'a> Display for Token<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Token::Comment(comment) => write!(f, "{comment}"),
-            Token::OpeningBracket => write!(f, "{{"),
-            Token::ClosingBracket => write!(f, "}}"),
-            Token::Whitespace(space) => write!(f, "{space}"),
-            Token::Text(text) => write!(f, "{text}"),
-            Token::Error => todo!(),
-            Token::NewLine => writeln!(f),
-            Token::Equals => write!(f, "="),
-            Token::CRLF => writeln!(f, "\r"),
-        }
-    }
-}
-
 fn check_brackets(list: &LinkedList<Token>) -> bool {
     let mut indent = 0;
     for item in list {
@@ -359,11 +303,6 @@ pub fn remove_leading_and_trailing_newlines(cursor: &mut CursorMut<Token>) {
 
 /// Generates correct indentation
 pub fn indentation(cursor: &mut CursorMut<Token>, indentation: Indentation) {
-    let indent_text = match indentation {
-        // TODO: use n
-        Indentation::Spaces(_n) => Token::Whitespace("    "),
-        Indentation::Tabs => Token::Whitespace("\t"),
-    };
     let mut level: usize = 0;
     while let Some(token) = cursor.current() {
         match token {
@@ -375,8 +314,13 @@ pub fn indentation(cursor: &mut CursorMut<Token>, indentation: Indentation) {
                 // if cursor.peek_next().is_some() {
                 //     cursor.move_next();
                 // }
-                for _ in 0..level {
-                    // TODO: CHange to create one token per line, instead of multiple ones of the base size. That way insert_after isn't a problem
+                if level > 0 {
+                    let indent_text = match indentation {
+                        Indentation::Spaces(n) => {
+                            Token::Whitespace(tokenizer::Whitespace::Spaces(n * level))
+                        }
+                        Indentation::Tabs => Token::Whitespace(tokenizer::Whitespace::Tabs(level)),
+                    };
                     cursor.insert_after(indent_text);
                     cursor.move_next();
                 }
@@ -531,9 +475,10 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
                         while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
                             cursor.remove_prev();
                         }
-                        cursor.insert_before(Token::Whitespace(" "));
+                        cursor.insert_before(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
                         if !is_empty {
-                            cursor.insert_after(Token::Whitespace(" "));
+                            cursor
+                                .insert_after(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
                         }
                     } else {
                         cursor.insert_before(Token::NewLine);
@@ -547,7 +492,7 @@ fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
                     while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
                         cursor.remove_prev();
                     }
-                    cursor.insert_before(Token::Whitespace(" "));
+                    cursor.insert_before(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
                 }
             }
             _ => {}
@@ -610,8 +555,11 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
                     cursor.move_prev();
                 } else if in_block {
                     // LENDEF
-                    let whitelen = whitespace.chars().count();
-                    length += &whitelen;
+                    let whitelen = match whitespace {
+                        tokenizer::Whitespace::Spaces(n) => *n,
+                        tokenizer::Whitespace::Tabs(n) => 4 * *n,
+                    };
+                    length += whitelen;
                     debug_string.push_str(format!("added whitespace {whitelen}\n").as_str());
                 }
             }

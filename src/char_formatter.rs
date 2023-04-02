@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 /// Defines which End of Line sequence to be used
 ///
 /// Can have the values `LF`, `CRLF` or `Identify`.
@@ -137,53 +137,32 @@ impl Formatter {
         }
         let debug_print = false;
         let total = Instant::now();
+
         let start = Instant::now();
         let mut output = Self::remove_leading_whitespace(text);
-        let leading_whitespace_time = if debug_print {
-            start.elapsed()
-        } else {
-            Duration::default()
-        };
+        let leading_whitespace_time = start.elapsed();
+
         let start = Instant::now();
         output = Self::format_blocks(None, &self.inline, &mut output.chars());
-        let format_blocks_time = if debug_print {
-            start.elapsed()
-        } else {
-            Duration::default()
-        };
+        let format_blocks_time = start.elapsed();
+
         let start = Instant::now();
         output = Self::indentation(&output, self.indentation);
-        let indentation_time = if debug_print {
-            start.elapsed()
-        } else {
-            Duration::default()
-        };
+        let indentation_time = start.elapsed();
+
         let start = Instant::now();
         output = Self::remove_trailing_whitespace(&output);
-        let trailing_whitespace_time = if debug_print {
-            start.elapsed()
-        } else {
-            Duration::default()
-        };
+        let trailing_whitespace_time = start.elapsed();
+
         let start = Instant::now();
         output = Self::remove_leading_and_trailing_newlines(&output);
-        let newlines_time = if debug_print {
-            start.elapsed()
-        } else {
-            Duration::default()
-        };
+        let newlines_time = start.elapsed();
+
         let start = Instant::now();
         output = Self::crlf(&output, self.line_return);
-        let crlf_time = if debug_print {
-            start.elapsed()
-        } else {
-            Duration::default()
-        };
-        let total_time = if debug_print {
-            total.elapsed()
-        } else {
-            Duration::default()
-        };
+        let crlf_time = start.elapsed();
+
+        let total_time = total.elapsed();
         if debug_print {
             println!("{leading_whitespace_time:?} Removed leading whitespace");
             println!("{format_blocks_time:?} Formatted blocks");

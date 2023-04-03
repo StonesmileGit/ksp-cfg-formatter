@@ -13,41 +13,45 @@ fn read_local_path(path: &str) -> String {
 }
 
 macro_rules! gen_test {
-    ($func_name:ident, $file:literal) => {
+    ($func_name:ident, $file:literal, $inline:literal) => {
         #[test]
         fn $func_name() {
             let text = read_local_path($file);
-            let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
+            let formatter = Formatter::new(Indentation::Tabs, $inline, LineReturn::Identify);
             let formatted_text = formatter.format_text(&text);
             assert_eq!(text, formatted_text);
         }
     };
 }
 
-gen_test!(simple, "tests/simple.cfg");
+gen_test!(simple, "tests/simple.cfg", true);
 
-gen_test!(one_line_nodes, "tests/one_line_nodes.cfg");
+gen_test!(one_line_nodes, "tests/one_line_nodes.cfg", true);
 
-gen_test!(sock, "tests/sock.cfg");
+gen_test!(sock, "tests/sock.cfg", false);
 
-gen_test!(rn_cygnus, "tests/RO_RN_Cygnus.cfg");
+gen_test!(rn_cygnus, "tests/RO_RN_Cygnus.cfg", false);
 
 gen_test!(
     weird_config_comments_in_empty_nodes,
-    "tests/weird_configs/comments_in_empty_nodes.cfg"
+    "tests/weird_configs/comments_in_empty_nodes.cfg",
+    true
 );
 
 gen_test!(
     weird_config_weird_index_selection,
-    "tests/weird_configs/weird_index_selection.cfg"
+    "tests/weird_configs/weird_index_selection.cfg",
+    true
 );
 
 gen_test!(
     weird_config_long_node_with_space,
-    "tests/weird_configs/long_node_with_space.cfg"
+    "tests/weird_configs/long_node_with_space.cfg",
+    true
 );
 
 gen_test!(
     weird_config_multiple_equal_signs,
-    "tests/weird_configs/multiple_equal_signs.cfg"
+    "tests/weird_configs/multiple_equal_signs.cfg",
+    true
 );

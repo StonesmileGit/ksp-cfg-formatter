@@ -1,5 +1,5 @@
-use logos::{Lexer, Logos};
-use std::fmt::Display;
+use logos::Logos;
+use std::{fmt::Display, str::FromStr};
 
 /// This enum represents tokens
 #[allow(clippy::upper_case_acronyms)]
@@ -25,11 +25,11 @@ pub enum Token<'a> {
     #[token(r"}")]
     ClosingBracket,
 
-    /// Token representing any whitespace Currently doesn't care about length
-    #[regex(r" +|\t+", parse_whitespace)]
+    /// Token representing any whitespace
+    #[regex(r" +|\t+", |lex| lex.slice().parse())]
     Whitespace(Whitespace),
 
-    /// Token representing =
+    /// Token representing `=`
     #[token(r"=")]
     Equals,
 
@@ -70,11 +70,11 @@ pub enum Whitespace {
 impl Display for Whitespace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Whitespace::Spaces(n) => {
+            Self::Spaces(n) => {
                 let spaces = " ".repeat(*n);
                 write!(f, "{spaces}")
             }
-            Whitespace::Tabs(n) => {
+            Self::Tabs(n) => {
                 let tabs = "\t".repeat(*n);
                 write!(f, "{tabs}")
             }
@@ -82,11 +82,18 @@ impl Display for Whitespace {
     }
 }
 
-fn parse_whitespace<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Whitespace {
-    let slice = lex.slice();
-    if slice.contains(' ') {
-        Whitespace::Spaces(slice.chars().count())
-    } else {
-        Whitespace::Tabs(slice.chars().count())
+/// TODO
+pub struct ParseWhiteSpaceError;
+impl FromStr for Whitespace {
+    type Err = ParseWhiteSpaceError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.contains(' ') {
+            Ok(Whitespace::Spaces(s.chars().count()))
+        } else if s.contains('\t') {
+            Ok(Whitespace::Tabs(s.chars().count()))
+        } else {
+            Err(ParseWhiteSpaceError)
+        }
     }
 }

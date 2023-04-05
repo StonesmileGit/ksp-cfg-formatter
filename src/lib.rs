@@ -5,3 +5,6 @@
 pub mod char_formatter;
 /// Documentation for the module
 pub mod token_formatter;
+
+/// Documentation for the AST based formatter
+pub mod ast_formatter;

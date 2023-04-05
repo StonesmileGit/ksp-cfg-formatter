@@ -1,0 +1,21 @@
+document = { SOI ~ NEWLINE* ~ statement* ~ EOI }
+
+statement = _{ (assignment | node | Comment) ~ (EmptyLine | NEWLINE)? }
+
+openingbracket = { "{" }
+
+closingbracket = { "}" }
+
+node = { identifier ~ Comment? ~ NEWLINE* ~ openingbracket ~ NEWLINE* ~ statement* ~ NEWLINE* ~ closingbracket ~ Comment? }
+
+assignment = { identifier ~ "=" ~ value ~ Comment? }
+
+identifier = ${ (!( "=" | "{" | "}" | WHITESPACE | NEWLINE | "//" ) ~ ANY)+ }
+
+value = ${ (!(NEWLINE | closingbracket | "//") ~ ANY)* }
+
+Comment = ${ "//" ~ (!NEWLINE ~ ANY)* }
+
+WHITESPACE = _{ "\t" | SPACE_SEPARATOR }
+
+EmptyLine = { NEWLINE ~ NEWLINE+ }

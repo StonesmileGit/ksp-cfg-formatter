@@ -1,4 +1,7 @@
-use super::{tokenizer, CursorMut, RemoveExt, Token};
+use super::{
+    state_machines::{BlockSetting, Event, FormatterState},
+    tokenizer, CursorMut, RemoveExt, Token,
+};
 
 /// blah
 /// # Panics
@@ -52,7 +55,20 @@ pub fn format_blocks(cursor: &mut CursorMut<Token>, top_level: &bool, inline: &b
                     cursor.move_next();
                 }
             }
-            Token::ClosingBracket => return format_block(cursor, *inline),
+            Token::ClosingBracket => {
+                debug_assert!(
+                    matches!(cursor.current(), Some(Token::ClosingBracket)),
+                    "`format_block` started when not standing on a closing bracket"
+                );
+                let last = cursor.split_after();
+                // cursor is now at last elem in block. Advance by two
+                cursor.move_next();
+                debug_assert!(cursor.current().is_none());
+                cursor.move_next();
+                format_block(cursor, *inline);
+                cursor.splice_after(last);
+                return;
+            }
             Token::Error => panic!("Got error: {cursor:?}"),
             _ => {}
         }
@@ -64,21 +80,15 @@ pub fn format_blocks(cursor: &mut CursorMut<Token>, top_level: &bool, inline: &b
 ///
 /// After formatting, the cursor stands on the closing `}`, same as when called
 fn format_block(cursor: &mut CursorMut<Token>, inline: bool) {
-    // println!("At start of formatting: {:?}", cursor);
-    // list looks like: "id //comment\n   {block}last"
-    let mut is_empty = true;
-    let mut one_line = inline;
-    // Before anything, we want to split the list into block and last
-    let last = cursor.split_after();
-    // println!("last len: {}", last.len());
-    // cursor is now at last elem in block. Advance by two
-    cursor.move_next();
-    debug_assert!(cursor.current().is_none());
-    cursor.move_next();
-    // First check facts about the block. (length, number of lines, empty etc)
-    pre_process(cursor, &mut one_line, &mut is_empty);
-    // println!("After first loop of formatting: {:?}", cursor);
-    // remove trailing newlines and spaces before closing }
+    /* Structure:
+    When entering this function, the cursor should stand on the closing bracket of the block.
+    The token stream has already been split to remove anything before and after the block.
+    */
+    let mut setting = BlockSetting::begin();
+    pre_process(cursor, &mut setting);
+    if !inline {
+        setting.transition(Event::ShouldNotBeInline);
+    }
     // standing at ghost item, go back one
     debug_assert!(cursor.current().is_none());
     cursor.move_prev();
@@ -94,17 +104,12 @@ fn format_block(cursor: &mut CursorMut<Token>, inline: bool) {
     cursor.move_next();
     debug_assert!(cursor.current().is_some());
     // Then format on second pass
-    modify_block(cursor, one_line, is_empty);
-    cursor.move_prev();
+    modify_block(cursor, &mut setting);
     // Assume standing on final closing bracket.
     debug_assert!(
         matches!(cursor.current(), Some(Token::ClosingBracket)),
         "token in formatting was {cursor:?}",
     );
-    // Add newline before if wanted
-    if !one_line && !is_empty {
-        cursor.insert_before(Token::NewLine);
-    }
     debug_assert!(
         matches!(cursor.current(), Some(Token::ClosingBracket)),
         "token in formatting was {cursor:?}",
@@ -117,50 +122,80 @@ fn format_block(cursor: &mut CursorMut<Token>, inline: bool) {
         println!("skipped token: {:?}", cursor.current());
         cursor.move_next();
     }
-    cursor.splice_after(last);
 }
 
-fn modify_block(cursor: &mut CursorMut<Token>, one_line: bool, is_empty: bool) {
-    let mut in_block = false;
-    while let Some(token) = cursor.current() {
+fn modify_block(cursor: &mut CursorMut<Token>, settings: &mut BlockSetting) {
+    let mut state = FormatterState::begin();
+    while let Some(&mut token) = cursor.current() {
         match token {
-            Token::OpeningBracket => {
-                // if first opening, add newline before and after if not collapsed
-                if !in_block {
-                    in_block = true;
-                    if one_line {
-                        while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
-                            cursor.remove_prev();
-                        }
-                        cursor.insert_before(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
-                        if !is_empty {
-                            cursor
-                                .insert_after(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
-                        }
-                    } else {
-                        cursor.insert_before(Token::NewLine);
-                        // TODO: What if there is a comment after the opening bracket?
-                        cursor.insert_after(Token::NewLine);
-                    }
-                }
-            }
-            Token::ClosingBracket => {
-                if one_line && !is_empty {
+            Token::OpeningBracket => match (&state, &settings) {
+                (FormatterState::ReadingIdentifier, BlockSetting::OneLineEmpty) => {
                     while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
                         cursor.remove_prev();
                     }
                     cursor.insert_before(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
                 }
-            }
+                (
+                    FormatterState::ReadingIdentifier,
+                    BlockSetting::MultiLineEmpty | BlockSetting::MultLine,
+                ) => {
+                    cursor.insert_before(Token::NewLine);
+                    cursor.insert_after(Token::NewLine);
+                }
+                (FormatterState::ReadingIdentifier, BlockSetting::OneLine) => {
+                    while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
+                        cursor.remove_prev();
+                    }
+                    cursor.insert_before(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
+                    cursor.insert_after(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
+                }
+
+                (
+                    FormatterState::InBlock
+                    | FormatterState::OnFirstLine
+                    | FormatterState::OnSecondLine,
+                    BlockSetting::MultLine,
+                ) => (),
+
+                (
+                    FormatterState::InBlock
+                    | FormatterState::OnFirstLine
+                    | FormatterState::OnSecondLine,
+                    BlockSetting::OneLineEmpty
+                    | BlockSetting::MultiLineEmpty
+                    | BlockSetting::OneLine,
+                ) => todo!(),
+            },
+            Token::ClosingBracket => match settings {
+                BlockSetting::OneLine => {
+                    while let Some(Token::Whitespace(_)) = cursor.peek_prev() {
+                        cursor.remove_prev();
+                    }
+                    cursor.insert_before(Token::Whitespace(tokenizer::Whitespace::Spaces(1)));
+                }
+
+                BlockSetting::OneLineEmpty
+                | BlockSetting::MultiLineEmpty
+                | BlockSetting::MultLine => (),
+            },
             _ => {}
         }
+        state.transition(token);
         cursor.move_next();
+    }
+    cursor.move_prev();
+    // Add newline before closing `}` if wanted
+    if matches!(settings, BlockSetting::MultLine) {
+        cursor.insert_before(Token::NewLine);
     }
 }
 
-fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mut bool) {
+fn pre_process(cursor: &mut CursorMut<Token>, setting: &mut BlockSetting) {
     const MAX_LENGTH_ONELINE: usize = 72;
     let mut debug_string = String::new();
+
+    let mut state = FormatterState::begin();
+    let mut length: usize = 0;
 
     cursor.move_prev();
     cursor.move_prev();
@@ -170,34 +205,31 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
     cursor.move_next();
     cursor.move_next();
 
-    let mut in_block = false;
-    let mut on_second_line = false;
-    let mut length: usize = 0;
-    while let Some(token) = cursor.current() {
-        match token {
+    while let Some(&mut token) = cursor.current() {
+        match &token {
             Token::Comment(_) => {
-                *one_line = false;
-                // If we see text inside the block, we know it's non-empty
-                if in_block {
-                    *is_empty = false;
+                if state.in_block() {
+                    setting.transition(Event::CommentInBody);
+                } else {
+                    setting.transition(Event::CommentInID);
                 }
             }
             Token::NewLine | Token::CRLF => {
-                if *is_empty {
+                if setting.is_empty() {
                     cursor.remove_current();
                     cursor.move_prev();
                 } else {
-                    on_second_line = true;
+                    state.transition(token);
                 }
             }
             Token::OpeningBracket => {
                 // LENDEF: How much space does a bracket add? space before and after so 3
                 length += 3;
                 debug_string.push_str("added {: 3\n");
-                if in_block {
-                    *one_line = false;
+                if state.in_block() {
+                    setting.transition(Event::ShouldNotBeInline);
                 }
-                in_block = true;
+                state.transition(token);
                 // println!("When seeing opening bracket: {:?}", cursor);
             }
             Token::ClosingBracket => {
@@ -207,10 +239,10 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
             }
             Token::Whitespace(whitespace) => {
                 // Remove leading whitespace
-                if *is_empty && in_block {
+                if setting.is_empty() && state.in_block() {
                     cursor.remove_current();
                     cursor.move_prev();
-                } else if in_block {
+                } else if state.in_block() {
                     // LENDEF
                     let whitelen = match whitespace {
                         tokenizer::Whitespace::Spaces(n) => *n,
@@ -226,12 +258,12 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
                 length += &textlen;
                 debug_string.push_str(format!("added text of len {textlen}\n").as_str());
                 // If we see text inside the block, we know it's non-empty
-                if in_block {
-                    *is_empty = false;
+                if state.in_block() {
+                    setting.transition(Event::TextInBody);
                 }
                 // if we see text on the second line, we know it's not one line
-                if on_second_line {
-                    *one_line = false;
+                if state.on_second_line() {
+                    setting.transition(Event::ShouldNotBeInline);
                 }
             }
             Token::Equals => {
@@ -241,11 +273,12 @@ fn pre_process(cursor: &mut CursorMut<Token>, one_line: &mut bool, is_empty: &mu
             }
             Token::Error => todo!(),
         }
+        state.transition(token);
         cursor.move_next();
     }
     if length > MAX_LENGTH_ONELINE {
         // println!("{debug_string}");
         // println!("length was {length}");
-        *one_line = false;
+        setting.transition(Event::ShouldNotBeInline);
     }
 }

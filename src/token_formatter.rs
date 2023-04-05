@@ -1,5 +1,6 @@
 /// block formatting code
 pub mod format_blocks;
+mod state_machines;
 use format_blocks::format_blocks;
 
 /// Tokenizer documentation
@@ -43,7 +44,7 @@ impl<'a, T> RemoveExt<T> for CursorMut<'a, T> {
 /// let line_return = LineReturn::LF;
 ///
 /// let indentation = Indentation::Tabs;
-/// let formatter = Formatter::new(indentation, false);
+/// let formatter = Formatter::new(indentation, false, line_return);
 /// ```
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
@@ -67,7 +68,7 @@ pub enum LineReturn {
 /// let indentation = Indentation::Spaces(4);
 ///
 /// let line_return = LineReturn::Identify;
-/// let formatter = Formatter::new(indentation, false);
+/// let formatter = Formatter::new(indentation, false, line_return);
 /// ```
 #[derive(Clone, Copy)]
 pub enum Indentation {
@@ -100,7 +101,7 @@ impl From<Option<usize>> for Indentation {
 ///
 /// let indentation = Indentation::Tabs;
 /// let line_return = LineReturn::Identify;
-/// let formatter = Formatter::new(indentation, false);
+/// let formatter = Formatter::new(indentation, false, line_return);
 /// # // this is needed to test the code, but not important to readers
 /// # let input = "".to_owned();
 /// let output = formatter.format_text(&input);
@@ -118,9 +119,9 @@ impl Formatter {
     ///
     /// Example:
     /// ```
-    /// use ksp_cfg_formatter::token_formatter::{Formatter, Indentation};
+    /// use ksp_cfg_formatter::token_formatter::{Formatter, Indentation, LineReturn};
     ///
-    /// let formatter = Formatter::new(Indentation::Tabs, false);
+    /// let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
     /// ```
     #[must_use]
     pub const fn new(indentation: Indentation, inline: bool, line_return: LineReturn) -> Self {
@@ -141,7 +142,7 @@ impl Formatter {
     ///
     /// let indentation = Indentation::Tabs;
     /// let line_return = LineReturn::Identify;
-    /// let formatter = Formatter::new(indentation, false);
+    /// let formatter = Formatter::new(indentation, false, line_return);
     /// # // this is needed to test the code, but not important to readers
     /// # let input = "".to_owned();
     /// let output = formatter.format_text(&input);
@@ -157,8 +158,8 @@ impl Formatter {
 
         // dbg!(&token_list);
 
-        let a = check_brackets(&token_list);
-        if !a {
+        let balanced_brackets = check_brackets(&token_list);
+        if !balanced_brackets {
             return text.to_owned();
         }
 
@@ -289,6 +290,9 @@ pub fn remove_trailing_whitespace(cursor: &mut CursorMut<Token>) {
             }
         }
         cursor.move_next();
+    }
+    while matches!(cursor.peek_prev(), Some(Token::Whitespace(_))) {
+        cursor.remove_prev();
     }
 }
 

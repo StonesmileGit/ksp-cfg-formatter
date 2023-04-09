@@ -87,7 +87,7 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
     let document_res = Grammar::parse(Rule::document, text);
     match &document_res {
         Ok(res) => {
-            let document = res.to_owned().next().unwrap();
+            let document = res.clone().next().unwrap();
             // dbg!(&document);
             let a = Document {
                 statements: parse_statements(document.into_inner()),

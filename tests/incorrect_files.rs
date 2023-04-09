@@ -1,4 +1,4 @@
-use ksp_cfg_formatter::token_formatter::{Formatter, Indentation, LineReturn};
+use ksp_cfg_formatter::{ast_formatter::Formatter, Indentation, LineReturn};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use std::{

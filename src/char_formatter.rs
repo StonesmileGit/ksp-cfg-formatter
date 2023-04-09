@@ -1,73 +1,13 @@
+use super::{Indentation, LineReturn};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::time::Instant;
-/// Defines which End of Line sequence to be used
-///
-/// Can have the values `LF`, `CRLF` or `Identify`.
-///
-/// When using `Identify`, the formatter tries to figure out what sequence to use, based on the provided text.
-///
-/// Example:
-/// ```
-/// use ksp_cfg_formatter::char_formatter::{Formatter, Indentation, LineReturn};
-///
-/// let line_return = LineReturn::LF;
-///
-/// let indentation = Indentation::Tabs;
-/// let formatter = Formatter::new(indentation, false, line_return);
-/// ```
-#[derive(PartialEq, Eq, Clone, Copy)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum LineReturn {
-    /// Line Feed. Used on Linux
-    LF,
-    /// Carriage Return Line Feed. used on Windows
-    CRLF,
-    /// The formatter identifies which sequence to use, based on the text
-    Identify,
-}
-
-/// Indent using `Tabs` or `Spaces(usize)`.
-///
-/// When using spaces, the number provided is used as each level of indentation
-///
-/// Example:
-/// ```
-/// use ksp_cfg_formatter::char_formatter::{Formatter, Indentation, LineReturn};
-///
-/// let indentation = Indentation::Spaces(4);
-///
-/// let line_return = LineReturn::Identify;
-/// let formatter = Formatter::new(indentation, false, line_return);
-/// ```
-#[derive(Clone, Copy)]
-pub enum Indentation {
-    /// Number of spaces to indent with
-    Spaces(usize),
-    /// Used to indicate to indent with tabs
-    Tabs,
-}
-
-impl std::fmt::Display for Indentation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            Self::Spaces(n) => write!(f, "{}", " ".repeat(n)),
-            Self::Tabs => write!(f, "\t"),
-        }
-    }
-}
-
-impl From<Option<usize>> for Indentation {
-    fn from(setting: Option<usize>) -> Self {
-        setting.map_or(Self::Tabs, Self::Spaces)
-    }
-}
 
 /// Struct for holding the settings to use for formatting. use `self.format_text()` to format text
 ///
 /// Example:
 /// ```
-/// use ksp_cfg_formatter::char_formatter::{Formatter, Indentation, LineReturn};
+/// use ksp_cfg_formatter::{char_formatter::Formatter, Indentation, LineReturn};
 ///
 /// let indentation = Indentation::Tabs;
 /// let line_return = LineReturn::Identify;
@@ -89,7 +29,7 @@ impl Formatter {
     ///
     /// Example:
     /// ```
-    /// use ksp_cfg_formatter::char_formatter::{Formatter, Indentation, LineReturn};
+    /// use ksp_cfg_formatter::{char_formatter::Formatter, Indentation, LineReturn};
     ///
     /// let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
     /// ```
@@ -109,7 +49,7 @@ impl Formatter {
     ///
     /// Example:
     /// ```
-    /// use ksp_cfg_formatter::char_formatter::{Formatter, Indentation, LineReturn};
+    /// use ksp_cfg_formatter::{char_formatter::Formatter, Indentation, LineReturn};
     ///
     /// let indentation = Indentation::Tabs;
     /// let line_return = LineReturn::Identify;

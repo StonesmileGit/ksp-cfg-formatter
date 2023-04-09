@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 #![feature(linked_list_cursors)]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use ksp_cfg_formatter::token_formatter::{
-    format_blocks, indentation, remove_leading_and_trailing_newlines, remove_leading_whitespace,
-    remove_trailing_whitespace, Formatter, Indentation, LineReturn, Token,
+use ksp_cfg_formatter::{
+    token_formatter::{
+        format_blocks::format_blocks, indentation, remove_leading_and_trailing_newlines,
+        remove_leading_whitespace, remove_trailing_whitespace, tokenizer::Token, Formatter,
+    },
+    Indentation, LineReturn,
 };
 use logos::Logos;
 use std::{

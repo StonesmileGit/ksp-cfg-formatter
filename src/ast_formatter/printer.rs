@@ -63,10 +63,7 @@ impl ASTPrint for Node {
                     line_ending
                 )
             }
-            1 if !matches!(self.block.first().unwrap(), NodeItem::Node(_))
-                && short_node(self)
-                && should_collapse =>
-            {
+            1 if should_collapse && short_node(self) => {
                 format!(
                     "{}{} {{ {} }}{}{}",
                     indentation_str,

@@ -1,7 +1,7 @@
 mod printer;
 mod reader;
 
-use self::{printer::Document, reader::parse_statements};
+use self::{printer::Document, reader::parse_block_items};
 use pest::Parser;
 use printer::ASTPrint;
 use reader::{Grammar, Rule};
@@ -90,7 +90,7 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
             let document = res.clone().next().unwrap();
             // dbg!(&document);
             let a = Document {
-                statements: parse_statements(document.into_inner()),
+                statements: parse_block_items(document.into_inner()),
             };
             let line_ending = if use_crlf { "\r\n" } else { "\n" };
             return a.ast_print(

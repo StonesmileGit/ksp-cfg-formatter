@@ -1,4 +1,4 @@
-document = { SOI ~ NEWLINE* ~ statement* ~ EOI }
+document = { SOI ~ "\u{FEFF}"? ~ NEWLINE* ~ statement* ~ EOI }
 
 statement = _{ (assignment | node | Comment) ~ (EmptyLine | NEWLINE)? }
 
@@ -6,16 +6,18 @@ openingbracket = { "{" }
 
 closingbracket = { "}" }
 
-node = { identifier ~ Comment? ~ NEWLINE* ~ openingbracket ~ NEWLINE* ~ statement* ~ NEWLINE* ~ closingbracket ~ Comment? }
+node = { identifier ~ (Comment? ~ NEWLINE)* ~ Whitespace* ~ openingbracket ~ NEWLINE* ~ (Whitespace* ~ statement)* ~ NEWLINE* ~ Whitespace* ~ closingbracket ~ Comment? }
 
-assignment = { identifier ~ "=" ~ value ~ Comment? }
+assignment = { identifier ~ assignmentOperator ~ Whitespace* ~ value ~ Comment? }
 
-identifier = ${ (!( "=" | "{" | "}" | WHITESPACE | NEWLINE | "//" ) ~ ANY)+ }
+identifier = ${ (!( assignmentOperator | "{" | "}" | NEWLINE | "//" | Whitespace ) ~ ANY) ~ (!( assignmentOperator | "{" | "}" | NEWLINE | "//" ) ~ ANY)* }
 
 value = ${ (!(NEWLINE | closingbracket | "//") ~ ANY)* }
 
-Comment = ${ "//" ~ (!NEWLINE ~ ANY)* }
+Comment = ${ Whitespace* ~ "//" ~ (!NEWLINE ~ ANY)* }
 
-WHITESPACE = _{ "\t" | SPACE_SEPARATOR }
+Whitespace = _{ "\t" | SPACE_SEPARATOR }
 
 EmptyLine = { NEWLINE ~ NEWLINE+ }
+
+assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^" )? ~ "=" }

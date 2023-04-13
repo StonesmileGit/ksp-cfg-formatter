@@ -15,6 +15,7 @@ pub fn parse_block_items(pairs: Pairs<Rule>) -> Vec<NodeItem> {
             Rule::EmptyLine => block_items.push(NodeItem::EmptyLine),
             Rule::closingbracket => break,
             Rule::EOI => (),
+            Rule::Newline => (),
             _ => unreachable!(),
         }
     }
@@ -49,14 +50,24 @@ fn parse_assignment(mut pairs: Pairs<Rule>) -> NodeItem {
 fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
     let identifier = pairs.next().unwrap();
     let mut comment = None;
+    let mut newline_seen = false;
+    let mut comments_after_newline = vec![];
     for pair in pairs.by_ref() {
         match pair.as_rule() {
             Rule::Comment => {
-                comment = Some(Comment {
-                    text: pair.as_str().to_string(),
-                });
+                if !newline_seen {
+                    assert!(comment.is_none());
+                    comment = Some(Comment {
+                        text: pair.as_str().to_string(),
+                    });
+                } else {
+                    comments_after_newline.push(Comment {
+                        text: pair.as_str().to_string(),
+                    });
+                }
             }
             Rule::openingbracket => break,
+            Rule::Newline => newline_seen = true,
 
             // TODO: Can these be reached? Probably not
             Rule::Whitespace => todo!(),
@@ -75,6 +86,7 @@ fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
     let node = Node {
         identifier: identifier.as_str().trim().to_string(),
         id_comment: comment,
+        comments_after_newline,
         block: parse_block_items(pairs),
         trailing_comment,
     };

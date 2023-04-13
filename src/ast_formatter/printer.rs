@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 pub trait ASTPrint {
+    #[must_use]
     fn ast_print(
         &self,
         depth: usize,
@@ -38,6 +39,7 @@ impl ASTPrint for Document {
 pub struct Node {
     pub identifier: String,
     pub id_comment: Option<Comment>,
+    pub comments_after_newline: Vec<Comment>,
     pub block: Vec<NodeItem>,
     pub trailing_comment: Option<Comment>,
 }
@@ -50,69 +52,81 @@ impl ASTPrint for Node {
         line_ending: &str,
         should_collapse: bool,
     ) -> String {
+        let mut output = String::new();
+        for comment in &self.comments_after_newline {
+            output.push_str(
+                comment
+                    .ast_print(depth, indentation, line_ending, should_collapse)
+                    .as_str(),
+            );
+        }
         let indentation_str = indentation.repeat(depth);
-        match self.block.len() {
-            0 if self.id_comment.is_none() => {
-                format!(
-                    "{}{} {{}}{}{}",
-                    indentation_str,
-                    self.identifier,
-                    self.trailing_comment.as_ref().unwrap_or(&Comment {
-                        text: String::new()
-                    }),
-                    line_ending
-                )
-            }
-            1 if should_collapse && short_node(self) => {
-                format!(
-                    "{}{} {{ {} }}{}{}",
-                    indentation_str,
-                    self.identifier,
-                    self.block
-                        .first()
-                        .unwrap()
-                        .ast_print(0, indentation, "", should_collapse),
-                    self.trailing_comment.as_ref().unwrap_or(&Comment {
-                        text: String::new()
-                    }),
-                    line_ending
-                )
-            }
-            _ => {
-                let mut output = format!(
-                    "{}{}{}{}{}{}{{{}",
-                    indentation_str,
-                    self.identifier,
-                    if self.id_comment.is_some() { " " } else { "" },
-                    self.id_comment.as_ref().unwrap_or(&Comment {
-                        text: String::new()
-                    }),
-                    line_ending,
-                    indentation_str,
-                    line_ending
-                );
-                for statement in &self.block {
+        output.push_str(
+            match self.block.len() {
+                0 if self.id_comment.is_none() => {
+                    format!(
+                        "{}{} {{}}{}{}",
+                        indentation_str,
+                        self.identifier,
+                        self.trailing_comment.as_ref().unwrap_or(&Comment {
+                            text: String::new()
+                        }),
+                        line_ending
+                    )
+                }
+                1 if should_collapse && short_node(self) => {
+                    format!(
+                        "{}{} {{ {} }}{}{}",
+                        indentation_str,
+                        self.identifier,
+                        self.block
+                            .first()
+                            .unwrap()
+                            .ast_print(0, indentation, "", should_collapse),
+                        self.trailing_comment.as_ref().unwrap_or(&Comment {
+                            text: String::new()
+                        }),
+                        line_ending
+                    )
+                }
+                _ => {
+                    let mut output = format!(
+                        "{}{}{}{}{}{}{{{}",
+                        indentation_str,
+                        self.identifier,
+                        if self.id_comment.is_some() { " " } else { "" },
+                        self.id_comment.as_ref().unwrap_or(&Comment {
+                            text: String::new()
+                        }),
+                        line_ending,
+                        indentation_str,
+                        line_ending
+                    );
+                    for statement in &self.block {
+                        output.push_str(
+                            statement
+                                .ast_print(depth + 1, indentation, line_ending, should_collapse)
+                                .as_str(),
+                        );
+                    }
+                    output.push_str(&indentation_str);
+                    output.push('}');
                     output.push_str(
-                        statement
-                            .ast_print(depth + 1, indentation, line_ending, should_collapse)
+                        self.trailing_comment
+                            .as_ref()
+                            .unwrap_or(&Comment {
+                                text: String::new(),
+                            })
+                            .to_string()
                             .as_str(),
                     );
+                    output.push_str(line_ending);
+                    output
                 }
-                output.push_str(&indentation_str);
-                output.push('}');
-                output.push_str(
-                    self.trailing_comment
-                        .as_ref()
-                        .unwrap_or(&Comment {
-                            text: String::new(),
-                        })
-                        .to_string()
-                        .as_str(),
-                );
-                output.push_str(line_ending);
-                output
             }
-        }
+            .as_str(),
+        );
+        output
     }
 }
 

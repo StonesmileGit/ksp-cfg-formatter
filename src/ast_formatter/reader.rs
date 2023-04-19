@@ -14,8 +14,7 @@ pub fn parse_block_items(pairs: Pairs<Rule>) -> Vec<NodeItem> {
             Rule::assignment => block_items.push(parse_assignment(pair.into_inner())),
             Rule::EmptyLine => block_items.push(NodeItem::EmptyLine),
             Rule::closingbracket => break,
-            Rule::EOI => (),
-            Rule::Newline => (),
+            Rule::EOI | Rule::Newline => (),
             _ => unreachable!(),
         }
     }
@@ -55,13 +54,12 @@ fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
     for pair in pairs.by_ref() {
         match pair.as_rule() {
             Rule::Comment => {
-                if !newline_seen {
-                    assert!(comment.is_none());
-                    comment = Some(Comment {
+                if newline_seen {
+                    comments_after_newline.push(Comment {
                         text: pair.as_str().to_string(),
                     });
                 } else {
-                    comments_after_newline.push(Comment {
+                    comment = Some(Comment {
                         text: pair.as_str().to_string(),
                     });
                 }

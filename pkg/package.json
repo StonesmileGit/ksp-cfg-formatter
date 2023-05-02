@@ -1,0 +1,14 @@
+{
+  "name": "ksp-cfg-formatter",
+  "version": "0.1.0",
+  "files": [
+    "ksp_cfg_formatter_bg.wasm",
+    "ksp_cfg_formatter.js",
+    "ksp_cfg_formatter.d.ts"
+  ],
+  "module": "ksp_cfg_formatter.js",
+  "types": "ksp_cfg_formatter.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

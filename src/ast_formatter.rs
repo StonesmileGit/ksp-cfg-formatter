@@ -2,7 +2,7 @@ mod printer;
 mod reader;
 
 use self::{printer::Document, reader::parse_block_items};
-use pest::Parser;
+use pest::{error::LineColLocation, Parser};
 use printer::ASTPrint;
 use reader::{Grammar, Rule};
 use std::time::Instant;
@@ -106,4 +106,13 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
             panic!("{}", err);
         }
     };
+}
+
+/// Documentation goes here
+pub fn ast_validate(text: &str) -> Option<LineColLocation> {
+    let document_res = Grammar::parse(Rule::document, text);
+    match document_res {
+        Ok(_) => None,
+        Err(err) => Some(err.line_col),
+    }
 }

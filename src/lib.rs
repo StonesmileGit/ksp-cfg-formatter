@@ -8,6 +8,8 @@ pub mod token_formatter;
 
 /// Documentation for the AST based formatter
 pub mod ast_formatter;
+/// Contains code to interface with TypeScript
+pub mod wasm_bindings;
 
 /// Defines which End of Line sequence to be used
 ///

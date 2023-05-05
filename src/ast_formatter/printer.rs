@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 pub trait ASTPrint {
     #[must_use]
     fn ast_print(
@@ -30,6 +28,14 @@ impl ASTPrint for Document {
                 item.ast_print(depth, indentation, line_ending, should_collapse)
                     .as_str(),
             );
+        }
+        // FIXME: This is ugly
+        if output.ends_with("\n\n") {
+            output.pop();
+        }
+        if output.ends_with("\r\n\r\n") {
+            output.pop();
+            output.pop();
         }
         output
     }
@@ -68,9 +74,12 @@ impl ASTPrint for Node {
                         "{}{} {{}}{}{}",
                         indentation_str,
                         self.identifier,
-                        self.trailing_comment.as_ref().unwrap_or(&Comment {
-                            text: String::new()
-                        }),
+                        self.trailing_comment
+                            .as_ref()
+                            .unwrap_or(&Comment {
+                                text: String::new()
+                            })
+                            .text,
                         line_ending
                     )
                 }
@@ -83,9 +92,12 @@ impl ASTPrint for Node {
                             .first()
                             .unwrap()
                             .ast_print(0, indentation, "", should_collapse),
-                        self.trailing_comment.as_ref().unwrap_or(&Comment {
-                            text: String::new()
-                        }),
+                        self.trailing_comment
+                            .as_ref()
+                            .unwrap_or(&Comment {
+                                text: String::new()
+                            })
+                            .text,
                         line_ending
                     )
                 }
@@ -95,9 +107,12 @@ impl ASTPrint for Node {
                         indentation_str,
                         self.identifier,
                         if self.id_comment.is_some() { " " } else { "" },
-                        self.id_comment.as_ref().unwrap_or(&Comment {
-                            text: String::new()
-                        }),
+                        self.id_comment
+                            .as_ref()
+                            .unwrap_or(&Comment {
+                                text: String::new()
+                            })
+                            .text,
                         line_ending,
                         indentation_str,
                         line_ending
@@ -112,12 +127,13 @@ impl ASTPrint for Node {
                     output.push_str(&indentation_str);
                     output.push('}');
                     output.push_str(
-                        self.trailing_comment
+                        &self
+                            .trailing_comment
                             .as_ref()
                             .unwrap_or(&Comment {
                                 text: String::new(),
                             })
-                            .to_string()
+                            .text
                             .as_str(),
                     );
                     output.push_str(line_ending);
@@ -183,12 +199,6 @@ pub struct Comment {
     pub text: String,
 }
 
-impl Display for Comment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.text)
-    }
-}
-
 impl ASTPrint for Comment {
     fn ast_print(&self, depth: usize, indentation: &str, line_ending: &str, _: bool) -> String {
         let indentation = indentation.repeat(depth);
@@ -213,9 +223,12 @@ impl ASTPrint for KeyVal {
             self.key,
             self.operator,
             self.val,
-            self.comment.as_ref().unwrap_or(&Comment {
-                text: String::new()
-            }),
+            self.comment
+                .as_ref()
+                .unwrap_or(&Comment {
+                    text: String::new()
+                })
+                .text,
             line_ending
         )
     }

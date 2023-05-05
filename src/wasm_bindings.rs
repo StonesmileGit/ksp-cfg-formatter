@@ -3,10 +3,12 @@ use crate::{
     Indentation, LineReturn,
 };
 
+use pest::error::LineColLocation;
 use wasm_bindgen::prelude::wasm_bindgen;
 #[wasm_bindgen]
 /// Can JS see this?
 pub fn ksp_fmt(text: &str, insert_spaces: bool, tab_size: usize) -> String {
+    console_error_panic_hook::set_once();
     let indentation = if insert_spaces {
         Indentation::Spaces(tab_size)
     } else {
@@ -16,15 +18,36 @@ pub fn ksp_fmt(text: &str, insert_spaces: bool, tab_size: usize) -> String {
     format!("{}", formatter.format_text(text))
 }
 
+#[wasm_bindgen(getter_with_clone)]
+/// return type for the validation
+pub struct ParseError {
+    /// The line where the first error occurs
+    ///
+    /// First line is 0
+    pub line: usize,
+    /// The column where the first error occurs
+    ///
+    /// First column is 0
+    pub column: usize,
+    /// The error message produced
+    pub message: String,
+}
+
 #[wasm_bindgen]
 /// blah
-pub fn ksp_validate(text: &str) -> Option<Vec<usize>> {
+pub fn ksp_validate(text: &str) -> Option<ParseError> {
+    console_error_panic_hook::set_once();
     let res = ast_formatter::ast_validate(text);
     match res {
-        None => None,
-        Some(pos) => match pos {
-            pest::error::LineColLocation::Pos(pos) => Some(vec![pos.0, pos.1]),
-            pest::error::LineColLocation::Span(pos, _) => Some(vec![pos.0, pos.1]),
-        },
+        Ok(_) => None,
+        Err(err) => Some(ParseError {
+            line: match err.line_col {
+                LineColLocation::Pos(pos) | LineColLocation::Span(pos, _) => pos.0 - 1,
+            },
+            column: match err.line_col {
+                LineColLocation::Pos(pos) | LineColLocation::Span(pos, _) => pos.1 - 1,
+            },
+            message: err.to_string(),
+        }),
     }
 }

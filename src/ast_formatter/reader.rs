@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use pest::iterators::Pairs;
 use pest_derive::Parser;
 
@@ -94,3 +96,24 @@ fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
 #[derive(Parser)]
 #[grammar = "ast_formatter/grammar.pest"]
 pub struct Grammar;
+
+impl Display for Rule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Rule::EOI => write!(f, "\"End Of File\""),
+            Rule::document => write!(f, "\"Document\""),
+            Rule::statement => write!(f, "\"Statement\""),
+            Rule::openingbracket => write!(f, "\"Opening bracket\""),
+            Rule::closingbracket => write!(f, "\"Closing bracket\""),
+            Rule::node => write!(f, "\"Node\""),
+            Rule::assignment => write!(f, "\"Key-Value pair\""),
+            Rule::identifier => write!(f, "\"Identifier\""),
+            Rule::value => write!(f, "\"Value\""),
+            Rule::Comment => write!(f, "\"Comment\""),
+            Rule::Whitespace => write!(f, "\"Whitespace\""),
+            Rule::EmptyLine => write!(f, "\"Empty Line\""),
+            Rule::Newline => write!(f, "\"Newline\""),
+            Rule::assignmentOperator => write!(f, "\"Assignment Operator\""),
+        }
+    }
+}

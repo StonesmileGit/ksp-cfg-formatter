@@ -47,7 +47,30 @@ pub fn ksp_validate(text: &str) -> Option<ParseError> {
             column: match err.line_col {
                 LineColLocation::Pos(pos) | LineColLocation::Span(pos, _) => pos.1 - 1,
             },
-            message: err.to_string(),
+            message: err.renamed_rules(|r| r.to_string()).to_string(),
+            // message: format!(
+            //     "{}",
+            //     match &err.variant {
+            //         pest::error::ErrorVariant::ParsingError {
+            //             positives,
+            //             negatives,
+            //         } => {
+            //             match positives.len() {
+            //                 0 => "".to_owned(),
+            //                 1 => format!("Expected \"{}\"", positives.first().unwrap().to_string()),
+            //                 x if x > 1 => format!("Expected one of \"{}\"", {
+            //                     positives
+            //                         .iter()
+            //                         .map(|r| r.to_string())
+            //                         .collect::<Vec<String>>()
+            //                         .join("\", \"")
+            //                 }),
+            //                 _ => unreachable!(),
+            //             }
+            //         }
+            //         _ => unreachable!(),
+            //     }
+            // ),
         }),
     }
 }

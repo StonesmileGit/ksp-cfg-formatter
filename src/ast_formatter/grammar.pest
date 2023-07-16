@@ -6,11 +6,15 @@ openingbracket = { "{" }
 
 closingbracket = { "}" }
 
-node = { identifier ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* ~ openingbracket ~ (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ Whitespace* ~ closingbracket ~ (Comment | Whitespace+)? }
+node = { nodeBeforeBlock ~ openingbracket ~ nodeBlock ~ closingbracket ~ (Comment | Whitespace+)? }
 
-assignment = { identifier ~ assignmentOperator ~ Whitespace* ~ value ~ Comment? }
+nodeBeforeBlock = _{ identifier ~ nameBlock? ~ blocks? ~ !blocks ~ index? ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
 
-identifier = ${ (!( assignmentOperator | "{" | "}" | Newline | "//" | Whitespace ) ~ ANY) ~ (!( assignmentOperator | "{" | "}" | Newline | "//" ) ~ ANY)* }
+nodeBlock = _{ (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ Whitespace* }
+
+assignment = { identifier ~ arrayIndex? ~ Whitespace? ~ assignmentOperator ~ Whitespace* ~ value ~ Comment? }
+
+identifier = ${ (!(assignmentOperator | "{" | "}" | Newline | "//" | Whitespace | ":" | "[" | "]") ~ ANY) ~ (!(assignmentOperator | "{" | "}" | Newline | "//" | ":" | "[" | "]") ~ ANY)* }
 
 value = ${ (!(Newline | closingbracket | "//") ~ ANY)* }
 
@@ -20,6 +24,43 @@ Whitespace = _{ "\t" | SPACE_SEPARATOR }
 
 EmptyLine = { Newline ~ Whitespace* ~ (Newline ~ Whitespace*)+ }
 
-Newline = ${NEWLINE}
+Newline = ${ NEWLINE }
 
-assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^" )? ~ "=" }
+assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^")? ~ "=" }
+
+nameBlock = { "[" ~ identifier ~ "]" }
+
+// We want there to be a max of 1 of: hasBlock, needsBlock and passBlock, but order does not matter
+// ===
+blocks = _{ (hasBranch | needsBranch | passBranch) }
+
+hasBranch = _{ hasBlock ~ ((needsBlock ~ passBlock?) | (passBlock ~ needsBlock?))? }
+
+needsBranch = _{ needsBlock ~ ((hasBlock ~ passBlock?) | (passBlock ~ hasBlock?))? }
+
+passBranch = _{ passBlock ~ ((hasBlock ~ needsBlock?) | (needsBlock ~ hasBlock?))? }
+// ===
+
+// TODO
+// # for key-value
+hasBlock = { ^":HAS[" ~ ("#" ~ identifier ~ ("[" ~ identifier ~ hasBlock? ~ "]")?) ~ "]" }
+
+needsBlock = { ^":NEEDS[" ~ modOrClause ~ ("&" ~ modOrClause)* ~ "]" }
+
+modOrClause = { "!"? ~ modName ~ ("|" ~ "!"? ~ modName)* }
+
+passBlock = { firstPassBlock | namedPassBlock | finalPassBlock }
+
+firstPassBlock = { ^":FIRST" }
+
+namedPassBlock = { (^":BEFORE[" | ^":FOR[" | ^":AFTER[" | ^":LAST[") ~ modName ~ "]" }
+
+// TODO: Check actual allowed chars
+modName = { (!(Whitespace | "[" | "]" | "&" | "|" | "!") ~ ANY)+ }
+
+finalPassBlock = { ^":FINAL" }
+
+index = { "," ~ ("*" | ASCII_DIGIT+) }
+
+// TODO: ", " after the index
+arrayIndex = { "[" ~ ("*" | ASCII_DIGIT+) ~ "]" }

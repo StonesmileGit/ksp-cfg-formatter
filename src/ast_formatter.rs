@@ -93,13 +93,13 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
         Ok(res) => {
             let document = res.clone().next().unwrap();
             // dbg!(&document);
-            let a = Document {
+            let parsed_document = Document {
                 statements: parse_block_items(document.into_inner()),
             };
             let line_ending = if use_crlf { "\r\n" } else { "\n" };
-            return a.ast_print(
+            return parsed_document.ast_print(
                 0,
-                settings.indentation.to_string().as_str(),
+                &settings.indentation.to_string(),
                 line_ending,
                 settings.inline,
             );

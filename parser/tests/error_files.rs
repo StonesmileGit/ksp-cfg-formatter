@@ -1,4 +1,4 @@
-use ksp_cfg_formatter::ast_formatter::{self};
+use ksp_cfg_formatter_lib::ast_formatter::{self};
 #[cfg(test)]
 use std::{
     fs,

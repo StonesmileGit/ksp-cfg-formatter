@@ -1,11 +1,5 @@
 //! The crate currently provides two formatters; One based on iterating over tokens, and one based on chars
 #![warn(missing_docs)]
-#![feature(linked_list_cursors)]
-/// Documentation for the old formatter
-pub mod char_formatter;
-/// Documentation for the module
-pub mod token_formatter;
-
 /// Documentation for the AST based formatter
 pub mod ast_formatter;
 /// Contains code to interface with TypeScript
@@ -20,7 +14,7 @@ pub mod wasm_bindings;
 ///
 /// Example:
 /// ```
-/// use ksp_cfg_formatter::{ast_formatter::Formatter, Indentation, LineReturn};
+/// use ksp_cfg_formatter_lib::{ast_formatter::Formatter, Indentation, LineReturn};
 ///
 /// let line_return = LineReturn::LF;
 ///
@@ -44,7 +38,7 @@ pub enum LineReturn {
 ///
 /// Example:
 /// ```
-/// use ksp_cfg_formatter::{ast_formatter::Formatter, Indentation, LineReturn};
+/// use ksp_cfg_formatter_lib::{ast_formatter::Formatter, Indentation, LineReturn};
 ///
 /// let indentation = Indentation::Spaces(4);
 ///

@@ -14,7 +14,7 @@ use super::{Indentation, LineReturn};
 ///
 /// Example:
 /// ```
-/// use ksp_cfg_formatter::{ast_formatter::Formatter, Indentation, LineReturn};
+/// use ksp_cfg_formatter_lib::{ast_formatter::Formatter, Indentation, LineReturn};
 ///
 /// let indentation = Indentation::Tabs;
 /// let line_return = LineReturn::Identify;
@@ -36,7 +36,7 @@ impl Formatter {
     ///
     /// Example:
     /// ```
-    /// use ksp_cfg_formatter::{ast_formatter::Formatter, Indentation, LineReturn};
+    /// use ksp_cfg_formatter_lib::{ast_formatter::Formatter, Indentation, LineReturn};
     ///
     /// let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
     /// ```
@@ -55,7 +55,7 @@ impl Formatter {
     ///
     /// Example:
     /// ```
-    /// use ksp_cfg_formatter::{ast_formatter::Formatter, Indentation, LineReturn};
+    /// use ksp_cfg_formatter_lib::{ast_formatter::Formatter, Indentation, LineReturn};
     ///
     /// let indentation = Indentation::Tabs;
     /// let line_return = LineReturn::Identify;

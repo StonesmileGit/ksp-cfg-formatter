@@ -1,29 +1,5 @@
-[package]
-name = "ksp-cfg-formatter"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[lib]
-crate-type = ["cdylib", "rlib"]
-
-[dependencies]
-clap = { version = "4.1.8", features = ["derive"] }
-lazy_static = "1.4.0"
-logos = "0.12.1"
-pest = "2.5.7"
-pest_derive = "2.5.7"
-pretty_assertions = "1.3.0"
-regex = "1.7.1"
-walkdir = "2.3.2"
-
-[target.'cfg(target_family = "wasm")'.dependencies]
-wasm-bindgen = "0.2.84"
-console_error_panic_hook = "0.1.7"
-
-[dev-dependencies]
-criterion = "0.4.0"
-
-[[bench]]
-name = "sock"
-harness = false
+[workspace]
+members = [
+	"cli_app",
+	"parser",
+]

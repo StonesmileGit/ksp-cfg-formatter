@@ -3,7 +3,7 @@ use std::{fmt::Display, str::FromStr};
 use pest::iterators::Pairs;
 use pest_derive::Parser;
 
-use super::printer::{comment::Comment, key_val::KeyVal, operator::Operator, Node, NodeItem};
+use super::printer::{comment::Comment, key_val::KeyVal, node::Node, operator::Operator, NodeItem};
 
 pub fn parse_block_items(pairs: Pairs<Rule>) -> Vec<NodeItem> {
     let mut block_items = vec![];
@@ -23,89 +23,51 @@ pub fn parse_block_items(pairs: Pairs<Rule>) -> Vec<NodeItem> {
     block_items
 }
 
-// TODO: Rewrite to check what the next rule is before consuming it
 fn parse_assignment(pairs: Pairs<Rule>) -> NodeItem {
-    let mut operator = None;
-    let mut key = String::new();
-    let mut needs = None;
-    let mut index = None;
-    let mut array_index = None;
-    let mut assignment_operator = super::printer::assignment_operator::AssignmentOperator::Assign;
-    let mut val = String::new();
-    let mut comment = None;
+    let mut key_val = KeyVal::default();
     for pair in pairs {
         match pair.as_rule() {
-            Rule::EOI => todo!(),
-            Rule::document => todo!(),
-            Rule::statement => todo!(),
-            Rule::openingbracket => todo!(),
-            Rule::closingbracket => todo!(),
-            Rule::node => todo!(),
-            Rule::nodeBeforeBlock => todo!(),
-            Rule::nodeBlock => todo!(),
-            Rule::assignment => todo!(),
-            Rule::identifier => todo!(),
-            Rule::value => val = pair.as_str().to_string(),
+            Rule::value => key_val.val = pair.as_str().to_string(),
             Rule::Comment => {
-                comment = Some(Comment {
+                key_val.comment = Some(Comment {
                     text: pair.as_str().to_string(),
                 });
             }
-            Rule::Whitespace => todo!(),
-            Rule::EmptyLine => todo!(),
-            Rule::Newline => todo!(),
             Rule::assignmentOperator => {
-                assignment_operator =
+                key_val.assignment_operator =
                     super::printer::assignment_operator::AssignmentOperator::from_str(
                         pair.as_str(),
                     )
                     .ok()
                     .unwrap();
             }
-            Rule::nameBlock => todo!(),
-            Rule::blocks => todo!(),
-            Rule::hasBranch => todo!(),
-            Rule::needsBranch => todo!(),
-            Rule::passBranch => todo!(),
-            Rule::hasBlock => todo!(),
-            Rule::needsBlock => needs = Some(pair.as_str().to_string()),
-            Rule::modOrClause => todo!(),
-            Rule::passBlock => todo!(),
-            Rule::firstPassBlock => todo!(),
-            Rule::namedPassBlock => todo!(),
-            Rule::modName => todo!(),
-            Rule::finalPassBlock => todo!(),
-            // TODO: Replace with an enum
-            Rule::index => index = Some(pair.as_str().to_string()),
-            // TODO: Replace with a struct
-            Rule::arrayIndex => array_index = Some(pair.as_str().to_string()),
+            Rule::needsBlock => key_val.needs = Some(pair.as_str().to_string()),
+            Rule::index => {
+                key_val.index = Some(
+                    super::printer::indices::Index::from_str(pair.as_str())
+                        .unwrap_or_else(|_| panic!("{}", pair.as_str().to_string())),
+                )
+            }
+            Rule::arrayIndex => {
+                key_val.array_index = Some(
+                    super::printer::indices::ArrayIndex::from_str(pair.as_str())
+                        .unwrap_or_else(|_| panic!("{}", pair.as_str().to_string())),
+                )
+            }
             Rule::operator => {
-                operator = Some(
+                key_val.operator = Some(
                     Operator::from_str(pair.as_str())
                         .unwrap_or_else(|_| panic!("{}", pair.as_str().to_string())),
                 );
             }
-            Rule::hasBlockPart => todo!(),
-            Rule::hasNode => todo!(),
-            Rule::hasKey => todo!(),
-            Rule::hasValue => todo!(),
-            Rule::keyIdentifier => key = pair.as_str().trim().to_string(),
+            Rule::keyIdentifier => key_val.key = pair.as_str().trim().to_string(),
+            _ => unreachable!(),
         }
     }
-    NodeItem::KeyVal(KeyVal {
-        operator,
-        key,
-        needs,
-        index,
-        array_index,
-        assignment_operator,
-        val: if comment.is_none() {
-            val.as_str().trim().to_string()
-        } else {
-            val
-        },
-        comment,
-    })
+    if key_val.comment.is_none() {
+        key_val.val = key_val.val.trim().to_string();
+    }
+    NodeItem::KeyVal(key_val)
 }
 
 fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
@@ -135,51 +97,27 @@ fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
             Rule::openingbracket => break,
             Rule::Newline => newline_seen = true,
 
-            // TODO: Can these be reached? Probably not
-            Rule::Whitespace => todo!(),
-            Rule::EmptyLine => todo!(),
-            Rule::EOI => todo!(),
-            Rule::document => todo!(),
-            Rule::statement => todo!(),
-            Rule::closingbracket => todo!(),
-            Rule::node => todo!(),
-            Rule::nodeBeforeBlock => todo!(),
-            Rule::nodeBlock => todo!(),
-            Rule::assignment => todo!(),
             Rule::identifier => identifier = pair.as_str().to_string(),
-            Rule::value => todo!(),
-            Rule::assignmentOperator => todo!(),
             Rule::nameBlock => name = Some(pair.as_str().to_string()),
-            Rule::blocks => todo!(),
-            Rule::hasBranch => todo!(),
-            Rule::needsBranch => todo!(),
-            Rule::passBranch => todo!(),
             Rule::hasBlock => has = Some(pair.as_str().to_string()),
             Rule::needsBlock => needs = Some(pair.as_str().to_string()),
-            Rule::modOrClause => todo!(),
             Rule::passBlock => pass = Some(pair.as_str().to_string()),
-            Rule::firstPassBlock => todo!(),
-            Rule::namedPassBlock => todo!(),
-            Rule::modName => todo!(),
-            Rule::finalPassBlock => todo!(),
-            // TODO: Replace with enum
-            Rule::index => index = Some(pair.as_str().to_string()),
-            Rule::arrayIndex => todo!(),
+            Rule::index => {
+                index = Some(
+                    super::printer::indices::Index::from_str(pair.as_str())
+                        .unwrap_or_else(|_| panic!("{}", pair.as_str().to_string())),
+                )
+            }
             Rule::operator => operator = Some(pair.as_str().to_string()),
-            Rule::hasBlockPart => todo!(),
-            Rule::hasNode => todo!(),
-            Rule::hasKey => todo!(),
-            Rule::hasValue => todo!(),
-            Rule::keyIdentifier => todo!(),
-            // _ => unreachable!(),
+            _ => unreachable!(),
         }
     }
     let mut trailing_comment = None;
     let mut rev = pairs.clone().rev();
-    let a = rev.next().unwrap();
-    if matches!(a.as_rule(), Rule::Comment) {
+    let possible_trailing_comment = rev.next().unwrap();
+    if matches!(possible_trailing_comment.as_rule(), Rule::Comment) {
         trailing_comment = Some(Comment {
-            text: a.as_str().to_string(),
+            text: possible_trailing_comment.as_str().to_string(),
         });
     }
     let node = Node {

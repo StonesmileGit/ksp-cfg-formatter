@@ -1,7 +1,8 @@
 use std::{fmt::Display, str::FromStr};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum AssignmentOperator {
+    #[default]
     Assign,
     Multiply,
     Divide,

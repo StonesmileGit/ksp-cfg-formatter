@@ -5,6 +5,7 @@ use self::{printer::Document, reader::parse_block_items};
 use pest::Parser;
 use printer::ASTPrint;
 use reader::{Grammar, Rule};
+#[cfg(not(target_family = "wasm"))]
 use std::time::Instant;
 
 use super::{Indentation, LineReturn};
@@ -65,12 +66,15 @@ impl Formatter {
     /// ```
     #[must_use]
     pub fn format_text(&self, text: &str) -> String {
+        #[cfg(not(target_family = "wasm"))]
         let total = Instant::now();
 
         let text = ast_format(text, self);
 
+        #[cfg(not(target_family = "wasm"))]
         let total_time = total.elapsed();
 
+        #[cfg(not(target_family = "wasm"))]
         if false {
             println!("{total_time:?} Total");
         }
@@ -89,13 +93,13 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
         Ok(res) => {
             let document = res.clone().next().unwrap();
             // dbg!(&document);
-            let a = Document {
+            let parsed_document = Document {
                 statements: parse_block_items(document.into_inner()),
             };
             let line_ending = if use_crlf { "\r\n" } else { "\n" };
-            return a.ast_print(
+            return parsed_document.ast_print(
                 0,
-                settings.indentation.to_string().as_str(),
+                &settings.indentation.to_string(),
                 line_ending,
                 settings.inline,
             );
@@ -106,4 +110,9 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
             panic!("{}", err);
         }
     };
+}
+
+/// Documentation goes here
+pub fn ast_validate(text: &str) -> Result<pest::iterators::Pairs<Rule>, pest::error::Error<Rule>> {
+    Grammar::parse(Rule::document, text)
 }

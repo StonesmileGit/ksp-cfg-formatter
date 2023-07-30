@@ -55,3 +55,5 @@ gen_test!(
     "tests/weird_configs/multiple_equal_signs.cfg",
     true
 );
+
+gen_test!(has_needs_for, "tests/has_needs_for.cfg", true);

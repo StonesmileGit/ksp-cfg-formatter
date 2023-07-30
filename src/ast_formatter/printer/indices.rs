@@ -11,7 +11,6 @@ impl FromStr for Index {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let a = &s[1..];
-        dbg!(&a);
         match a {
             "*" => Ok(Self::All),
             _ => Ok(Self::Number(a.parse()?)),

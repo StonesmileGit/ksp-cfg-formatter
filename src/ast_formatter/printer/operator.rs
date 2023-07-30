@@ -5,8 +5,12 @@ pub enum Operator {
     None,
     Edit,
     EditOrCreate,
+    CreateIfNotFound,
     Copy,
     Delete,
+    DeleteAlt,
+    //TODO: This is technically not allowed in top level nodes
+    Rename,
 }
 
 #[derive(Debug)]
@@ -19,8 +23,11 @@ impl FromStr for Operator {
             "" => Ok(Self::None),
             "@" => Ok(Self::Edit),
             "%" => Ok(Self::EditOrCreate),
+            "&" => Ok(Self::CreateIfNotFound),
             "+" => Ok(Self::Copy),
             "!" => Ok(Self::Delete),
+            "-" => Ok(Self::DeleteAlt),
+            "|" => Ok(Self::Rename),
             _ => Err(OperatorParseError),
         }
     }
@@ -40,6 +47,9 @@ impl Display for Operator {
             Operator::EditOrCreate => write!(f, "%"),
             Operator::Copy => write!(f, "+"),
             Operator::Delete => write!(f, "!"),
+            Operator::DeleteAlt => write!(f, "-"),
+            Operator::CreateIfNotFound => write!(f, "&"),
+            Operator::Rename => write!(f, "|"),
         }
     }
 }

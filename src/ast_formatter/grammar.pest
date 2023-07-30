@@ -6,14 +6,15 @@ openingbracket = { "{" }
 
 closingbracket = { "}" }
 
-node = { operator? ~ nodeBeforeBlock ~ openingbracket ~ nodeBlock ~ closingbracket ~ (Comment | Whitespace+)? }
+node = { ("#" ~ path)? ~ operator? ~ nodeBeforeBlock ~ openingbracket ~ nodeBlock ~ closingbracket ~ (Comment | Whitespace+)? }
 
-nodeBeforeBlock = _{ identifier ~ nameBlock? ~ blocks? ~ !blocks ~ index? ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
+nodeBeforeBlock = _{ identifier ~ nameBlock? ~ ((index ~ blocks?)|(blocks? ~ index)| blocks)? ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
 
 nodeBlock = _{ (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ Whitespace* }
 
 // TODO: Where does :NEEDS go?
-assignment = { operator? ~ keyIdentifier ~ needsBlock? ~ index? ~ arrayIndex? ~ Whitespace* ~ assignmentOperator ~ Whitespace* ~ value ~ Comment? }
+// TODO: '*' added here instead of adding paths
+assignment = { ("*" ~ path)? ~ operator? ~ keyIdentifier ~ needsBlock? ~ index? ~ arrayIndex? ~ Whitespace* ~ assignmentOperator ~ Whitespace* ~ value ~ Comment? }
 
 // Allowed: -_.+*? or Letter or Digit
 // TODO: Should LETTER be ASCII_ALPHA?
@@ -21,6 +22,9 @@ assignment = { operator? ~ keyIdentifier ~ needsBlock? ~ index? ~ arrayIndex? ~ 
 identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
 
 keyIdentifier = ${ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
+
+path = ${ ("@"|"/")? ~ (path_segment ~ "/")* }
+path_segment = _{".." | identifier ~ nameBlock? }
 
 // TODO: | is not allowed in top level nodes
 operator = { "@" | "+" | "-" | "%" | "!" | "&" | "|"}
@@ -39,7 +43,7 @@ assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^")? ~ "=" }
 
 // Block for targetting a node with the specified identifier, eg: @PART[NameOfPart]
 // TODO: Currently identifier can be one|two, but that is only allowed at top nodes, so not @PART[blah] { @MODULE[one|two] {}}
-nameBlock = { "[" ~ (!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)* ~ "]" }
+nameBlock = { "[" ~ ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)*)? ~ "]" }
 // nameBlock = { "[" ~ identifier ~ "]" }
 
 // We want there to be a max of 1 of: hasBlock, needsBlock and passBlock, but order does not matter
@@ -60,7 +64,8 @@ hasBlock     =  { ^":HAS[" ~ (hasBlockPart ~ (("&" | ",") ~ hasBlockPart)*) ~ "]
 hasBlockPart = _{ hasNode | hasKey }
 // TODO: What is a valid identifier here?
 // TODO: modName can contain wildcard *
-hasNode = _{ ("@" | "!" | "-") ~ identifier ~ ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*")+ ~ "]")? ~ hasBlock? }
+// TODO: While OR is not allowed, seems like '|' as a char is...
+hasNode = _{ ("@" | "!" | "-") ~ identifier ~ ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]")? ~ hasBlock? }
 
 hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
 // TODO: Is this correct?

@@ -8,6 +8,8 @@ use super::{
 
 #[derive(Debug, Default)]
 pub struct KeyVal {
+    // TODO: Replace with struct
+    pub path: Option<String>,
     pub operator: Option<Operator>,
     pub key: String,
     pub needs: Option<String>,
@@ -22,8 +24,10 @@ impl ASTPrint for KeyVal {
     fn ast_print(&self, depth: usize, indentation: &str, line_ending: &str, _: bool) -> String {
         let indentation = indentation.repeat(depth);
         format!(
-            "{}{}{}{}{}{} {} {}{}{}",
+            "{}{}{}{}{}{}{}{} {} {}{}{}",
             indentation,
+            if self.path.is_some() { "*" } else { "" },
+            self.path.clone().unwrap_or_default(),
             self.operator.clone().unwrap_or_default(),
             self.key,
             self.needs.clone().unwrap_or_default(),

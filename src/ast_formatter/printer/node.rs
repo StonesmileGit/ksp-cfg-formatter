@@ -2,6 +2,8 @@ use super::{comment::Comment, indices::Index, ASTPrint, NodeItem};
 
 #[derive(Debug)]
 pub struct Node {
+    // TODO: Replace with struct
+    pub path: Option<String>,
     pub operator: Option<String>,
     pub identifier: String,
     pub name: Option<String>,
@@ -33,13 +35,15 @@ impl ASTPrint for Node {
         }
         let indentation_str = indentation.repeat(depth);
         let complete_node_name = format!(
-            "{}{}{}{}{}{}{}",
+            "{}{}{}{}{}{}{}{}{}",
+            if self.path.is_some() { "#" } else { "" },
+            self.path.clone().unwrap_or_default(),
             self.operator.clone().unwrap_or_default(),
             self.identifier,
             self.name.clone().unwrap_or_default(),
             self.has.clone().unwrap_or_default(),
-            self.needs.clone().unwrap_or_default(),
             self.pass.clone().unwrap_or_default(),
+            self.needs.clone().unwrap_or_default(),
             self.index.clone().map_or("".to_owned(), |i| i.to_string()),
         );
         output.push_str(

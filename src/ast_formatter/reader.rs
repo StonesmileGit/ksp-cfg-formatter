@@ -61,6 +61,7 @@ fn parse_assignment(pairs: Pairs<Rule>) -> NodeItem {
                 );
             }
             Rule::keyIdentifier => key_val.key = pair.as_str().trim().to_string(),
+            Rule::path => key_val.path = Some(pair.as_str().to_string()),
             _ => unreachable!(),
         }
     }
@@ -71,6 +72,7 @@ fn parse_assignment(pairs: Pairs<Rule>) -> NodeItem {
 }
 
 fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
+    let mut path = None;
     let mut operator = None;
     let mut identifier = String::new();
     let mut name = None;
@@ -109,6 +111,7 @@ fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
                 )
             }
             Rule::operator => operator = Some(pair.as_str().to_string()),
+            Rule::path => path = Some(pair.as_str().to_string()),
             _ => unreachable!(),
         }
     }
@@ -121,6 +124,7 @@ fn parse_node(mut pairs: Pairs<Rule>) -> NodeItem {
         });
     }
     let node = Node {
+        path,
         operator,
         identifier: identifier.as_str().trim().to_string(),
         name,
@@ -180,6 +184,8 @@ impl Display for Rule {
             Rule::hasKey => todo!(),
             Rule::hasValue => todo!(),
             Rule::keyIdentifier => todo!(),
+            Rule::path => todo!(),
+            Rule::path_segment => todo!(),
         }
     }
 }

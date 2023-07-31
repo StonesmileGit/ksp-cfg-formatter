@@ -25,7 +25,7 @@ impl Display for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Index::All => write!(f, ",*"),
-            Index::Number(n) => write!(f, ",{}", n),
+            Index::Number(n) => write!(f, ",{n}"),
         }
     }
 }
@@ -58,17 +58,10 @@ impl Display for ArrayIndex {
         write!(
             f,
             "[{}{}{}]",
-            if self.index.is_some() {
-                self.index.unwrap().to_string()
-            } else {
-                "*".to_owned()
-            },
+            self.index.map_or("*".to_owned(), |index| index.to_string()),
             if self.separator.is_some() { "," } else { "" },
-            if self.separator.is_some() {
-                self.separator.unwrap().to_string()
-            } else {
-                "".to_owned()
-            }
+            self.separator
+                .map_or_else(String::new, |separator| separator.to_string())
         )
     }
 }

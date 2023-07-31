@@ -86,7 +86,7 @@ impl From<Option<usize>> for Indentation {
 /// let line_return = LineReturn::Identify;
 /// let formatter = Formatter::new(indentation, false, line_return);
 /// # // this is needed to test the code, but not important to readers
-/// # let input = "".to_owned();
+/// # let input = String::new();
 /// let output = formatter.format_text(&input);
 /// ```
 ///
@@ -127,7 +127,7 @@ impl Formatter {
     /// let line_return = LineReturn::Identify;
     /// let formatter = Formatter::new(indentation, false, line_return);
     /// # // this is needed to test the code, but not important to readers
-    /// # let input = "".to_owned();
+    /// # let input = String::new();
     /// let output = formatter.format_text(&input);
     /// ```
     #[must_use]
@@ -163,19 +163,19 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
                 statements: parse_block_items(document).ok().unwrap(),
             };
             let line_ending = if use_crlf { "\r\n" } else { "\n" };
-            return parsed_document.ast_print(
+            parsed_document.ast_print(
                 0,
                 &settings.indentation.to_string(),
                 line_ending,
                 settings.inline,
-            );
+            )
         }
         Err(err) => {
             dbg!("{}", &text);
             dbg!(&document_res);
             panic!("{}", err);
         }
-    };
+    }
 }
 
 /// TODO: Temp
@@ -183,26 +183,38 @@ pub enum AstParseError {
     /// Temp variant before error is further developed
     Temp,
     /// Error from Pest
-    Pest(pest::error::Error<Rule>),
+    Pest(Box<pest::error::Error<Rule>>),
 }
 
 /// TODO: Temp
+/// # Errors
+/// TODO
 pub fn parse_to_ast(text: &str) -> Result<Document, AstParseError> {
     let parsed_text = Grammar::parse(Rule::document, text);
     match parsed_text {
         Ok(doc) => {
-            let document = doc.clone().next().unwrap();
+            let document = doc
+                .clone()
+                .next()
+                .expect("The parsed text has to contain a Document node");
             let statements = parse_block_items(document);
             match statements {
                 Ok(statements) => Ok(Document { statements }),
                 Err(_) => Err(AstParseError::Temp),
             }
         }
-        Err(err) => Err(AstParseError::Pest(err)),
+        Err(err) => Err(AstParseError::Pest(Box::new(err))),
     }
 }
 
 /// Documentation goes here
-pub fn ast_validate(text: &str) -> Result<pest::iterators::Pairs<Rule>, pest::error::Error<Rule>> {
-    Grammar::parse(Rule::document, text)
+/// # Errors
+/// TODO
+pub fn ast_validate(
+    text: &str,
+) -> Result<pest::iterators::Pairs<Rule>, Box<pest::error::Error<Rule>>> {
+    match Grammar::parse(Rule::document, text) {
+        Ok(it) => Ok(it),
+        Err(err) => Err(Box::new(err)),
+    }
 }

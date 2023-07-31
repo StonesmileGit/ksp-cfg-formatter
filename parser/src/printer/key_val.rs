@@ -1,9 +1,3 @@
-use std::num::ParseIntError;
-
-use pest::iterators::Pair;
-
-use crate::reader::Rule;
-
 use super::{
     assignment_operator::{AssignmentOperator, ParseAssignmentError},
     comment::Comment,
@@ -12,6 +6,9 @@ use super::{
     path::Path,
     ASTPrint,
 };
+use crate::reader::Rule;
+use pest::iterators::Pair;
+use std::num::ParseIntError;
 
 #[derive(Debug, Default)]
 pub struct KeyVal<'a> {
@@ -53,21 +50,18 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
                 }
                 Rule::needsBlock => key_val.needs = Some(pair.as_str().to_string()),
                 Rule::index => {
-                    let text = pair.as_str().to_string();
                     key_val.index = Some(match super::indices::Index::try_from(pair) {
                         Ok(it) => it,
                         Err(err) => return Err(KeyValError::ParseIntError(err)),
-                    })
+                    });
                 }
                 Rule::arrayIndex => {
-                    let text = pair.as_str().to_string();
                     key_val.array_index = Some(match super::indices::ArrayIndex::try_from(pair) {
                         Ok(it) => it,
                         Err(err) => return Err(KeyValError::ParseIntError(err)),
-                    })
+                    });
                 }
                 Rule::operator => {
-                    let text = pair.as_str().to_string();
                     key_val.operator = Some(match Operator::try_from(pair) {
                         Ok(it) => it,
                         Err(err) => return Err(KeyValError::OperatorParseError(err)),
@@ -76,7 +70,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
                 Rule::keyIdentifier => key_val.key = pair.as_str().trim().to_string(),
                 Rule::path => {
                     key_val.path =
-                        Some(Path::try_from(pair).expect("Parsing a path is currently Infallable"))
+                        Some(Path::try_from(pair).expect("Parsing a path is currently Infallable"));
                 }
                 _ => unreachable!(),
             }
@@ -95,14 +89,18 @@ impl<'a> ASTPrint for KeyVal<'a> {
             "{}{}{}{}{}{}{}{} {} {}{}{}",
             indentation,
             if self.path.is_some() { "*" } else { "" },
-            self.path.clone().map_or("".to_owned(), |p| p.to_string()),
+            self.path
+                .clone()
+                .map_or_else(String::new, |p| p.to_string()),
             self.operator.clone().unwrap_or_default(),
             self.key,
             self.needs.clone().unwrap_or_default(),
-            self.index.clone().map_or("".to_owned(), |i| i.to_string()),
+            self.index
+                .clone()
+                .map_or_else(String::new, |i| i.to_string()),
             self.array_index
                 .clone()
-                .map_or("".to_owned(), |i| i.to_string()),
+                .map_or_else(String::new, |i| i.to_string()),
             self.assignment_operator,
             self.val,
             self.comment.clone().unwrap_or_default(),

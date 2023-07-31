@@ -30,7 +30,7 @@ pub struct Node<'a> {
     pub trailing_comment: Option<Comment>,
 }
 
-pub fn parse_block_items<'a>(pair: Pair<'a, Rule>) -> Result<Vec<NodeItem>, NodeParseError<'a>> {
+pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseError> {
     assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
     // if matches!(pair.as_rule(), Rule::nodeBody) {
     //     dbg!(&pair);
@@ -54,33 +54,33 @@ pub fn parse_block_items<'a>(pair: Pair<'a, Rule>) -> Result<Vec<NodeItem>, Node
 }
 
 pub enum NodeParseError<'a> {
-    HasBlockError(HasBlockError),
-    ParseIntError(ParseIntError),
-    OperatorParseError(OperatorParseError<'a>),
-    KeyValError(KeyValError<'a>),
+    HasBlock(HasBlockError),
+    ParseInt(ParseIntError),
+    OperatorParse(OperatorParseError<'a>),
+    KeyVal(KeyValError<'a>),
 }
 
 impl<'a> From<KeyValError<'a>> for NodeParseError<'a> {
     fn from(value: KeyValError<'a>) -> Self {
-        Self::KeyValError(value)
+        Self::KeyVal(value)
     }
 }
 
 impl<'a> From<OperatorParseError<'a>> for NodeParseError<'a> {
     fn from(value: OperatorParseError<'a>) -> Self {
-        Self::OperatorParseError(value)
+        Self::OperatorParse(value)
     }
 }
 
 impl<'a> From<ParseIntError> for NodeParseError<'a> {
     fn from(value: ParseIntError) -> Self {
-        Self::ParseIntError(value)
+        Self::ParseInt(value)
     }
 }
 
 impl<'a> From<HasBlockError> for NodeParseError<'a> {
     fn from(value: HasBlockError) -> Self {
-        Self::HasBlockError(value)
+        Self::HasBlock(value)
     }
 }
 
@@ -102,20 +102,16 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                     if body_seen {
                         node.trailing_comment =
                             Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
+                    } else if newline_seen {
+                        node.comments_after_newline.push(
+                            Comment::try_from(pair).expect("Parsing a comment is Infallable"),
+                        );
                     } else {
-                        if newline_seen {
-                            node.comments_after_newline.push(
-                                Comment::try_from(pair).expect("Parsing a comment is Infallable"),
-                            );
-                        } else {
-                            node.id_comment = Some(
-                                Comment::try_from(pair).expect("Parsing a comment is Infallable"),
-                            );
-                        }
+                        node.id_comment =
+                            Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
                     }
                 }
-                Rule::openingbracket => (),
-                Rule::closingbracket => (),
+                Rule::openingbracket | Rule::closingbracket => (),
                 Rule::Newline => newline_seen = true,
 
                 Rule::identifier => node.identifier = pair.as_str().to_string(),
@@ -127,7 +123,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                 Rule::operator => node.operator = Some(Operator::try_from(pair)?),
                 Rule::path => {
                     node.path =
-                        Some(Path::try_from(pair).expect("Parsing path is supposedly Infallable"))
+                        Some(Path::try_from(pair).expect("Parsing path is supposedly Infallable"));
                 }
                 Rule::nodeBody => {
                     node.block = parse_block_items(pair)?;
@@ -161,14 +157,14 @@ impl<'a> ASTPrint for Node<'a> {
         let complete_node_name = format!(
             "{}{}{}{}{}{}{}{}{}",
             if self.path.is_some() { "#" } else { "" },
-            self.path.clone().map_or("".to_owned(), |p| p.to_string()),
+            self.path.clone().map_or(String::new(), |p| p.to_string()),
             self.operator.clone().unwrap_or_default(),
             self.identifier,
             self.name.clone().unwrap_or_default(),
             self.has.clone().unwrap_or_default(),
             self.pass.clone().unwrap_or_default(),
             self.needs.clone().unwrap_or_default(),
-            self.index.clone().map_or("".to_owned(), |i| i.to_string()),
+            self.index.clone().map_or(String::new(), |i| i.to_string()),
         );
         output.push_str(
             match self.block.len() {

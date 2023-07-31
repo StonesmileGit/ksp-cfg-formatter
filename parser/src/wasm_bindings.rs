@@ -56,7 +56,7 @@ pub fn ksp_validate(text: &str) -> Option<ParseError> {
             //             negatives,
             //         } => {
             //             match positives.len() {
-            //                 0 => "".to_owned(),
+            //                 0 => String::new(),
             //                 1 => format!("Expected \"{}\"", positives.first().unwrap().to_string()),
             //                 x if x > 1 => format!("Expected one of \"{}\"", {
             //                     positives

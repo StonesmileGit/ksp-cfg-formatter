@@ -32,16 +32,10 @@ impl<'a> Display for Predicate<'a> {
                 "{}{}{}{}",
                 if *negated { "!" } else { "@" },
                 node_type,
-                if name.is_some() {
-                    format!("{}", name.unwrap())
-                } else {
-                    "".to_owned()
-                },
-                if has_block.is_some() {
-                    has_block.clone().unwrap().to_string()
-                } else {
-                    "".to_owned()
-                }
+                name.map_or_else(String::new, |name| name.to_string()),
+                has_block
+                    .clone()
+                    .map_or_else(String::new, |has_block| has_block.to_string())
             ),
             Predicate::KeyPredicate {
                 negated,
@@ -53,11 +47,7 @@ impl<'a> Display for Predicate<'a> {
                 "{}{}{}",
                 if *negated { "~" } else { "#" },
                 key,
-                if value.is_some() {
-                    format!("[{}{}]", match_type.to_string(), value.unwrap())
-                } else {
-                    "".to_owned()
-                }
+                value.map_or_else(String::new, |value| format!("[{}{}]", match_type, value))
             ),
         }
     }
@@ -101,7 +91,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         Rule::identifier => key = rule.as_str(),
                         Rule::hasValue => {
                             let mut val = rule.as_str();
-                            match val.chars().nth(0) {
+                            match val.chars().next() {
                                 Some('<') => {
                                     match_type = MatchType::LessThan;
                                     val = &val[1..];
@@ -156,7 +146,7 @@ pub struct HasBlock<'a> {
 
 impl<'a> Display for HasBlock<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.predicates.len() == 0 {
+        if self.predicates.is_empty() {
             return write!(f, "");
         }
         write!(f, ":HAS[{}]", self.predicates.iter().format(","))

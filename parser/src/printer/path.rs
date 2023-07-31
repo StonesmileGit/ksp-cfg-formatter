@@ -55,11 +55,7 @@ impl<'a> Display for PathSegment<'a> {
                 f,
                 "{}{}",
                 name,
-                if let Some(index) = index {
-                    index.to_string()
-                } else {
-                    "".to_owned()
-                }
+                index.map_or_else(String::new, |index| index.to_string())
             ),
             // PathSegment::Key(key) => write!(f, "{}", key),
         }
@@ -79,7 +75,9 @@ impl<'a> Display for Path<'a> {
         write!(
             f,
             "{}{}/",
-            self.start.clone().map_or("".to_owned(), |s| s.to_string()),
+            self.start
+                .clone()
+                .map_or_else(String::new, |s| s.to_string()),
             self.segments.iter().format("/")
         )
     }
@@ -92,7 +90,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Path<'a> {
         // dbg!(&rule);
         let text = rule.as_str();
         let mut start = None;
-        match text.chars().nth(0) {
+        match text.chars().next() {
             Some('@') => start = Some(PathStart::TopLevel),
             Some('/') => start = Some(PathStart::CurrentTopLevel),
             _ => (),

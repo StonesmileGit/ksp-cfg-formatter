@@ -1,7 +1,7 @@
 use crate::reader::Rule;
 use itertools::Itertools;
 use pest::iterators::Pair;
-use std::{convert::Infallible, fmt::Display};
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum Predicate<'a> {
@@ -64,7 +64,7 @@ impl<'a> Display for Predicate<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
-    type Error = Infallible;
+    type Error = HasBlockError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         // dbg!(&rule);
@@ -80,7 +80,8 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         Rule::identifier => node_type = rule.as_str(),
                         Rule::hasNodeName => name = Some(rule.as_str()),
                         Rule::hasBlock => has_block = Some(HasBlock::try_from(rule)?),
-                        _ => panic!("node rule: {}", rule),
+                        // _ => panic!("node rule: {}", rule),
+                        _ => return Err(HasBlockError),
                     };
                 }
                 Ok(Predicate::NodePredicate {
@@ -113,7 +114,8 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                             };
                             value = Some(val);
                         }
-                        _ => panic!("key rule: {}", rule),
+                        // _ => panic!("key rule: {}", rule),
+                        _ => return Err(HasBlockError),
                     }
                 }
                 Ok(Predicate::KeyPredicate {
@@ -123,7 +125,8 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                     match_type,
                 })
             }
-            _ => panic!("got char '{}'", first_char),
+            // _ => panic!("got char '{}'", first_char),
+            _ => Err(HasBlockError),
         }
     }
 }
@@ -160,8 +163,9 @@ impl<'a> Display for HasBlock<'a> {
     }
 }
 
+pub struct HasBlockError;
 impl<'a> TryFrom<Pair<'a, Rule>> for HasBlock<'a> {
-    type Error = Infallible;
+    type Error = HasBlockError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(matches!(rule.as_rule(), Rule::hasBlock));

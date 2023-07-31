@@ -43,6 +43,7 @@ assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^")? ~ "=" }
 
 // Block for targetting a node with the specified identifier, eg: @PART[NameOfPart]
 // TODO: Currently identifier can be one|two, but that is only allowed at top nodes, so not @PART[blah] { @MODULE[one|two] {}}
+// FIXME: Are spaces allowed?
 nameBlock = { "[" ~ ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)*)? ~ "]" }
 // nameBlock = { "[" ~ identifier ~ "]" }
 

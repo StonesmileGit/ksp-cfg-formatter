@@ -1,18 +1,23 @@
-use std::convert::Infallible;
+use std::num::ParseIntError;
 
 use pest::iterators::Pair;
 
 use crate::reader::Rule;
 
 use super::{
-    comment::Comment, has::HasBlock, indices::Index, key_val::KeyVal, path::Path, ASTPrint,
-    NodeItem,
+    comment::Comment,
+    has::{HasBlock, HasBlockError},
+    indices::Index,
+    key_val::{KeyVal, KeyValError},
+    operator::{Operator, OperatorParseError},
+    path::Path,
+    ASTPrint, NodeItem,
 };
 
 #[derive(Debug, Default)]
 pub struct Node<'a> {
     pub path: Option<Path<'a>>,
-    pub operator: Option<String>,
+    pub operator: Option<Operator>,
     pub identifier: String,
     pub name: Option<String>,
     pub has: Option<HasBlock<'a>>,
@@ -25,7 +30,7 @@ pub struct Node<'a> {
     pub trailing_comment: Option<Comment>,
 }
 
-pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, Infallible> {
+pub fn parse_block_items<'a>(pair: Pair<'a, Rule>) -> Result<Vec<NodeItem>, NodeParseError<'a>> {
     assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
     // if matches!(pair.as_rule(), Rule::nodeBody) {
     //     dbg!(&pair);
@@ -34,20 +39,53 @@ pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, Infallible> 
     for pair in pair.into_inner() {
         match pair.as_rule() {
             Rule::node => block_items.push(Ok(NodeItem::Node(Node::try_from(pair)?))),
-            Rule::Comment => block_items.push(Ok(NodeItem::Comment(Comment::try_from(pair)?))),
+            Rule::Comment => block_items.push(Ok(NodeItem::Comment(
+                Comment::try_from(pair).expect("Parsing a comment is Infallable"),
+            ))),
             Rule::assignment => block_items.push(Ok(NodeItem::KeyVal(KeyVal::try_from(pair)?))),
             Rule::EmptyLine => block_items.push(Ok(NodeItem::EmptyLine)),
             // Rule::closingbracket => break,
             Rule::EOI | Rule::Newline => (),
-            _ => panic!("abc: {:?}", pair),
-            // _ => unreachable!(),
+            // _ => panic!("abc: {:?}", pair),
+            _ => unreachable!(),
         }
     }
     block_items.into_iter().collect()
 }
 
+pub enum NodeParseError<'a> {
+    HasBlockError(HasBlockError),
+    ParseIntError(ParseIntError),
+    OperatorParseError(OperatorParseError<'a>),
+    KeyValError(KeyValError<'a>),
+}
+
+impl<'a> From<KeyValError<'a>> for NodeParseError<'a> {
+    fn from(value: KeyValError<'a>) -> Self {
+        Self::KeyValError(value)
+    }
+}
+
+impl<'a> From<OperatorParseError<'a>> for NodeParseError<'a> {
+    fn from(value: OperatorParseError<'a>) -> Self {
+        Self::OperatorParseError(value)
+    }
+}
+
+impl<'a> From<ParseIntError> for NodeParseError<'a> {
+    fn from(value: ParseIntError) -> Self {
+        Self::ParseIntError(value)
+    }
+}
+
+impl<'a> From<HasBlockError> for NodeParseError<'a> {
+    fn from(value: HasBlockError) -> Self {
+        Self::HasBlockError(value)
+    }
+}
+
 impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
-    type Error = Infallible;
+    type Error = NodeParseError<'a>;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(matches!(rule.as_rule(), Rule::node));
@@ -62,12 +100,17 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
             match pair.as_rule() {
                 Rule::Comment => {
                     if body_seen {
-                        node.trailing_comment = Some(Comment::try_from(pair)?);
+                        node.trailing_comment =
+                            Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
                     } else {
                         if newline_seen {
-                            node.comments_after_newline.push(Comment::try_from(pair)?);
+                            node.comments_after_newline.push(
+                                Comment::try_from(pair).expect("Parsing a comment is Infallable"),
+                            );
                         } else {
-                            node.id_comment = Some(Comment::try_from(pair)?);
+                            node.id_comment = Some(
+                                Comment::try_from(pair).expect("Parsing a comment is Infallable"),
+                            );
                         }
                     }
                 }
@@ -80,15 +123,12 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                 Rule::hasBlock => node.has = Some(HasBlock::try_from(pair)?),
                 Rule::needsBlock => node.needs = Some(pair.as_str().to_string()),
                 Rule::passBlock => node.pass = Some(pair.as_str().to_string()),
-                Rule::index => {
-                    let text = pair.as_str().to_string();
-                    node.index = Some(
-                        super::indices::Index::try_from(pair)
-                            .unwrap_or_else(|_| panic!("{}", text)),
-                    )
+                Rule::index => node.index = Some(super::indices::Index::try_from(pair)?),
+                Rule::operator => node.operator = Some(Operator::try_from(pair)?),
+                Rule::path => {
+                    node.path =
+                        Some(Path::try_from(pair).expect("Parsing path is supposedly Infallable"))
                 }
-                Rule::operator => node.operator = Some(pair.as_str().to_string()),
-                Rule::path => node.path = Some(Path::try_from(pair)?),
                 Rule::nodeBody => {
                     node.block = parse_block_items(pair)?;
                     body_seen = true;

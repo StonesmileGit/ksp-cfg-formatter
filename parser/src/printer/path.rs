@@ -101,7 +101,8 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Path<'a> {
         for pair in rule.into_inner() {
             match pair.as_rule() {
                 Rule::path_segment => segments.push(PathSegment::try_from(pair)?),
-                _ => panic!("{}", pair.as_str()),
+                // _ => panic!("{}", pair.as_str()),
+                _ => unreachable!(),
             }
         }
         Ok(Path { start, segments })

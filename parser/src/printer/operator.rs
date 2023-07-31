@@ -10,18 +10,20 @@ pub enum Operator {
     CreateIfNotFound,
     Copy,
     Delete,
+    //TODO: Wanted?
     DeleteAlt,
     //TODO: This is technically not allowed in top level nodes
     Rename,
 }
 
 #[derive(Debug)]
-pub struct OperatorParseError;
-impl TryFrom<Pair<'_, Rule>> for Operator {
-    type Error = OperatorParseError;
+pub struct OperatorParseError<'a> {
+    pub text: &'a str,
+}
+impl<'a> TryFrom<Pair<'a, Rule>> for Operator {
+    type Error = OperatorParseError<'a>;
 
-    fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
-        // dbg!(&rule);
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         match rule.as_str() {
             "" => Ok(Self::None),
             "@" => Ok(Self::Edit),
@@ -31,7 +33,9 @@ impl TryFrom<Pair<'_, Rule>> for Operator {
             "!" => Ok(Self::Delete),
             "-" => Ok(Self::DeleteAlt),
             "|" => Ok(Self::Rename),
-            _ => Err(OperatorParseError),
+            _ => Err(OperatorParseError {
+                text: rule.as_str(),
+            }),
         }
     }
 }

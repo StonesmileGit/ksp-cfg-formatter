@@ -1,14 +1,14 @@
-use std::convert::Infallible;
+use std::num::ParseIntError;
 
 use pest::iterators::Pair;
 
 use crate::reader::Rule;
 
 use super::{
-    assignment_operator::AssignmentOperator,
+    assignment_operator::{AssignmentOperator, ParseAssignmentError},
     comment::Comment,
     indices::{ArrayIndex, Index},
-    operator::Operator,
+    operator::{Operator, OperatorParseError},
     path::Path,
     ASTPrint,
 };
@@ -26,8 +26,14 @@ pub struct KeyVal<'a> {
     pub comment: Option<Comment>,
 }
 
+pub enum KeyValError<'a> {
+    AssignmentOperator(ParseAssignmentError),
+    OperatorParseError(OperatorParseError<'a>),
+    ParseIntError(ParseIntError),
+}
+
 impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
-    type Error = Infallible;
+    type Error = KeyValError<'a>;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let pairs = rule.into_inner();
@@ -36,36 +42,42 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
             match pair.as_rule() {
                 Rule::value => key_val.val = pair.as_str().to_string(),
                 Rule::Comment => {
-                    key_val.comment = Some(Comment::try_from(pair)?);
+                    key_val.comment =
+                        Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
                 }
                 Rule::assignmentOperator => {
-                    key_val.assignment_operator =
-                        super::assignment_operator::AssignmentOperator::try_from(pair)
-                            .ok()
-                            .unwrap();
+                    key_val.assignment_operator = match AssignmentOperator::try_from(pair) {
+                        Ok(it) => it,
+                        Err(err) => return Err(KeyValError::AssignmentOperator(err)),
+                    };
                 }
                 Rule::needsBlock => key_val.needs = Some(pair.as_str().to_string()),
                 Rule::index => {
                     let text = pair.as_str().to_string();
-                    key_val.index = Some(
-                        super::indices::Index::try_from(pair)
-                            .unwrap_or_else(|_| panic!("{}", text)),
-                    )
+                    key_val.index = Some(match super::indices::Index::try_from(pair) {
+                        Ok(it) => it,
+                        Err(err) => return Err(KeyValError::ParseIntError(err)),
+                    })
                 }
                 Rule::arrayIndex => {
                     let text = pair.as_str().to_string();
-                    key_val.array_index = Some(
-                        super::indices::ArrayIndex::try_from(pair)
-                            .unwrap_or_else(|_| panic!("{}", text)),
-                    )
+                    key_val.array_index = Some(match super::indices::ArrayIndex::try_from(pair) {
+                        Ok(it) => it,
+                        Err(err) => return Err(KeyValError::ParseIntError(err)),
+                    })
                 }
                 Rule::operator => {
                     let text = pair.as_str().to_string();
-                    key_val.operator =
-                        Some(Operator::try_from(pair).unwrap_or_else(|_| panic!("{}", text)));
+                    key_val.operator = Some(match Operator::try_from(pair) {
+                        Ok(it) => it,
+                        Err(err) => return Err(KeyValError::OperatorParseError(err)),
+                    });
                 }
                 Rule::keyIdentifier => key_val.key = pair.as_str().trim().to_string(),
-                Rule::path => key_val.path = Some(Path::try_from(pair)?),
+                Rule::path => {
+                    key_val.path =
+                        Some(Path::try_from(pair).expect("Parsing a path is currently Infallable"))
+                }
                 _ => unreachable!(),
             }
         }

@@ -1,4 +1,6 @@
-use std::{fmt::Display, num::ParseIntError, str::FromStr};
+use crate::reader::Rule;
+use pest::iterators::Pair;
+use std::{fmt::Display, num::ParseIntError};
 
 #[derive(Debug, Clone)]
 pub enum Index {
@@ -6,10 +8,11 @@ pub enum Index {
     Number(i32),
 }
 
-impl FromStr for Index {
-    type Err = ParseIntError;
+impl<'a> TryFrom<Pair<'a, Rule>> for Index {
+    type Error = ParseIntError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+        let s = rule.as_str();
         let a = &s[1..];
         match a {
             "*" => Ok(Self::All),
@@ -33,10 +36,11 @@ pub struct ArrayIndex {
     separator: Option<char>,
 }
 
-impl FromStr for ArrayIndex {
-    type Err = ParseIntError;
+impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
+    type Error = ParseIntError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+        let s = rule.as_str();
         let trimmed = &s[1..s.len() - 1];
         let mut a = trimmed.split(',');
         let b = a.next().unwrap();

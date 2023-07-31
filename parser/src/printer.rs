@@ -2,10 +2,12 @@ use self::{comment::Comment, key_val::KeyVal, node::Node};
 
 pub mod assignment_operator;
 pub mod comment;
+pub mod has;
 pub mod indices;
 pub mod key_val;
 pub mod node;
 pub mod operator;
+pub mod path;
 
 pub trait ASTPrint {
     #[must_use]
@@ -19,11 +21,11 @@ pub trait ASTPrint {
 }
 
 #[derive(Debug)]
-pub struct Document {
-    pub statements: Vec<NodeItem>,
+pub struct Document<'a> {
+    pub statements: Vec<NodeItem<'a>>,
 }
 
-impl ASTPrint for Document {
+impl<'a> ASTPrint for Document<'a> {
     fn ast_print(
         &self,
         depth: usize,
@@ -40,13 +42,13 @@ impl ASTPrint for Document {
 }
 
 #[derive(Debug)]
-pub enum NodeItem {
-    Node(Node),
+pub enum NodeItem<'a> {
+    Node(Node<'a>),
     Comment(Comment),
-    KeyVal(KeyVal),
+    KeyVal(KeyVal<'a>),
     EmptyLine,
 }
-impl ASTPrint for NodeItem {
+impl<'a> ASTPrint for NodeItem<'a> {
     fn ast_print(
         &self,
         depth: usize,

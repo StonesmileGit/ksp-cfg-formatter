@@ -1,4 +1,6 @@
-use std::{fmt::Display, str::FromStr};
+use crate::reader::Rule;
+use pest::iterators::Pair;
+use std::fmt::Display;
 
 #[derive(Debug, Default)]
 pub enum AssignmentOperator {
@@ -13,11 +15,11 @@ pub enum AssignmentOperator {
 }
 
 pub struct ParseAssignmentError;
-impl FromStr for AssignmentOperator {
-    type Err = ParseAssignmentError;
+impl TryFrom<Pair<'_, Rule>> for AssignmentOperator {
+    type Error = ParseAssignmentError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+    fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
+        match rule.as_str() {
             "=" => Ok(AssignmentOperator::Assign),
             "*=" => Ok(AssignmentOperator::Multiply),
             "/=" => Ok(AssignmentOperator::Divide),

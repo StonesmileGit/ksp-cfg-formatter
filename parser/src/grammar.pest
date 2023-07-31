@@ -6,11 +6,11 @@ openingbracket = { "{" }
 
 closingbracket = { "}" }
 
-node = { ("#" ~ path)? ~ operator? ~ nodeBeforeBlock ~ openingbracket ~ nodeBlock ~ closingbracket ~ (Comment | Whitespace+)? }
+node = { ("#" ~ path)? ~ operator? ~ nodeBeforeBlock ~ openingbracket ~ nodeBody ~ closingbracket ~ (Comment | Whitespace+)? }
 
 nodeBeforeBlock = _{ identifier ~ nameBlock? ~ ((index ~ blocks?)|(blocks? ~ index)| blocks)? ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
 
-nodeBlock = _{ (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ Whitespace* }
+nodeBody = { (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ Whitespace* }
 
 // TODO: Where does :NEEDS go?
 // TODO: '*' added here instead of adding paths
@@ -24,7 +24,7 @@ identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
 keyIdentifier = ${ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
 
 path = ${ ("@"|"/")? ~ (path_segment ~ "/")* }
-path_segment = _{".." | identifier ~ nameBlock? }
+path_segment = {".." | identifier ~ nameBlock? }
 
 // TODO: | is not allowed in top level nodes
 operator = { "@" | "+" | "-" | "%" | "!" | "&" | "|"}
@@ -61,15 +61,16 @@ passBranch = _{ passBlock ~ ((hasBlock ~ needsBlock?) | (needsBlock ~ hasBlock?)
 // # for key-value
 // hasBlock = { ^":HAS[" ~ ("#" ~ identifier ~ ("[" ~ identifier ~ hasBlock? ~ "]")?) ~ "]" }
 hasBlock     =  { ^":HAS[" ~ (hasBlockPart ~ (("&" | ",") ~ hasBlockPart)*) ~ "]" }
-hasBlockPart = _{ hasNode | hasKey }
+hasBlockPart = { hasNode | hasKey }
 // TODO: What is a valid identifier here?
 // TODO: modName can contain wildcard *
 // TODO: While OR is not allowed, seems like '|' as a char is...
-hasNode = _{ ("@" | "!" | "-") ~ identifier ~ ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]")? ~ hasBlock? }
+hasNode = _{ ("@" | "!" | "-") ~ identifier ~ hasNodeName? ~ hasBlock? }
+hasNodeName = { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
 
 hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
 // TODO: Is this correct?
-hasValue = _{ (!(Newline | "]" | "//") ~ ANY)* }
+hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
 
 needsBlock = { ^":NEEDS[" ~ modOrClause ~ (("&" | ",") ~ modOrClause)* ~ "]" }
 

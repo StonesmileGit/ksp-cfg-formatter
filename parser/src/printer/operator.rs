@@ -1,4 +1,6 @@
-use std::{fmt::Display, str::FromStr};
+use crate::reader::Rule;
+use pest::iterators::Pair;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum Operator {
@@ -15,11 +17,12 @@ pub enum Operator {
 
 #[derive(Debug)]
 pub struct OperatorParseError;
-impl FromStr for Operator {
-    type Err = OperatorParseError;
+impl TryFrom<Pair<'_, Rule>> for Operator {
+    type Error = OperatorParseError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+    fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
+        // dbg!(&rule);
+        match rule.as_str() {
             "" => Ok(Self::None),
             "@" => Ok(Self::Edit),
             "%" => Ok(Self::EditOrCreate),

@@ -1,4 +1,4 @@
-use ksp_cfg_formatter_lib::ast_formatter::{self};
+use ksp_cfg_formatter_lib::ast_validate;
 #[cfg(test)]
 use std::{
     fs,
@@ -16,7 +16,7 @@ fn read_local_path(path: &str) -> String {
 fn error_test() {
     for path in files_from_path(&"tests/error_files".to_string()) {
         let input = read_local_path(&path);
-        let res = ast_formatter::ast_validate(&input);
+        let res = ast_validate(&input);
         dbg!(&res);
         assert!(res.is_err());
     }

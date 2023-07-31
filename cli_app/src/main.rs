@@ -1,5 +1,5 @@
 use clap::Parser;
-use ksp_cfg_formatter_lib::{ast_formatter::Formatter, Indentation, LineReturn};
+use ksp_cfg_formatter_lib::{Formatter, Indentation, LineReturn};
 use std::{fs, io::BufRead, result::Result, thread};
 use walkdir::WalkDir;
 

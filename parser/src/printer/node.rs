@@ -1,23 +1,107 @@
-use super::{comment::Comment, indices::Index, ASTPrint, NodeItem};
+use std::convert::Infallible;
 
-#[derive(Debug)]
-pub struct Node {
-    // TODO: Replace with struct
-    pub path: Option<String>,
+use pest::iterators::Pair;
+
+use crate::reader::Rule;
+
+use super::{
+    comment::Comment, has::HasBlock, indices::Index, key_val::KeyVal, path::Path, ASTPrint,
+    NodeItem,
+};
+
+#[derive(Debug, Default)]
+pub struct Node<'a> {
+    pub path: Option<Path<'a>>,
     pub operator: Option<String>,
     pub identifier: String,
     pub name: Option<String>,
-    pub has: Option<String>,
+    pub has: Option<HasBlock<'a>>,
     pub needs: Option<String>,
     pub pass: Option<String>,
     pub index: Option<Index>,
     pub id_comment: Option<Comment>,
     pub comments_after_newline: Vec<Comment>,
-    pub block: Vec<NodeItem>,
+    pub block: Vec<NodeItem<'a>>,
     pub trailing_comment: Option<Comment>,
 }
 
-impl ASTPrint for Node {
+pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, Infallible> {
+    assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
+    // if matches!(pair.as_rule(), Rule::nodeBody) {
+    //     dbg!(&pair);
+    // }
+    let mut block_items = vec![];
+    for pair in pair.into_inner() {
+        match pair.as_rule() {
+            Rule::node => block_items.push(Ok(NodeItem::Node(Node::try_from(pair)?))),
+            Rule::Comment => block_items.push(Ok(NodeItem::Comment(Comment::try_from(pair)?))),
+            Rule::assignment => block_items.push(Ok(NodeItem::KeyVal(KeyVal::try_from(pair)?))),
+            Rule::EmptyLine => block_items.push(Ok(NodeItem::EmptyLine)),
+            // Rule::closingbracket => break,
+            Rule::EOI | Rule::Newline => (),
+            _ => panic!("abc: {:?}", pair),
+            // _ => unreachable!(),
+        }
+    }
+    block_items.into_iter().collect()
+}
+
+impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
+    type Error = Infallible;
+
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+        assert!(matches!(rule.as_rule(), Rule::node));
+        let mut pairs = rule.clone().into_inner();
+
+        let mut node = Node::default();
+
+        let mut body_seen = false;
+        let mut newline_seen = false;
+
+        for pair in pairs.by_ref() {
+            match pair.as_rule() {
+                Rule::Comment => {
+                    if body_seen {
+                        node.trailing_comment = Some(Comment::try_from(pair)?);
+                    } else {
+                        if newline_seen {
+                            node.comments_after_newline.push(Comment::try_from(pair)?);
+                        } else {
+                            node.id_comment = Some(Comment::try_from(pair)?);
+                        }
+                    }
+                }
+                Rule::openingbracket => (),
+                Rule::closingbracket => (),
+                Rule::Newline => newline_seen = true,
+
+                Rule::identifier => node.identifier = pair.as_str().to_string(),
+                Rule::nameBlock => node.name = Some(pair.as_str().to_string()),
+                Rule::hasBlock => node.has = Some(HasBlock::try_from(pair)?),
+                Rule::needsBlock => node.needs = Some(pair.as_str().to_string()),
+                Rule::passBlock => node.pass = Some(pair.as_str().to_string()),
+                Rule::index => {
+                    let text = pair.as_str().to_string();
+                    node.index = Some(
+                        super::indices::Index::try_from(pair)
+                            .unwrap_or_else(|_| panic!("{}", text)),
+                    )
+                }
+                Rule::operator => node.operator = Some(pair.as_str().to_string()),
+                Rule::path => node.path = Some(Path::try_from(pair)?),
+                Rule::nodeBody => {
+                    node.block = parse_block_items(pair)?;
+                    body_seen = true;
+                }
+                // _ => panic!("{}", pair),
+                _ => unreachable!(),
+            }
+        }
+        Ok(node)
+    }
+}
+
+impl<'a> ASTPrint for Node<'a> {
     fn ast_print(
         &self,
         depth: usize,
@@ -37,7 +121,7 @@ impl ASTPrint for Node {
         let complete_node_name = format!(
             "{}{}{}{}{}{}{}{}{}",
             if self.path.is_some() { "#" } else { "" },
-            self.path.clone().unwrap_or_default(),
+            self.path.clone().map_or("".to_owned(), |p| p.to_string()),
             self.operator.clone().unwrap_or_default(),
             self.identifier,
             self.name.clone().unwrap_or_default(),

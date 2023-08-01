@@ -25,8 +25,11 @@ impl Display for PathStart {
 #[derive(Debug, Clone)]
 pub enum PathSegment<'a> {
     DotDot,
-    NodeName { name: &'a str, index: Option<i32> },
-    // Key(&'a str),
+    NodeName {
+        node: &'a str,
+        name: Option<&'a str>,
+        index: Option<i32>,
+    },
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
@@ -37,10 +40,23 @@ impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
         let res = match rule.as_str() {
             ".." => Ok(Self::DotDot),
             // FIXME: The index should be parsed into the struct
-            _ => Ok(Self::NodeName {
-                name: rule.as_str(),
-                index: None,
-            }),
+            _ => {
+                let mut node = "";
+                let mut name = None;
+
+                for pair in rule.into_inner() {
+                    match pair.as_rule() {
+                        Rule::identifier => node = pair.as_str(),
+                        Rule::nameBlock => name = Some(pair.as_str()),
+                        _ => todo!(),
+                    }
+                }
+                Ok(Self::NodeName {
+                    node,
+                    name,
+                    index: None,
+                })
+            }
         };
         dbg!(&res);
         res
@@ -50,14 +66,14 @@ impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
 impl<'a> Display for PathSegment<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PathSegment::DotDot => write!(f, ".."),
-            PathSegment::NodeName { name, index } => write!(
+            PathSegment::DotDot => write!(f, "../"),
+            PathSegment::NodeName { node, name, index } => write!(
                 f,
-                "{}{}",
-                name,
+                "{}{}{}/",
+                node,
+                name.map_or_else(String::new, |name| format!("{}", name)),
                 index.map_or_else(String::new, |index| index.to_string())
             ),
-            // PathSegment::Key(key) => write!(f, "{}", key),
         }
     }
 }
@@ -74,11 +90,11 @@ impl<'a> Display for Path<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}{}/",
+            "{}{}",
             self.start
                 .clone()
                 .map_or_else(String::new, |s| s.to_string()),
-            self.segments.iter().format("/")
+            self.segments.iter().format("")
         )
     }
 }
@@ -99,7 +115,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Path<'a> {
         for pair in rule.into_inner() {
             match pair.as_rule() {
                 Rule::path_segment => segments.push(PathSegment::try_from(pair)?),
-                // _ => panic!("{}", pair.as_str()),
                 _ => unreachable!(),
             }
         }

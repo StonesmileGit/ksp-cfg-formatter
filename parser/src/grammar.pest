@@ -75,13 +75,19 @@ hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
 
 needsBlock = { ^":NEEDS[" ~ modOrClause ~ (("&" | ",") ~ modOrClause)* ~ "]" }
 
-modOrClause = { "!"? ~ modName ~ ("|" ~ "!"? ~ modName)* }
+modOrClause = { needsMod ~ ("|" ~ needsMod)* }
+needsMod = { negation? ~ modName }
+negation = {"!"}
 
 passBlock = { firstPassBlock | namedPassBlock | finalPassBlock }
 
 firstPassBlock = { ^":FIRST" }
 
-namedPassBlock = { (^":BEFORE[" | ^":FOR[" | ^":AFTER[" | ^":LAST[") ~ modName ~ "]" }
+namedPassBlock = _{ beforePass | forPass | afterPass | lastPass}
+beforePass = { ^":BEFORE[" ~ modName ~ "]" }
+forPass = {^":FOR[" ~ modName ~ "]" }
+afterPass = {^":AFTER[" ~ modName ~ "]" }
+lastPass = {^":LAST[" ~ modName ~ "]" }
 
 modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
 

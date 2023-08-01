@@ -7,9 +7,12 @@ pub mod wasm_bindings;
 mod printer;
 mod reader;
 
-use self::printer::Document;
+use self::printer::document::Document;
 use pest::Parser;
-use printer::{node::parse_block_items, ASTPrint};
+use printer::{
+    node::{parse_block_items, NodeParseError},
+    ASTPrint,
+};
 use reader::{Grammar, Rule};
 #[cfg(not(target_family = "wasm"))]
 use std::time::Instant;
@@ -179,32 +182,28 @@ fn ast_format(text: &str, settings: &Formatter) -> String {
 }
 
 /// TODO: Temp
-pub enum AstParseError {
-    /// Temp variant before error is further developed
-    Temp,
+pub enum AstParseError<'a> {
+    /// Parsing a node or the document failed
+    NodeParseError(NodeParseError<'a>),
     /// Error from Pest
     Pest(Box<pest::error::Error<Rule>>),
+}
+
+impl<'a> From<pest::error::Error<Rule>> for AstParseError<'a> {
+    fn from(value: pest::error::Error<Rule>) -> Self {
+        AstParseError::Pest(Box::new(value))
+    }
 }
 
 /// TODO: Temp
 /// # Errors
 /// TODO
 pub fn parse_to_ast(text: &str) -> Result<Document, AstParseError> {
-    let parsed_text = Grammar::parse(Rule::document, text);
-    match parsed_text {
-        Ok(doc) => {
-            let document = doc
-                .clone()
-                .next()
-                .expect("The parsed text has to contain a Document node");
-            let statements = parse_block_items(document);
-            match statements {
-                Ok(statements) => Ok(Document { statements }),
-                Err(_) => Err(AstParseError::Temp),
-            }
-        }
-        Err(err) => Err(AstParseError::Pest(Box::new(err))),
-    }
+    let mut parsed_text = Grammar::parse(Rule::document, text)?;
+    let document = parsed_text
+        .next()
+        .expect("The parsed text should contain a Document node");
+    Document::try_from(document)
 }
 
 /// Documentation goes here

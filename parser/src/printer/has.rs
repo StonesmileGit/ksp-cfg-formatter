@@ -32,7 +32,7 @@ impl<'a> Display for Predicate<'a> {
                 "{}{}{}{}",
                 if *negated { "!" } else { "@" },
                 node_type,
-                name.map_or_else(String::new, |name| name.to_string()),
+                name.map_or_else(|| "", |name| name),
                 has_block
                     .clone()
                     .map_or_else(String::new, |has_block| has_block.to_string())
@@ -54,7 +54,7 @@ impl<'a> Display for Predicate<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
-    type Error = HasBlockError;
+    type Error = HasBlockError<'a>;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         // dbg!(&rule);
@@ -71,7 +71,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         Rule::hasNodeName => name = Some(rule.as_str()),
                         Rule::hasBlock => has_block = Some(HasBlock::try_from(rule)?),
                         // _ => panic!("node rule: {}", rule),
-                        _ => return Err(HasBlockError),
+                        _ => {
+                            return Err(HasBlockError {
+                                text: rule.as_str(),
+                            })
+                        }
                     };
                 }
                 Ok(Predicate::NodePredicate {
@@ -105,7 +109,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                             value = Some(val);
                         }
                         // _ => panic!("key rule: {}", rule),
-                        _ => return Err(HasBlockError),
+                        _ => {
+                            return Err(HasBlockError {
+                                text: rule.as_str(),
+                            })
+                        }
                     }
                 }
                 Ok(Predicate::KeyPredicate {
@@ -116,7 +124,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                 })
             }
             // _ => panic!("got char '{}'", first_char),
-            _ => Err(HasBlockError),
+            _ => Err(HasBlockError {
+                text: rule.as_str(),
+            }),
         }
     }
 }
@@ -153,9 +163,11 @@ impl<'a> Display for HasBlock<'a> {
     }
 }
 
-pub struct HasBlockError;
+pub struct HasBlockError<'a> {
+    pub text: &'a str,
+}
 impl<'a> TryFrom<Pair<'a, Rule>> for HasBlock<'a> {
-    type Error = HasBlockError;
+    type Error = HasBlockError<'a>;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(matches!(rule.as_rule(), Rule::hasBlock));

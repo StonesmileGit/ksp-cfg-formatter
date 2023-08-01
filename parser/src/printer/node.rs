@@ -9,25 +9,28 @@ use super::{
     has::{HasBlock, HasBlockError},
     indices::Index,
     key_val::{KeyVal, KeyValError},
+    needs::{NeedsBlock, NeedsBlockError},
+    node_item::NodeItem,
     operator::{Operator, OperatorParseError},
+    pass::Pass,
     path::Path,
-    ASTPrint, NodeItem,
+    ASTPrint,
 };
 
 #[derive(Debug, Default)]
 pub struct Node<'a> {
     pub path: Option<Path<'a>>,
     pub operator: Option<Operator>,
-    pub identifier: String,
-    pub name: Option<String>,
+    pub identifier: &'a str,
+    pub name: Option<&'a str>,
     pub has: Option<HasBlock<'a>>,
-    pub needs: Option<String>,
-    pub pass: Option<String>,
+    pub needs: Option<NeedsBlock<'a>>,
+    pub pass: Option<Pass<'a>>,
     pub index: Option<Index>,
-    pub id_comment: Option<Comment>,
-    pub comments_after_newline: Vec<Comment>,
+    pub id_comment: Option<Comment<'a>>,
+    pub comments_after_newline: Vec<Comment<'a>>,
     pub block: Vec<NodeItem<'a>>,
-    pub trailing_comment: Option<Comment>,
+    pub trailing_comment: Option<Comment<'a>>,
 }
 
 pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseError> {
@@ -54,7 +57,8 @@ pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseErr
 }
 
 pub enum NodeParseError<'a> {
-    HasBlock(HasBlockError),
+    HasBlock(HasBlockError<'a>),
+    NeedsBlock(NeedsBlockError),
     ParseInt(ParseIntError),
     OperatorParse(OperatorParseError<'a>),
     KeyVal(KeyValError<'a>),
@@ -78,8 +82,14 @@ impl<'a> From<ParseIntError> for NodeParseError<'a> {
     }
 }
 
-impl<'a> From<HasBlockError> for NodeParseError<'a> {
-    fn from(value: HasBlockError) -> Self {
+impl<'a> From<NeedsBlockError> for NodeParseError<'a> {
+    fn from(value: NeedsBlockError) -> Self {
+        Self::NeedsBlock(value)
+    }
+}
+
+impl<'a> From<HasBlockError<'a>> for NodeParseError<'a> {
+    fn from(value: HasBlockError<'a>) -> Self {
         Self::HasBlock(value)
     }
 }
@@ -114,11 +124,13 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                 Rule::openingbracket | Rule::closingbracket => (),
                 Rule::Newline => newline_seen = true,
 
-                Rule::identifier => node.identifier = pair.as_str().to_string(),
-                Rule::nameBlock => node.name = Some(pair.as_str().to_string()),
+                Rule::identifier => node.identifier = pair.as_str(),
+                Rule::nameBlock => node.name = Some(pair.as_str()),
                 Rule::hasBlock => node.has = Some(HasBlock::try_from(pair)?),
-                Rule::needsBlock => node.needs = Some(pair.as_str().to_string()),
-                Rule::passBlock => node.pass = Some(pair.as_str().to_string()),
+                Rule::needsBlock => node.needs = Some(NeedsBlock::try_from(pair)?),
+                Rule::passBlock => {
+                    node.pass = Some(Pass::try_from(pair).expect("Should be Infallable"))
+                }
                 Rule::index => node.index = Some(super::indices::Index::try_from(pair)?),
                 Rule::operator => node.operator = Some(Operator::try_from(pair)?),
                 Rule::path => {
@@ -163,7 +175,7 @@ impl<'a> ASTPrint for Node<'a> {
             self.name.clone().unwrap_or_default(),
             self.has.clone().unwrap_or_default(),
             self.pass.clone().unwrap_or_default(),
-            self.needs.clone().unwrap_or_default(),
+            self.needs.clone().map_or(String::new(), |n| n.to_string()),
             self.index.clone().map_or(String::new(), |i| i.to_string()),
         );
         output.push_str(
@@ -175,10 +187,7 @@ impl<'a> ASTPrint for Node<'a> {
                         complete_node_name,
                         self.trailing_comment
                             .as_ref()
-                            .unwrap_or(&Comment {
-                                text: String::new()
-                            })
-                            .text,
+                            .map_or_else(|| "", |c| c.text),
                         line_ending
                     )
                 }
@@ -193,10 +202,7 @@ impl<'a> ASTPrint for Node<'a> {
                             .ast_print(0, indentation, "", should_collapse),
                         self.trailing_comment
                             .as_ref()
-                            .unwrap_or(&Comment {
-                                text: String::new()
-                            })
-                            .text,
+                            .map_or_else(|| "", |c| c.text),
                         line_ending
                     )
                 }
@@ -205,12 +211,7 @@ impl<'a> ASTPrint for Node<'a> {
                         "{}{}{}{}{}{{{}",
                         indentation_str,
                         complete_node_name,
-                        self.id_comment
-                            .as_ref()
-                            .unwrap_or(&Comment {
-                                text: String::new()
-                            })
-                            .text,
+                        self.id_comment.as_ref().map_or_else(|| "", |c| c.text),
                         line_ending,
                         indentation_str,
                         line_ending
@@ -227,11 +228,7 @@ impl<'a> ASTPrint for Node<'a> {
                     output.push_str(
                         self.trailing_comment
                             .as_ref()
-                            .unwrap_or(&Comment {
-                                text: String::new(),
-                            })
-                            .text
-                            .as_str(),
+                            .map_or_else(|| "", |c| c.text),
                     );
                     output.push_str(line_ending);
                     output

@@ -2,8 +2,9 @@ use crate::reader::Rule;
 use pest::iterators::Pair;
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Operator {
+    #[default]
     None,
     Edit,
     EditOrCreate,
@@ -37,12 +38,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Operator {
                 text: rule.as_str(),
             }),
         }
-    }
-}
-
-impl Default for Operator {
-    fn default() -> Self {
-        Self::None
     }
 }
 

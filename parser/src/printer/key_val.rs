@@ -14,17 +14,17 @@ use std::num::ParseIntError;
 pub struct KeyVal<'a> {
     pub path: Option<Path<'a>>,
     pub operator: Option<Operator>,
-    pub key: String,
-    pub needs: Option<String>,
+    pub key: &'a str,
+    pub needs: Option<&'a str>,
     pub index: Option<Index>,
     pub array_index: Option<ArrayIndex>,
     pub assignment_operator: AssignmentOperator,
-    pub val: String,
-    pub comment: Option<Comment>,
+    pub val: &'a str,
+    pub comment: Option<Comment<'a>>,
 }
 
 pub enum KeyValError<'a> {
-    AssignmentOperator(ParseAssignmentError),
+    AssignmentOperator(ParseAssignmentError<'a>),
     OperatorParseError(OperatorParseError<'a>),
     ParseIntError(ParseIntError),
 }
@@ -37,7 +37,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
         let mut key_val = KeyVal::default();
         for pair in pairs {
             match pair.as_rule() {
-                Rule::value => key_val.val = pair.as_str().to_string(),
+                Rule::value => key_val.val = pair.as_str(),
                 Rule::Comment => {
                     key_val.comment =
                         Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
@@ -48,7 +48,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
                         Err(err) => return Err(KeyValError::AssignmentOperator(err)),
                     };
                 }
-                Rule::needsBlock => key_val.needs = Some(pair.as_str().to_string()),
+                Rule::needsBlock => key_val.needs = Some(pair.as_str()),
                 Rule::index => {
                     key_val.index = Some(match super::indices::Index::try_from(pair) {
                         Ok(it) => it,
@@ -67,7 +67,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
                         Err(err) => return Err(KeyValError::OperatorParseError(err)),
                     });
                 }
-                Rule::keyIdentifier => key_val.key = pair.as_str().trim().to_string(),
+                Rule::keyIdentifier => key_val.key = pair.as_str().trim(),
                 Rule::path => {
                     key_val.path =
                         Some(Path::try_from(pair).expect("Parsing a path is currently Infallable"));
@@ -76,7 +76,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
             }
         }
         if key_val.comment.is_none() {
-            key_val.val = key_val.val.trim().to_string();
+            key_val.val = key_val.val.trim();
         }
         Ok(key_val)
     }
@@ -103,7 +103,9 @@ impl<'a> ASTPrint for KeyVal<'a> {
                 .map_or_else(String::new, |i| i.to_string()),
             self.assignment_operator,
             self.val,
-            self.comment.clone().unwrap_or_default(),
+            self.comment
+                .clone()
+                .map_or_else(String::new, |c| c.to_string()),
             line_ending
         )
     }

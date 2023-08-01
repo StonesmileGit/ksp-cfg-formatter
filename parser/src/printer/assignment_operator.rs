@@ -14,11 +14,13 @@ pub enum AssignmentOperator {
     RegexReplace,
 }
 
-pub struct ParseAssignmentError;
-impl TryFrom<Pair<'_, Rule>> for AssignmentOperator {
-    type Error = ParseAssignmentError;
+pub struct ParseAssignmentError<'a> {
+    pub text: &'a str,
+}
+impl<'a> TryFrom<Pair<'a, Rule>> for AssignmentOperator {
+    type Error = ParseAssignmentError<'a>;
 
-    fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         match rule.as_str() {
             "=" => Ok(AssignmentOperator::Assign),
             "*=" => Ok(AssignmentOperator::Multiply),
@@ -27,7 +29,9 @@ impl TryFrom<Pair<'_, Rule>> for AssignmentOperator {
             "-=" => Ok(AssignmentOperator::Subtract),
             "!=" => Ok(AssignmentOperator::Power),
             "^=" => Ok(AssignmentOperator::RegexReplace),
-            _ => Err(ParseAssignmentError),
+            _ => Err(ParseAssignmentError {
+                text: rule.as_str(),
+            }),
         }
     }
 }

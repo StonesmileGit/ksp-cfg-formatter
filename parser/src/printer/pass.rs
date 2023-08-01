@@ -25,7 +25,7 @@ impl<'a> Display for Pass<'a> {
             Pass::For(mod_name) => write!(f, ":FOR[{}]", mod_name),
             Pass::After(mod_name) => write!(f, ":AFTER[{}]", mod_name),
             Pass::Last(mod_name) => write!(f, ":LAST[{}]", mod_name),
-            Pass::Final => write!(f, "FINAL"),
+            Pass::Final => write!(f, ":FINAL"),
         }
     }
 }
@@ -34,14 +34,15 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Pass<'a> {
     type Error = Infallible;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        // dbg!(&rule);
         assert!(&rule.clone().into_inner().into_iter().count().eq(&1));
         let inner = rule.into_inner().next().unwrap();
         match inner.as_rule() {
-            Rule::forPass => Ok(Pass::For(inner.into_inner().next().unwrap().as_str())),
-            Rule::beforePass => Ok(Pass::Before(inner.into_inner().next().unwrap().as_str())),
             Rule::firstPassBlock => Ok(Pass::First),
+            Rule::beforePass => Ok(Pass::Before(inner.into_inner().next().unwrap().as_str())),
+            Rule::forPass => Ok(Pass::For(inner.into_inner().next().unwrap().as_str())),
+            Rule::afterPass => Ok(Pass::After(inner.into_inner().next().unwrap().as_str())),
             Rule::lastPass => Ok(Pass::Last(inner.into_inner().next().unwrap().as_str())),
+            Rule::finalPassBlock => Ok(Pass::Final),
             _ => panic!("rule not covered: {:?}", inner.as_rule()),
         }
     }

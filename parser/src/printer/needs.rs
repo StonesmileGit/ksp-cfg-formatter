@@ -23,7 +23,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
     type Error = NeedsBlockError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        dbg!(&rule);
         let mut or_clauses = vec![];
         for pair in rule.into_inner() {
             match pair.as_rule() {
@@ -82,7 +81,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
     type Error = NeedsBlockError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        dbg!(&rule);
         let mut mod_clause = ModClause::default();
         for pair in rule.into_inner() {
             match pair.as_rule() {

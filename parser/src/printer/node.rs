@@ -35,9 +35,6 @@ pub struct Node<'a> {
 
 pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseError> {
     assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
-    // if matches!(pair.as_rule(), Rule::nodeBody) {
-    //     dbg!(&pair);
-    // }
     let mut block_items = vec![];
     for pair in pair.into_inner() {
         match pair.as_rule() {
@@ -47,9 +44,7 @@ pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseErr
             ))),
             Rule::assignment => block_items.push(Ok(NodeItem::KeyVal(KeyVal::try_from(pair)?))),
             Rule::EmptyLine => block_items.push(Ok(NodeItem::EmptyLine)),
-            // Rule::closingbracket => break,
             Rule::EOI | Rule::Newline => (),
-            // _ => panic!("abc: {:?}", pair),
             _ => unreachable!(),
         }
     }
@@ -141,7 +136,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                     node.block = parse_block_items(pair)?;
                     body_seen = true;
                 }
-                // _ => panic!("{}", pair),
                 _ => unreachable!(),
             }
         }
@@ -250,6 +244,11 @@ fn short_node(arg: &Node) -> bool {
     if let Some(name) = arg.name.clone() {
         len += name.chars().count();
     }
+    len += arg
+        .has
+        .clone()
+        .map_or(0, |has| has.to_string().chars().count());
+
     match arg.block.first().unwrap() {
         NodeItem::KeyVal(kv) => {
             if kv.operator.is_some() {

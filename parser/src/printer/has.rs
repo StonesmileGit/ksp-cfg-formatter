@@ -57,7 +57,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
     type Error = HasBlockError<'a>;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        // dbg!(&rule);
         let first_char = rule.as_str().chars().next().unwrap();
         match first_char {
             // Node
@@ -108,7 +107,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                             };
                             value = Some(val);
                         }
-                        // _ => panic!("key rule: {}", rule),
                         _ => {
                             return Err(HasBlockError {
                                 text: rule.as_str(),
@@ -123,7 +121,6 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                     match_type,
                 })
             }
-            // _ => panic!("got char '{}'", first_char),
             _ => Err(HasBlockError {
                 text: rule.as_str(),
             }),

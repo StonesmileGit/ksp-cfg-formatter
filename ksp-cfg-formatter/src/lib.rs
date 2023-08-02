@@ -6,12 +6,9 @@ pub mod wasm_bindings;
 
 pub mod parser;
 
-use std::fmt::Display;
-
 use self::parser::document::Document;
-use parser::{node::NodeParseError, ASTPrint, Grammar, Rule};
+use parser::{ASTPrint, Grammar, Rule};
 use pest::Parser;
-// use reader::{Grammar, Rule};
 
 /// Defines which End of Line sequence to be used
 ///
@@ -138,7 +135,7 @@ impl Formatter {
     }
 }
 
-fn ast_format(text: &str, settings: &Formatter) -> Result<String, AstParseError> {
+fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::AstParseError> {
     let use_crlf = if matches!(settings.line_return, LineReturn::Identify) {
         text.contains("\r\n")
     } else {
@@ -156,38 +153,13 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, AstParseError>
 }
 
 /// TODO: Temp
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum AstParseError {
-    /// Parsing a node or the document failed
-    NodeParseError(#[from] NodeParseError),
-    /// Error from Pest
-    Pest(Box<pest::error::Error<Rule>>),
-    /// The pest parser found no matching rule
-    EmptyDocument,
-}
-
-impl Display for AstParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AstParseError::NodeParseError(node) => write!(f, "{node}"),
-            AstParseError::Pest(pest) => write!(f, "{pest}"),
-            AstParseError::EmptyDocument => write!(f, "The parsed text didn't return any tokens"),
-        }
-    }
-}
-
-impl From<pest::error::Error<Rule>> for AstParseError {
-    fn from(value: pest::error::Error<Rule>) -> Self {
-        AstParseError::Pest(Box::new(value))
-    }
-}
-
-/// TODO: Temp
 /// # Errors
 /// TODO
-pub fn parse_to_ast(text: &str) -> Result<Document, AstParseError> {
+pub fn parse_to_ast(text: &str) -> Result<Document, parser::AstParseError> {
     let mut parsed_text = Grammar::parse(Rule::document, text)?;
-    let document = parsed_text.next().ok_or(AstParseError::EmptyDocument)?;
+    let document = parsed_text
+        .next()
+        .ok_or(parser::AstParseError::EmptyDocument)?;
     Document::try_from(document)
 }
 

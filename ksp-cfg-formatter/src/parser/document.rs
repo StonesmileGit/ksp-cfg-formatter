@@ -1,6 +1,6 @@
 use pest::iterators::Pair;
 
-use crate::{AstParseError, Rule};
+use crate::{parser::AstParseError, Rule};
 
 use super::{node::parse_block_items, node_item::NodeItem, ASTPrint};
 

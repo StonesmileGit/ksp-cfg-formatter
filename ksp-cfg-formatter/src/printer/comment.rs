@@ -3,7 +3,7 @@ use crate::reader::Rule;
 use pest::iterators::Pair;
 use std::{convert::Infallible, fmt::Display};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Comment<'a> {
     pub text: &'a str,
 }

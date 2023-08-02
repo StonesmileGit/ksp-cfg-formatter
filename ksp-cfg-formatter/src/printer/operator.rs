@@ -17,14 +17,20 @@ pub enum Operator {
     Rename,
 }
 
-#[derive(Debug)]
-pub struct OperatorParseError<'a> {
-    pub text: &'a str,
+#[derive(Debug, Clone, thiserror::Error)]
+pub struct OperatorParseError {
+    pub text: String,
 }
-impl<'a> TryFrom<Pair<'a, Rule>> for Operator {
-    type Error = OperatorParseError<'a>;
 
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+impl Display for OperatorParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+impl TryFrom<Pair<'_, Rule>> for Operator {
+    type Error = OperatorParseError;
+
+    fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
         match rule.as_str() {
             "" => Ok(Self::None),
             "@" => Ok(Self::Edit),
@@ -35,7 +41,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Operator {
             "-" => Ok(Self::DeleteAlt),
             "|" => Ok(Self::Rename),
             _ => Err(OperatorParseError {
-                text: rule.as_str(),
+                text: rule.as_str().to_string(),
             }),
         }
     }

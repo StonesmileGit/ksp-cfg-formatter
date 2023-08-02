@@ -1,4 +1,4 @@
-use std::num::ParseIntError;
+use std::{fmt::Display, num::ParseIntError};
 
 use pest::iterators::Pair;
 
@@ -33,7 +33,7 @@ pub struct Node<'a> {
     pub trailing_comment: Option<Comment<'a>>,
 }
 
-pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseError> {
+pub(crate) fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseError> {
     assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
     let mut block_items = vec![];
     for pair in pair.into_inner() {
@@ -51,46 +51,23 @@ pub fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseErr
     block_items.into_iter().collect()
 }
 
-pub enum NodeParseError<'a> {
-    HasBlock(HasBlockError<'a>),
-    NeedsBlock(NeedsBlockError),
-    ParseInt(ParseIntError),
-    OperatorParse(OperatorParseError<'a>),
-    KeyVal(KeyValError<'a>),
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum NodeParseError {
+    HasBlock(#[from] HasBlockError),
+    NeedsBlock(#[from] NeedsBlockError),
+    ParseInt(#[from] ParseIntError),
+    OperatorParse(#[from] OperatorParseError),
+    KeyVal(#[from] KeyValError),
 }
 
-impl<'a> From<KeyValError<'a>> for NodeParseError<'a> {
-    fn from(value: KeyValError<'a>) -> Self {
-        Self::KeyVal(value)
-    }
-}
-
-impl<'a> From<OperatorParseError<'a>> for NodeParseError<'a> {
-    fn from(value: OperatorParseError<'a>) -> Self {
-        Self::OperatorParse(value)
-    }
-}
-
-impl<'a> From<ParseIntError> for NodeParseError<'a> {
-    fn from(value: ParseIntError) -> Self {
-        Self::ParseInt(value)
-    }
-}
-
-impl<'a> From<NeedsBlockError> for NodeParseError<'a> {
-    fn from(value: NeedsBlockError) -> Self {
-        Self::NeedsBlock(value)
-    }
-}
-
-impl<'a> From<HasBlockError<'a>> for NodeParseError<'a> {
-    fn from(value: HasBlockError<'a>) -> Self {
-        Self::HasBlock(value)
+impl Display for NodeParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
-    type Error = NodeParseError<'a>;
+    type Error = NodeParseError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(matches!(rule.as_rule(), Rule::node));
@@ -124,7 +101,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                 Rule::hasBlock => node.has = Some(HasBlock::try_from(pair)?),
                 Rule::needsBlock => node.needs = Some(NeedsBlock::try_from(pair)?),
                 Rule::passBlock => {
-                    node.pass = Some(Pass::try_from(pair).expect("Should be Infallable"))
+                    node.pass = Some(Pass::try_from(pair).expect("Should be Infallable"));
                 }
                 Rule::index => node.index = Some(super::indices::Index::try_from(pair)?),
                 Rule::operator => node.operator = Some(Operator::try_from(pair)?),
@@ -166,11 +143,11 @@ impl<'a> ASTPrint for Node<'a> {
             self.path.clone().map_or(String::new(), |p| p.to_string()),
             self.operator.clone().unwrap_or_default(),
             self.identifier,
-            self.name.clone().unwrap_or_default(),
+            self.name.unwrap_or_default(),
             self.has.clone().unwrap_or_default(),
-            self.pass.clone().unwrap_or_default(),
+            self.pass.unwrap_or_default(),
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
-            self.index.clone().map_or(String::new(), |i| i.to_string()),
+            self.index.map_or(String::new(), |i| i.to_string()),
         );
         output.push_str(
             match self.block.len() {
@@ -241,7 +218,7 @@ fn short_node(arg: &Node) -> bool {
     }
     let mut len = 7; // Include the opening/closing bracket and spaces around operator
     len += arg.identifier.chars().count();
-    if let Some(name) = arg.name.clone() {
+    if let Some(name) = arg.name {
         len += name.chars().count();
     }
     len += arg

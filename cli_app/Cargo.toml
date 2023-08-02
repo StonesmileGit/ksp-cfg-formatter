@@ -1,9 +1,9 @@
 [package]
-name = "ksp-cfg-formatter"
+name = "ksp-cfg-formatter-cli"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 clap = { version = "4.1.8", features = ["derive"] }
 walkdir = "2.3.2"
-ksp-cfg-formatter-lib = { path = "../parser" }
+ksp-cfg-formatter = { path = "../ksp-cfg-formatter" }

@@ -37,26 +37,25 @@ impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         dbg!(&rule);
-        let res = match rule.as_str() {
-            ".." => Ok(Self::DotDot),
+        let res = if rule.as_str() == ".." {
+            Ok(Self::DotDot)
+        } else {
             // FIXME: The index should be parsed into the struct
-            _ => {
-                let mut node = "";
-                let mut name = None;
+            let mut node = "";
+            let mut name = None;
 
-                for pair in rule.into_inner() {
-                    match pair.as_rule() {
-                        Rule::identifier => node = pair.as_str(),
-                        Rule::nameBlock => name = Some(pair.as_str()),
-                        _ => todo!(),
-                    }
+            for pair in rule.into_inner() {
+                match pair.as_rule() {
+                    Rule::identifier => node = pair.as_str(),
+                    Rule::nameBlock => name = Some(pair.as_str()),
+                    _ => todo!(),
                 }
-                Ok(Self::NodeName {
-                    node,
-                    name,
-                    index: None,
-                })
             }
+            Ok(Self::NodeName {
+                node,
+                name,
+                index: None,
+            })
         };
         dbg!(&res);
         res
@@ -71,7 +70,7 @@ impl<'a> Display for PathSegment<'a> {
                 f,
                 "{}{}{}/",
                 node,
-                name.map_or_else(String::new, |name| format!("{}", name)),
+                name.map_or_else(String::new, ToString::to_string),
                 index.map_or_else(String::new, |index| index.to_string())
             ),
         }

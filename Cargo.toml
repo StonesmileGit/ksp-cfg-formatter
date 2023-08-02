@@ -1,5 +1,5 @@
 [workspace]
 members = [
 	"cli_app",
-	"parser",
+	"ksp-cfg-formatter",
 ]

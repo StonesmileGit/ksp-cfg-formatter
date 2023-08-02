@@ -1,4 +1,4 @@
-use ksp_cfg_formatter_lib::ast_validate;
+use ksp_cfg_formatter::ast_validate;
 #[cfg(test)]
 use std::{
     fs,

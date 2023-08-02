@@ -2,7 +2,7 @@ use crate::reader::Rule;
 use pest::iterators::Pair;
 use std::fmt::Display;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum AssignmentOperator {
     #[default]
     Assign,
@@ -14,11 +14,18 @@ pub enum AssignmentOperator {
     RegexReplace,
 }
 
-pub struct ParseAssignmentError<'a> {
-    pub text: &'a str,
+#[derive(Debug, Clone, thiserror::Error)]
+pub struct ParseAssignmentError {
+    pub text: String,
+}
+
+impl Display for ParseAssignmentError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
 }
 impl<'a> TryFrom<Pair<'a, Rule>> for AssignmentOperator {
-    type Error = ParseAssignmentError<'a>;
+    type Error = ParseAssignmentError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         match rule.as_str() {
@@ -30,7 +37,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for AssignmentOperator {
             "!=" => Ok(AssignmentOperator::Power),
             "^=" => Ok(AssignmentOperator::RegexReplace),
             _ => Err(ParseAssignmentError {
-                text: rule.as_str(),
+                text: rule.as_str().to_string(),
             }),
         }
     }

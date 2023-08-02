@@ -16,21 +16,27 @@ impl<'a> Display for NeedsBlock<'a> {
     }
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
 pub struct NeedsBlockError {
     pub text: String,
+}
+
+impl Display for NeedsBlockError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
 }
 impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
     type Error = NeedsBlockError;
 
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, NeedsBlockError> {
         let mut or_clauses = vec![];
         for pair in rule.into_inner() {
-            match pair.as_rule() {
-                Rule::modOrClause => or_clauses.push(OrClause::try_from(pair)?),
-                _ => {
-                    let rule_name = pair.as_rule();
-                    panic!("Got unexpected rule: {:?}", rule_name);
-                }
+            if pair.as_rule() == Rule::modOrClause {
+                or_clauses.push(OrClause::try_from(pair)?);
+            } else {
+                let rule_name = pair.as_rule();
+                panic!("Got unexpected rule: {rule_name:?}");
             }
         }
         Ok(NeedsBlock { or_clauses })
@@ -53,12 +59,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let mut mod_clauses = vec![];
         for pair in rule.into_inner() {
-            match pair.as_rule() {
-                Rule::needsMod => mod_clauses.push(ModClause::try_from(pair)?),
-                _ => {
-                    let rule_name = pair.as_rule();
-                    panic!("Got unexpected rule: {:?}", rule_name);
-                }
+            if pair.as_rule() == Rule::needsMod {
+                mod_clauses.push(ModClause::try_from(pair)?);
+            } else {
+                let rule_name = pair.as_rule();
+                panic!("Got unexpected rule: {rule_name:?}");
             }
         }
         Ok(OrClause { mod_clauses })

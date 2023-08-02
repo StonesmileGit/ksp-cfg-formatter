@@ -10,14 +10,11 @@ pub struct Document<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Document<'a> {
-    type Error = AstParseError<'a>;
+    type Error = AstParseError;
 
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let statements = parse_block_items(rule);
-        match statements {
-            Ok(statements) => Ok(Document { statements }),
-            Err(err) => Err(AstParseError::NodeParseError(err)),
-        }
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, AstParseError> {
+        let statements = parse_block_items(rule)?;
+        Ok(Document { statements })
     }
 }
 

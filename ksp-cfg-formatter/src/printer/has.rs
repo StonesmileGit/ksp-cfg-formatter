@@ -47,14 +47,14 @@ impl<'a> Display for Predicate<'a> {
                 "{}{}{}",
                 if *negated { "~" } else { "#" },
                 key,
-                value.map_or_else(String::new, |value| format!("[{}{}]", match_type, value))
+                value.map_or_else(String::new, |value| format!("[{match_type}{value}]"))
             ),
         }
     }
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
-    type Error = HasBlockError<'a>;
+    type Error = HasBlockError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let first_char = rule.as_str().chars().next().unwrap();
@@ -72,7 +72,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         // _ => panic!("node rule: {}", rule),
                         _ => {
                             return Err(HasBlockError {
-                                text: rule.as_str(),
+                                text: rule.as_str().to_string(),
                             })
                         }
                     };
@@ -109,7 +109,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         }
                         _ => {
                             return Err(HasBlockError {
-                                text: rule.as_str(),
+                                text: rule.as_str().to_string(),
                             })
                         }
                     }
@@ -122,7 +122,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                 })
             }
             _ => Err(HasBlockError {
-                text: rule.as_str(),
+                text: rule.as_str().to_string(),
             }),
         }
     }
@@ -160,11 +160,18 @@ impl<'a> Display for HasBlock<'a> {
     }
 }
 
-pub struct HasBlockError<'a> {
-    pub text: &'a str,
+#[derive(Debug, Clone, thiserror::Error)]
+pub struct HasBlockError {
+    pub text: String,
+}
+
+impl Display for HasBlockError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
 }
 impl<'a> TryFrom<Pair<'a, Rule>> for HasBlock<'a> {
-    type Error = HasBlockError<'a>;
+    type Error = HasBlockError;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(matches!(rule.as_rule(), Rule::hasBlock));

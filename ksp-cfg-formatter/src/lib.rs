@@ -4,18 +4,15 @@
 #[cfg(target_family = "wasm")]
 pub mod wasm_bindings;
 
-mod printer;
-mod reader;
+pub mod printer;
+pub mod reader;
+
+use std::fmt::Display;
 
 use self::printer::document::Document;
 use pest::Parser;
-use printer::{
-    node::{parse_block_items, NodeParseError},
-    ASTPrint,
-};
+use printer::{node::NodeParseError, ASTPrint};
 use reader::{Grammar, Rule};
-#[cfg(not(target_family = "wasm"))]
-use std::time::Instant;
 
 /// Defines which End of Line sequence to be used
 ///
@@ -25,7 +22,7 @@ use std::time::Instant;
 ///
 /// Example:
 /// ```
-/// use ksp_cfg_formatter_lib::{Formatter, Indentation, LineReturn};
+/// use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
 ///
 /// let line_return = LineReturn::LF;
 ///
@@ -49,7 +46,7 @@ pub enum LineReturn {
 ///
 /// Example:
 /// ```
-/// use ksp_cfg_formatter_lib::{Formatter, Indentation, LineReturn};
+/// use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
 ///
 /// let indentation = Indentation::Spaces(4);
 ///
@@ -83,7 +80,7 @@ impl From<Option<usize>> for Indentation {
 ///
 /// Example:
 /// ```
-/// use ksp_cfg_formatter_lib::{Formatter, Indentation, LineReturn};
+/// use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
 ///
 /// let indentation = Indentation::Tabs;
 /// let line_return = LineReturn::Identify;
@@ -105,7 +102,7 @@ impl Formatter {
     ///
     /// Example:
     /// ```
-    /// use ksp_cfg_formatter_lib::{Formatter, Indentation, LineReturn};
+    /// use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
     ///
     /// let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
     /// ```
@@ -120,11 +117,14 @@ impl Formatter {
 
     /// Takes the provided text and formats it according to the settings of the `Formatter`
     ///
+    /// If the formatting fails, the orginal text is returned unchanged
+    /// FIXME: This is not indicated in any way
+    ///
     /// TODO: Explain the parts of the formatter.
     ///
     /// Example:
     /// ```
-    /// use ksp_cfg_formatter_lib::{Formatter, Indentation, LineReturn};
+    /// use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
     ///
     /// let indentation = Indentation::Tabs;
     /// let line_return = LineReturn::Identify;
@@ -135,61 +135,48 @@ impl Formatter {
     /// ```
     #[must_use]
     pub fn format_text(&self, text: &str) -> String {
-        #[cfg(not(target_family = "wasm"))]
-        let total = Instant::now();
-
-        let text = ast_format(text, self);
-
-        #[cfg(not(target_family = "wasm"))]
-        let total_time = total.elapsed();
-
-        #[cfg(not(target_family = "wasm"))]
-        if false {
-            println!("{total_time:?} Total");
-        }
-        text
+        ast_format(text, self).map_or(text.to_string(), |res| res)
     }
 }
 
-fn ast_format(text: &str, settings: &Formatter) -> String {
+fn ast_format(text: &str, settings: &Formatter) -> Result<String, AstParseError> {
     let use_crlf = if matches!(settings.line_return, LineReturn::Identify) {
         text.contains("\r\n")
     } else {
         matches!(settings.line_return, LineReturn::CRLF)
     };
-    let document_res = Grammar::parse(Rule::document, text);
-    match &document_res {
-        Ok(res) => {
-            let document = res.clone().next().unwrap();
-            // dbg!(&document);
-            let parsed_document = Document {
-                statements: parse_block_items(document).ok().unwrap(),
-            };
-            let line_ending = if use_crlf { "\r\n" } else { "\n" };
-            parsed_document.ast_print(
-                0,
-                &settings.indentation.to_string(),
-                line_ending,
-                settings.inline,
-            )
-        }
-        Err(err) => {
-            dbg!("{}", &text);
-            dbg!(&document_res);
-            panic!("{}", err);
+    let document = Grammar::parse(Rule::document, text)?.next().unwrap();
+    let parsed_document = Document::try_from(document)?;
+    let line_ending = if use_crlf { "\r\n" } else { "\n" };
+    Ok(parsed_document.ast_print(
+        0,
+        &settings.indentation.to_string(),
+        line_ending,
+        settings.inline,
+    ))
+}
+
+/// TODO: Temp
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum AstParseError {
+    /// Parsing a node or the document failed
+    NodeParseError(#[from] NodeParseError),
+    /// Error from Pest
+    Pest(Box<pest::error::Error<Rule>>),
+    EmptyDocument,
+}
+
+impl Display for AstParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AstParseError::NodeParseError(node) => write!(f, "{node}"),
+            AstParseError::Pest(pest) => write!(f, "{pest}"),
+            AstParseError::EmptyDocument => write!(f, "The parsed text didn't return any tokens"),
         }
     }
 }
 
-/// TODO: Temp
-pub enum AstParseError<'a> {
-    /// Parsing a node or the document failed
-    NodeParseError(NodeParseError<'a>),
-    /// Error from Pest
-    Pest(Box<pest::error::Error<Rule>>),
-}
-
-impl<'a> From<pest::error::Error<Rule>> for AstParseError<'a> {
+impl From<pest::error::Error<Rule>> for AstParseError {
     fn from(value: pest::error::Error<Rule>) -> Self {
         AstParseError::Pest(Box::new(value))
     }
@@ -200,9 +187,7 @@ impl<'a> From<pest::error::Error<Rule>> for AstParseError<'a> {
 /// TODO
 pub fn parse_to_ast(text: &str) -> Result<Document, AstParseError> {
     let mut parsed_text = Grammar::parse(Rule::document, text)?;
-    let document = parsed_text
-        .next()
-        .expect("The parsed text should contain a Document node");
+    let document = parsed_text.next().ok_or(AstParseError::EmptyDocument)?;
     Document::try_from(document)
 }
 

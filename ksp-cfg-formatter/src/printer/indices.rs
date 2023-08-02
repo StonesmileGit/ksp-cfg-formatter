@@ -2,7 +2,7 @@ use crate::reader::Rule;
 use pest::iterators::Pair;
 use std::{fmt::Display, num::ParseIntError};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Index {
     All,
     Number(i32),
@@ -30,7 +30,7 @@ impl Display for Index {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ArrayIndex {
     index: Option<i32>,
     separator: Option<char>,

@@ -1,5 +1,5 @@
 [package]
-name = "ksp-cfg-formatter-lib"
+name = "ksp-cfg-formatter"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,6 +11,7 @@ itertools = "0.11.0"
 pest = "2.5.7"
 pest_derive = "2.5.7"
 pretty_assertions = "1.3.0"
+thiserror = "1.0.44"
 walkdir = "2.3.2"
 
 [target.'cfg(target_family = "wasm")'.dependencies]

@@ -2,7 +2,7 @@ use std::{fmt::Display, num::ParseIntError};
 
 use pest::iterators::Pair;
 
-use crate::reader::Rule;
+use crate::Rule;
 
 use super::{
     comment::Comment,

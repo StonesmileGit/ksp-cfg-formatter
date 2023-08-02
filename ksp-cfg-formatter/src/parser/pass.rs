@@ -2,7 +2,7 @@ use std::{convert::Infallible, fmt::Display};
 
 use pest::iterators::Pair;
 
-use crate::reader::Rule;
+use crate::Rule;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub enum Pass<'a> {

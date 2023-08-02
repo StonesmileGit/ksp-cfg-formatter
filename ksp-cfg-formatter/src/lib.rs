@@ -1,18 +1,17 @@
-//! The crate currently provides two formatters; One based on iterating over tokens, and one based on chars
+//! Parser and formatter for Kerbal Space Program config files, including ModuleManager syntax
 #![warn(missing_docs)]
 /// Contains code to interface with TypeScript
 #[cfg(target_family = "wasm")]
 pub mod wasm_bindings;
 
-pub mod printer;
-pub mod reader;
+pub mod parser;
 
 use std::fmt::Display;
 
-use self::printer::document::Document;
+use self::parser::document::Document;
+use parser::{node::NodeParseError, ASTPrint, Grammar, Rule};
 use pest::Parser;
-use printer::{node::NodeParseError, ASTPrint};
-use reader::{Grammar, Rule};
+// use reader::{Grammar, Rule};
 
 /// Defines which End of Line sequence to be used
 ///
@@ -163,6 +162,7 @@ pub enum AstParseError {
     NodeParseError(#[from] NodeParseError),
     /// Error from Pest
     Pest(Box<pest::error::Error<Rule>>),
+    /// The pest parser found no matching rule
     EmptyDocument,
 }
 
@@ -194,7 +194,7 @@ pub fn parse_to_ast(text: &str) -> Result<Document, AstParseError> {
 /// Documentation goes here
 /// # Errors
 /// TODO
-pub fn ast_validate(
+pub fn pest_validate(
     text: &str,
 ) -> Result<pest::iterators::Pairs<Rule>, Box<pest::error::Error<Rule>>> {
     match Grammar::parse(Rule::document, text) {

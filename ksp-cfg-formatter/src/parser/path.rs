@@ -3,7 +3,7 @@ use std::{convert::Infallible, fmt::Display};
 use itertools::Itertools;
 use pest::iterators::Pair;
 
-use crate::reader::Rule;
+use crate::Rule;
 
 #[derive(Debug, Clone)]
 pub enum PathStart {

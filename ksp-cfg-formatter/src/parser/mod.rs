@@ -21,3 +21,7 @@ pub trait ASTPrint {
         should_collapse: bool,
     ) -> String;
 }
+
+#[derive(pest_derive::Parser)]
+#[grammar = "grammar.pest"]
+pub struct Grammar;

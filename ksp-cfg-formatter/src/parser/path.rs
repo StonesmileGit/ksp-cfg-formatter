@@ -36,7 +36,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
     type Error = Infallible;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        dbg!(&rule);
+        // dbg!(&rule);
         let res = if rule.as_str() == ".." {
             Ok(Self::DotDot)
         } else {
@@ -57,7 +57,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
                 index: None,
             })
         };
-        dbg!(&res);
+        // dbg!(&res);
         res
     }
 }

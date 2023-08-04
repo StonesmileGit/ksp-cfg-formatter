@@ -39,7 +39,7 @@ fn main() {
     // Read input from either a path or stdin if no path is provided
     if let Some(path) = &args.path {
         let paths = files_from_path(path);
-        // let mut workers = vec![];
+        let mut workers = vec![];
         for path in paths {
             let args = args.clone();
             let worker = thread::spawn(move || {
@@ -47,9 +47,9 @@ fn main() {
                     .map_or_else(|_| format!("Failed to read text from {path}"), |t| t);
                 format_file(&args, &text, Some(path.clone()));
             });
-            //     workers.push(worker);
-            // }
-            // for worker in workers {
+            workers.push(worker);
+        }
+        for worker in workers {
             worker.join().expect("Thread failed to join");
         }
     } else {

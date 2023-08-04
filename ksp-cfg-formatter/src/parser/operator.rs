@@ -33,9 +33,9 @@ impl TryFrom<Pair<'_, Rule>> for Operator {
             "-" => Ok(Self::DeleteAlt),
             "|" => Ok(Self::Rename),
             _ => Err(Error {
-                location: None,
-                reason: super::Reason::Unknown,
                 source_text: rule.as_str().to_string(),
+                location: Some(rule.into()),
+                reason: super::Reason::Custom("Parsing of operator failed".to_string()),
             }),
         }
     }

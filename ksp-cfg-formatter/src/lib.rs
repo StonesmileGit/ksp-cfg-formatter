@@ -149,7 +149,8 @@ impl Formatter {
                 if self.fail_silent {
                     text.to_string()
                 } else {
-                    dbg!("{}", err);
+                    dbg!("{}", &err);
+                    dbg!("{}", err.to_string());
                     panic!()
                 }
             }
@@ -179,22 +180,8 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
 /// TODO
 pub fn parse_to_ast(text: &str) -> Result<Document, parser::Error> {
     let mut parsed_text = Grammar::parse(Rule::document, text)?;
-    let document = parsed_text.next().ok_or(parser::Error {
-        reason: parser::Reason::EmptyDocument,
-        location: None,
-        source_text: text.to_string(),
-    })?;
+    let document = parsed_text
+        .next()
+        .expect("There is always a document pair if parsing suceeded");
     Document::try_from(document)
-}
-
-/// Documentation goes here
-/// # Errors
-/// TODO
-pub fn pest_validate(
-    text: &str,
-) -> Result<pest::iterators::Pairs<Rule>, Box<pest::error::Error<Rule>>> {
-    match Grammar::parse(Rule::document, text) {
-        Ok(it) => Ok(it),
-        Err(err) => Err(Box::new(err)),
-    }
 }

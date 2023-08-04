@@ -73,9 +73,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         Rule::hasBlock => has_block = Some(HasBlock::try_from(rule)?),
                         _ => {
                             return Err(Error {
-                                location: None,
-                                reason: super::Reason::Unknown,
+                                reason: super::Reason::Custom(format!("Unexpected Rule '{:?}' encountered when trying to parse HAS block node predicate", rule.as_rule())),
                                 source_text: rule.as_str().to_string(),
+                                location: Some(rule.into()),
                             });
                         }
                     };
@@ -112,9 +112,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         }
                         _ => {
                             return Err(Error {
-                                location: None,
-                                reason: super::Reason::Unknown,
+                                reason: super::Reason::Custom(format!("Unexpected Rule '{:?}' encountered when trying to parse HAS block key predicate", rule.as_rule())),
                                 source_text: rule.as_str().to_string(),
+                                location: Some(rule.into()),
                             });
                         }
                     }
@@ -127,9 +127,12 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                 })
             }
             _ => Err(Error {
-                location: None,
-                reason: super::Reason::Unknown,
+                reason: super::Reason::Custom(
+                    "Unexpected first char encountered when trying to parse HAS block predicate"
+                        .to_string(),
+                ),
                 source_text: rule.as_str().to_string(),
+                location: Some(rule.into()),
             }),
         }
     }

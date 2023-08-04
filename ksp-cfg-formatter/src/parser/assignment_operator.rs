@@ -29,9 +29,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for AssignmentOperator {
             "!=" => Ok(AssignmentOperator::Power),
             "^=" => Ok(AssignmentOperator::RegexReplace),
             _ => Err(Error {
-                location: None,
-                reason: super::Reason::Unknown,
                 source_text: rule.as_str().to_string(),
+                location: Some(rule.into()),
+                reason: super::Reason::Custom("Unexpected character combination encountered when parsing 'Assignment Operator'".to_string()),
             }),
         }
     }

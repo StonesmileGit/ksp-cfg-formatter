@@ -8,12 +8,11 @@ closingbracket = { "}" }
 
 node = { ("#" ~ path)? ~ operator? ~ nodeBeforeBlock ~ openingbracket ~ nodeBody ~ closingbracket ~ (Comment | Whitespace+)? }
 
-nodeBeforeBlock = _{ identifier ~ nameBlock? ~ ((index ~ blocks?)|(blocks? ~ index)| blocks)? ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
+nodeBeforeBlock = _{ identifier ~ nameBlock? ~ (index | hasBlock | passBlock | needsBlock)* ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
 
 nodeBody = { (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ Whitespace* }
 
 // TODO: Where does :NEEDS go?
-// TODO: '*' added here instead of adding paths
 assignment = { ("*" ~ path)? ~ operator? ~ keyIdentifier ~ needsBlock? ~ index? ~ arrayIndex? ~ Whitespace* ~ assignmentOperator ~ Whitespace* ~ value ~ Comment? }
 
 // Allowed: -_.+*? or Letter or Digit
@@ -46,17 +45,6 @@ assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^")? ~ "=" }
 // FIXME: Are spaces allowed?
 nameBlock = { "[" ~ ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)*)? ~ "]" }
 // nameBlock = { "[" ~ identifier ~ "]" }
-
-// We want there to be a max of 1 of: hasBlock, needsBlock and passBlock, but order does not matter
-// ===
-blocks = _{ (hasBranch | needsBranch | passBranch) }
-
-hasBranch = _{ hasBlock ~ ((needsBlock ~ passBlock?) | (passBlock ~ needsBlock?))? }
-
-needsBranch = _{ needsBlock ~ ((hasBlock ~ passBlock?) | (passBlock ~ hasBlock?))? }
-
-passBranch = _{ passBlock ~ ((hasBlock ~ needsBlock?) | (needsBlock ~ hasBlock?))? }
-// ===
 
 // TODO: Only supports positive has check for property
 // # for key-value

@@ -20,7 +20,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Index {
             "*" => Ok(Self::All),
             _ => Ok(Self::Number(match a.parse() {
                 Ok(i) => i,
-                Err(err) => {
+                Err(_) => {
                     return Err(super::Error {
                         location: Some(rule.into()),
                         reason: super::Reason::ParseInt,
@@ -59,7 +59,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
             "*" => None,
             _ => Some(match b.parse() {
                 Ok(i) => i,
-                Err(err) => {
+                Err(_) => {
                     return Err(super::Error {
                         location: Some(rule.into()),
                         reason: super::Reason::ParseInt,

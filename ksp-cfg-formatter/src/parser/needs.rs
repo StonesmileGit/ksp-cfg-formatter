@@ -57,7 +57,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
                 return Err(Error {
                     source_text: pair.as_str().to_string(),
                     location: Some(pair.into()),
-                    reason: super::Reason::Unknown,
+                    reason: super::Reason::Custom(
+                        "Unexpected rule enountered when parsing 'or clause'".to_string(),
+                    ),
                 });
             }
         }
@@ -88,9 +90,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
                 Rule::modName => mod_clause.name = pair.as_str(),
                 _ => {
                     return Err(Error {
-                        location: None,
-                        reason: super::Reason::Unknown,
                         source_text: pair.as_str().to_string(),
+                        reason: super::Reason::Custom(
+                            "Unexpected rule enountered when parsing 'mod clause'".to_string(),
+                        ),
+                        location: Some(pair.into()),
                     });
                 }
             }

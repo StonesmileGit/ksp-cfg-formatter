@@ -73,12 +73,54 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
 
                 Rule::identifier => node.identifier = pair.as_str(),
                 Rule::nameBlock => node.name = Some(pair.as_str()),
-                Rule::hasBlock => node.has = Some(HasBlock::try_from(pair)?),
-                Rule::needsBlock => node.needs = Some(NeedsBlock::try_from(pair)?),
+                Rule::hasBlock => {
+                    if node.has.is_some() {
+                        return Err(Error {
+                            reason: crate::parser::Reason::Custom(
+                                "Only one 'HAS' block is allowed".to_string(),
+                            ),
+                            source_text: pair.as_str().to_string(),
+                            location: Some(pair.into()),
+                        });
+                    }
+                    node.has = Some(HasBlock::try_from(pair)?)
+                }
+                Rule::needsBlock => {
+                    if node.needs.is_some() {
+                        return Err(Error {
+                            reason: crate::parser::Reason::Custom(
+                                "Only one 'NEEDS' block is allowed".to_string(),
+                            ),
+                            source_text: pair.as_str().to_string(),
+                            location: Some(pair.into()),
+                        });
+                    }
+                    node.needs = Some(NeedsBlock::try_from(pair)?)
+                }
                 Rule::passBlock => {
+                    if node.pass.is_some() {
+                        return Err(Error {
+                            reason: crate::parser::Reason::Custom(
+                                "Only one pass is allowed".to_string(),
+                            ),
+                            source_text: pair.as_str().to_string(),
+                            location: Some(pair.into()),
+                        });
+                    }
                     node.pass = Some(Pass::try_from(pair).expect("Should be Infallable"));
                 }
-                Rule::index => node.index = Some(super::indices::Index::try_from(pair)?),
+                Rule::index => {
+                    if node.index.is_some() {
+                        return Err(Error {
+                            reason: crate::parser::Reason::Custom(
+                                "Only one 'INDEX' block is allowed".to_string(),
+                            ),
+                            source_text: pair.as_str().to_string(),
+                            location: Some(pair.into()),
+                        });
+                    }
+                    node.index = Some(super::indices::Index::try_from(pair)?)
+                }
                 Rule::operator => node.operator = Some(Operator::try_from(pair)?),
                 Rule::path => {
                     node.path =

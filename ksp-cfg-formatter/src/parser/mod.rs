@@ -39,6 +39,7 @@ pub enum Reason {
     Pest(Box<pest::error::Error<Rule>>),
     ParseInt,
     EmptyDocument,
+    Custom(String),
     #[default]
     Unknown,
 }
@@ -47,6 +48,16 @@ pub enum Reason {
 pub struct Location {
     pub start: [usize; 2],
     pub end: [usize; 2],
+}
+
+impl Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}, {}] to [{}, {}]",
+            self.start[0], self.start[1], self.end[0], self.end[1]
+        )
+    }
 }
 
 impl From<Pair<'_, Rule>> for Location {
@@ -62,14 +73,38 @@ impl From<Pair<'_, Rule>> for Location {
         let col = last_line.map_or(0, |ll| ll.chars().count());
         Location {
             start: [start.0, start.1],
-            end: [start.0 + delta_line, col],
+            end: [
+                start.0 + delta_line,
+                if delta_line > 0 { col } else { start.1 + col },
+            ],
         }
     }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        match &self.reason {
+            Reason::Pest(pest) => write!(f, "{pest}"),
+            Reason::ParseInt => todo!(),
+            Reason::EmptyDocument => todo!(),
+            Reason::Custom(text) => write!(
+                f,
+                "{}, found {}{}",
+                text,
+                self.source_text,
+                self.location
+                    .clone()
+                    .map_or(String::new(), |loc| format!(" at {loc}"))
+            ),
+            Reason::Unknown => write!(
+                f,
+                "UNKNOWN ERROR. source: {}{}",
+                self.source_text,
+                self.location
+                    .clone()
+                    .map_or(String::new(), |loc| format!(" at {loc}"))
+            ),
+        }
     }
 }
 

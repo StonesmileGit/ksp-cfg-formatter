@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use pest::iterators::Pair;
+
 pub mod assignment_operator;
 pub mod comment;
 pub mod document;
@@ -26,28 +28,58 @@ pub trait ASTPrint {
 
 /// TODO: Temp
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum AstParseError {
-    /// Parsing a node or the document failed
-    NodeParseError(#[from] node::NodeParseError),
-    /// Error from Pest
-    Pest(Box<pest::error::Error<Rule>>),
-    /// The pest parser found no matching rule
-    EmptyDocument,
+pub struct Error {
+    pub reason: Reason,
+    pub location: Option<Location>,
+    pub source_text: String,
 }
 
-impl Display for AstParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AstParseError::NodeParseError(node) => write!(f, "{node}"),
-            AstParseError::Pest(pest) => write!(f, "{pest}"),
-            AstParseError::EmptyDocument => write!(f, "The parsed text didn't return any tokens"),
+#[derive(Debug, Clone, Default)]
+pub enum Reason {
+    Pest(Box<pest::error::Error<Rule>>),
+    ParseInt,
+    EmptyDocument,
+    #[default]
+    Unknown,
+}
+
+#[derive(Debug, Clone)]
+pub struct Location {
+    pub start: [usize; 2],
+    pub end: [usize; 2],
+}
+
+impl From<Pair<'_, Rule>> for Location {
+    fn from(rule: Pair<'_, Rule>) -> Self {
+        let start = rule.line_col();
+        let delta_line = rule
+            .as_str()
+            .as_bytes()
+            .iter()
+            .filter(|&&c| c == b'\n')
+            .count();
+        let last_line = rule.as_str().split('\n').last();
+        let col = last_line.map_or(0, |ll| ll.chars().count());
+        Location {
+            start: [start.0, start.1],
+            end: [start.0 + delta_line, col],
         }
     }
 }
 
-impl From<pest::error::Error<Rule>> for AstParseError {
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl From<pest::error::Error<Rule>> for Error {
     fn from(value: pest::error::Error<Rule>) -> Self {
-        AstParseError::Pest(Box::new(value))
+        Error {
+            reason: Reason::Pest(Box::new(value.clone())),
+            location: None,
+            source_text: value.to_string(),
+        }
     }
 }
 

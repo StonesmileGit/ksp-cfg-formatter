@@ -91,6 +91,7 @@ pub struct Formatter {
     indentation: Indentation,
     inline: bool,
     line_return: LineReturn,
+    fail_silent: bool,
 }
 
 impl Formatter {
@@ -108,6 +109,17 @@ impl Formatter {
             indentation,
             inline,
             line_return,
+            fail_silent: false,
+        }
+    }
+
+    /// Makes the parser fail silently, returning the original text instead of causing a Panic
+    pub fn fail_silent(self) -> Self {
+        Self {
+            indentation: self.indentation,
+            inline: self.inline,
+            line_return: self.line_return,
+            fail_silent: true,
         }
     }
 
@@ -131,11 +143,21 @@ impl Formatter {
     /// ```
     #[must_use]
     pub fn format_text(&self, text: &str) -> String {
-        ast_format(text, self).map_or(text.to_string(), |res| res)
+        match ast_format(text, self) {
+            Ok(res) => res,
+            Err(err) => {
+                if self.fail_silent {
+                    text.to_string()
+                } else {
+                    dbg!("{}", err);
+                    panic!()
+                }
+            }
+        }
     }
 }
 
-fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::AstParseError> {
+fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error> {
     let use_crlf = if matches!(settings.line_return, LineReturn::Identify) {
         text.contains("\r\n")
     } else {
@@ -155,11 +177,13 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::AstPar
 /// TODO: Temp
 /// # Errors
 /// TODO
-pub fn parse_to_ast(text: &str) -> Result<Document, parser::AstParseError> {
+pub fn parse_to_ast(text: &str) -> Result<Document, parser::Error> {
     let mut parsed_text = Grammar::parse(Rule::document, text)?;
-    let document = parsed_text
-        .next()
-        .ok_or(parser::AstParseError::EmptyDocument)?;
+    let document = parsed_text.next().ok_or(parser::Error {
+        reason: parser::Reason::EmptyDocument,
+        location: None,
+        source_text: text.to_string(),
+    })?;
     Document::try_from(document)
 }
 

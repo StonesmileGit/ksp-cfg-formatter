@@ -1,6 +1,8 @@
 use crate::Rule;
 use pest::iterators::Pair;
-use std::{fmt::Display, num::ParseIntError};
+use std::fmt::Display;
+
+use super::Error;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Index {
@@ -9,14 +11,23 @@ pub enum Index {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Index {
-    type Error = ParseIntError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let s = rule.as_str();
         let a = &s[1..];
         match a {
             "*" => Ok(Self::All),
-            _ => Ok(Self::Number(a.parse()?)),
+            _ => Ok(Self::Number(match a.parse() {
+                Ok(i) => i,
+                Err(err) => {
+                    return Err(super::Error {
+                        location: Some(rule.into()),
+                        reason: super::Reason::ParseInt,
+                        source_text: s.to_string(),
+                    })
+                }
+            })),
         }
     }
 }
@@ -37,7 +48,7 @@ pub struct ArrayIndex {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
-    type Error = ParseIntError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let s = rule.as_str();
@@ -46,7 +57,16 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
         let b = a.next().unwrap();
         let index = match b {
             "*" => None,
-            _ => Some(b.parse()?),
+            _ => Some(match b.parse() {
+                Ok(i) => i,
+                Err(err) => {
+                    return Err(super::Error {
+                        location: Some(rule.into()),
+                        reason: super::Reason::ParseInt,
+                        source_text: s.to_string(),
+                    })
+                }
+            }),
         };
         let separator = a.next().map(|s| s.chars().next().unwrap());
         Ok(ArrayIndex { index, separator })

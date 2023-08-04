@@ -1,6 +1,6 @@
 use pest::iterators::Pair;
 
-use crate::{parser::AstParseError, Rule};
+use crate::{parser::Error, Rule};
 
 use super::{node::parse_block_items, node_item::NodeItem, ASTPrint};
 
@@ -10,9 +10,9 @@ pub struct Document<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Document<'a> {
-    type Error = AstParseError;
+    type Error = Error;
 
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, AstParseError> {
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Error> {
         let statements = parse_block_items(rule)?;
         Ok(Document { statements })
     }

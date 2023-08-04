@@ -1,20 +1,10 @@
-use std::{fmt::Display, num::ParseIntError};
-
 use pest::iterators::Pair;
 
 use crate::Rule;
 
 use super::{
-    comment::Comment,
-    has::{HasBlock, HasBlockError},
-    indices::Index,
-    key_val::{KeyVal, KeyValError},
-    needs::{NeedsBlock, NeedsBlockError},
-    node_item::NodeItem,
-    operator::{Operator, OperatorParseError},
-    pass::Pass,
-    path::Path,
-    ASTPrint,
+    comment::Comment, has::HasBlock, indices::Index, key_val::KeyVal, needs::NeedsBlock,
+    node_item::NodeItem, operator::Operator, pass::Pass, path::Path, ASTPrint, Error,
 };
 
 #[derive(Debug, Default)]
@@ -33,7 +23,7 @@ pub struct Node<'a> {
     pub trailing_comment: Option<Comment<'a>>,
 }
 
-pub(crate) fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeParseError> {
+pub(crate) fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, Error> {
     assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
     let mut block_items = vec![];
     for pair in pair.into_inner() {
@@ -51,23 +41,8 @@ pub(crate) fn parse_block_items(pair: Pair<Rule>) -> Result<Vec<NodeItem>, NodeP
     block_items.into_iter().collect()
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum NodeParseError {
-    HasBlock(#[from] HasBlockError),
-    NeedsBlock(#[from] NeedsBlockError),
-    ParseInt(#[from] ParseIntError),
-    OperatorParse(#[from] OperatorParseError),
-    KeyVal(#[from] KeyValError),
-}
-
-impl Display for NodeParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
 impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
-    type Error = NodeParseError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(matches!(rule.as_rule(), Rule::node));

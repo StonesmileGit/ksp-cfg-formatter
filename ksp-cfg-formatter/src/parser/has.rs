@@ -3,6 +3,8 @@ use itertools::Itertools;
 use pest::iterators::Pair;
 use std::fmt::Display;
 
+use super::Error;
+
 #[derive(Debug, Clone)]
 pub enum Predicate<'a> {
     NodePredicate {
@@ -54,7 +56,7 @@ impl<'a> Display for Predicate<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
-    type Error = HasBlockError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let first_char = rule.as_str().chars().next().unwrap();
@@ -69,11 +71,12 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         Rule::identifier => node_type = rule.as_str(),
                         Rule::hasNodeName => name = Some(rule.as_str()),
                         Rule::hasBlock => has_block = Some(HasBlock::try_from(rule)?),
-                        // _ => panic!("node rule: {}", rule),
                         _ => {
-                            return Err(HasBlockError {
-                                text: rule.as_str().to_string(),
-                            })
+                            return Err(Error {
+                                location: None,
+                                reason: super::Reason::Unknown,
+                                source_text: rule.as_str().to_string(),
+                            });
                         }
                     };
                 }
@@ -108,9 +111,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                             value = Some(val);
                         }
                         _ => {
-                            return Err(HasBlockError {
-                                text: rule.as_str().to_string(),
-                            })
+                            return Err(Error {
+                                location: None,
+                                reason: super::Reason::Unknown,
+                                source_text: rule.as_str().to_string(),
+                            });
                         }
                     }
                 }
@@ -121,8 +126,10 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                     match_type,
                 })
             }
-            _ => Err(HasBlockError {
-                text: rule.as_str().to_string(),
+            _ => Err(Error {
+                location: None,
+                reason: super::Reason::Unknown,
+                source_text: rule.as_str().to_string(),
             }),
         }
     }
@@ -160,18 +167,8 @@ impl<'a> Display for HasBlock<'a> {
     }
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-pub struct HasBlockError {
-    pub text: String,
-}
-
-impl Display for HasBlockError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
 impl<'a> TryFrom<Pair<'a, Rule>> for HasBlock<'a> {
-    type Error = HasBlockError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(matches!(rule.as_rule(), Rule::hasBlock));

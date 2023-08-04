@@ -5,6 +5,8 @@ use pest::iterators::Pair;
 
 use crate::Rule;
 
+use super::Error;
+
 #[derive(Debug, Clone)]
 pub struct NeedsBlock<'a> {
     or_clauses: Vec<OrClause<'a>>,
@@ -16,20 +18,10 @@ impl<'a> Display for NeedsBlock<'a> {
     }
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-pub struct NeedsBlockError {
-    pub text: String,
-}
-
-impl Display for NeedsBlockError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
 impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
-    type Error = NeedsBlockError;
+    type Error = Error;
 
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, NeedsBlockError> {
+    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Error> {
         let mut or_clauses = vec![];
         for pair in rule.into_inner() {
             if pair.as_rule() == Rule::modOrClause {
@@ -54,7 +46,7 @@ impl<'a> Display for OrClause<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
-    type Error = NeedsBlockError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let mut mod_clauses = vec![];
@@ -62,8 +54,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
             if pair.as_rule() == Rule::needsMod {
                 mod_clauses.push(ModClause::try_from(pair)?);
             } else {
-                let rule_name = pair.as_rule();
-                panic!("Got unexpected rule: {rule_name:?}");
+                return Err(Error {
+                    source_text: pair.as_str().to_string(),
+                    location: Some(pair.into()),
+                    reason: super::Reason::Unknown,
+                });
             }
         }
         Ok(OrClause { mod_clauses })
@@ -83,7 +78,7 @@ impl<'a> Display for ModClause<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
-    type Error = NeedsBlockError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let mut mod_clause = ModClause::default();
@@ -92,9 +87,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
                 Rule::negation => mod_clause.negated = true,
                 Rule::modName => mod_clause.name = pair.as_str(),
                 _ => {
-                    return Err(NeedsBlockError {
-                        text: "Got unexpected rule".to_owned(),
-                    })
+                    return Err(Error {
+                        location: None,
+                        reason: super::Reason::Unknown,
+                        source_text: pair.as_str().to_string(),
+                    });
                 }
             }
         }

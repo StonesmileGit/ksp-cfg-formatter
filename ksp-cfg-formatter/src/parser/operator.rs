@@ -2,6 +2,8 @@ use crate::Rule;
 use pest::iterators::Pair;
 use std::fmt::Display;
 
+use super::Error;
+
 #[derive(Debug, Clone, Default)]
 pub enum Operator {
     #[default]
@@ -17,18 +19,8 @@ pub enum Operator {
     Rename,
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-pub struct OperatorParseError {
-    pub text: String,
-}
-
-impl Display for OperatorParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
 impl TryFrom<Pair<'_, Rule>> for Operator {
-    type Error = OperatorParseError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
         match rule.as_str() {
@@ -40,8 +32,10 @@ impl TryFrom<Pair<'_, Rule>> for Operator {
             "!" => Ok(Self::Delete),
             "-" => Ok(Self::DeleteAlt),
             "|" => Ok(Self::Rename),
-            _ => Err(OperatorParseError {
-                text: rule.as_str().to_string(),
+            _ => Err(Error {
+                location: None,
+                reason: super::Reason::Unknown,
+                source_text: rule.as_str().to_string(),
             }),
         }
     }

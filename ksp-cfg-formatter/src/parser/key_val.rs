@@ -1,15 +1,14 @@
 use super::{
-    assignment_operator::{AssignmentOperator, ParseAssignmentError},
+    assignment_operator::AssignmentOperator,
     comment::Comment,
     indices::{ArrayIndex, Index},
-    needs::{NeedsBlock, NeedsBlockError},
-    operator::{Operator, OperatorParseError},
+    needs::NeedsBlock,
+    operator::Operator,
     path::Path,
-    ASTPrint,
+    ASTPrint, Error,
 };
 use crate::Rule;
 use pest::iterators::Pair;
-use std::{fmt::Display, num::ParseIntError};
 
 #[derive(Debug, Default, Clone)]
 pub struct KeyVal<'a> {
@@ -24,22 +23,8 @@ pub struct KeyVal<'a> {
     pub comment: Option<Comment<'a>>,
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum KeyValError {
-    AssignmentOperator(#[from] ParseAssignmentError),
-    OperatorParseError(#[from] OperatorParseError),
-    NeedsBlockParse(#[from] NeedsBlockError),
-    ParseIntError(#[from] ParseIntError),
-}
-
-impl Display for KeyValError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
 impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
-    type Error = KeyValError;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let pairs = rule.into_inner();

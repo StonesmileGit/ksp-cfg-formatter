@@ -234,14 +234,29 @@ fn short_node(arg: &Node) -> bool {
         return false;
     }
     let mut len = 7; // Include the opening/closing bracket and spaces around operator
+    len += arg
+        .path
+        .clone()
+        .map_or(0, |path| path.to_string().chars().count());
+    len += arg
+        .operator
+        .clone()
+        .map_or(0, |op| op.to_string().chars().count());
     len += arg.identifier.chars().count();
-    if let Some(name) = arg.name {
-        len += name.chars().count();
-    }
+    len += arg.name.map_or(0, |name| name.chars().count());
     len += arg
         .has
         .clone()
         .map_or(0, |has| has.to_string().chars().count());
+    len += arg
+        .needs
+        .clone()
+        .map_or(0, |needs| needs.to_string().chars().count());
+    len += arg
+        .pass
+        .clone()
+        .map_or(0, |pass| pass.to_string().chars().count());
+    len += arg.index.map_or(0, |id| id.to_string().chars().count());
 
     match arg.block.first().unwrap() {
         NodeItem::KeyVal(kv) => {

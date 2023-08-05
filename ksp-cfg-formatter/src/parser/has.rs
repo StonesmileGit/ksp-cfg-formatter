@@ -3,18 +3,29 @@ use itertools::Itertools;
 use pest::iterators::Pair;
 use std::fmt::Display;
 
+/// Predicate to filter nodes for which to run an operation
 #[derive(Debug, Clone)]
 pub enum HasPredicate<'a> {
+    /// Enum variant for a predicate relating to a node
     NodePredicate {
+        /// If true, the node should not be present for the predicate to be satisfied
         negated: bool,
+        /// Type of the node, eg: `PART`
         node_type: &'a str,
+        /// Optional name of the node e.g: `[part_name]`
         name: Option<&'a str>,
+        /// Optional HAS-block to further match on content of node
         has_block: Option<HasBlock<'a>>,
     },
+    /// Enum variant for a predicate relating to a variable
     KeyPredicate {
+        /// If true, the variable should not be present for the predicate to be satisfied
         negated: bool,
+        /// Variable name to check for
         key: &'a str,
+        /// Optional value of the variable to check for
         value: Option<&'a str>,
+        /// Match type, `<`, ` `, `>`
         match_type: MatchType,
     },
 }
@@ -136,11 +147,15 @@ impl<'a> TryFrom<Pair<'a, Rule>> for HasPredicate<'a> {
     }
 }
 
+/// Enum for the type of comparison to perform on a value
 #[derive(Default, Debug, Clone)]
 pub enum MatchType {
+    /// match the value literally
     #[default]
     Literal,
+    /// a value greater than the specified value is a match
     GreaterThan,
+    /// a value less than the specified value is a match
     LessThan,
 }
 
@@ -154,9 +169,11 @@ impl Display for MatchType {
     }
 }
 
+/// Contains a `Vec` of all the predicates to be combined using logical ANDs. All predicates have to be satisfied for the node to be a match
 #[derive(Debug, Clone, Default)]
 pub struct HasBlock<'a> {
-    predicates: Vec<HasPredicate<'a>>,
+    /// The predicates that are combined with logical ANDs
+    pub predicates: Vec<HasPredicate<'a>>,
 }
 
 impl<'a> Display for HasBlock<'a> {

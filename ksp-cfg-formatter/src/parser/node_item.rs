@@ -1,10 +1,15 @@
 use super::{ASTPrint, Comment, KeyVal, Node};
 
+/// Enum for the different items that can exist in a document/node
 #[derive(Debug)]
 pub enum NodeItem<'a> {
+    /// A node
     Node(Node<'a>),
+    /// A Comment
     Comment(Comment<'a>),
+    /// An assignment, Not allowed in top level, checked for in `Document` code
     KeyVal(KeyVal<'a>),
+    /// An empty line
     EmptyLine,
 }
 impl<'a> ASTPrint for NodeItem<'a> {

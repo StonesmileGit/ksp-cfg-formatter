@@ -4,6 +4,7 @@
 #[cfg(target_family = "wasm")]
 pub mod wasm_bindings;
 
+/// Contains the types of the parser
 pub mod parser;
 
 use parser::{ASTPrint, Document, Grammar, Rule};

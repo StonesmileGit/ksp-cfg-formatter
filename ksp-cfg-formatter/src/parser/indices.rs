@@ -2,9 +2,12 @@ use super::{Error, Rule};
 use pest::iterators::Pair;
 use std::fmt::Display;
 
+/// Selects from multiple matching objects
 #[derive(Debug, Clone, Copy)]
 pub enum Index {
+    /// Operate on all matches, `,*`
     All,
+    /// Integer match to operate on. Can be negative to start from back, `,i`
     Number(i32),
 }
 
@@ -39,10 +42,13 @@ impl Display for Index {
     }
 }
 
+/// index in value of variable to operate on
 #[derive(Debug, Clone, Copy)]
 pub struct ArrayIndex {
-    index: Option<i32>,
-    separator: Option<char>,
+    /// Index to operate on, all if `None` (from `*`)
+    pub index: Option<i32>,
+    /// Char separating the values in the array. `,` if not specified
+    pub separator: Option<char>,
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {

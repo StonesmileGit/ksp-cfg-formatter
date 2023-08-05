@@ -21,14 +21,16 @@ pub use document::Document;
 pub use has::{HasBlock, HasPredicate, MatchType};
 pub use indices::{ArrayIndex, Index};
 pub use key_val::KeyVal;
-pub use needs::NeedsBlock;
+pub use needs::{ModClause, NeedsBlock, OrClause};
 pub use node::Node;
 pub use node_item::NodeItem;
 pub use operator::Operator;
 pub use pass::Pass;
 pub use path::{Path, PathSegment, PathStart};
 
+/// Indicates that the type can be pretty-printed as part of the formatter
 pub trait ASTPrint {
+    /// Pretty-print the type to a string, ready to be written to file/output
     #[must_use]
     fn ast_print(
         &self,
@@ -42,24 +44,36 @@ pub trait ASTPrint {
 /// TODO: Temp
 #[derive(Debug, Clone, thiserror::Error)]
 pub struct Error {
+    /// The reason for the error
     pub reason: Reason,
+    /// Optional line/col span indicating the origin of the error
     pub location: Option<Location>,
+    /// Source string from which the error occured
     pub source_text: String,
 }
 
+/// Reason for the error that occured
 #[derive(Debug, Clone, Default)]
 pub enum Reason {
+    /// An error from the PEST parser
     Pest(Box<pest::error::Error<Rule>>),
+    /// Parsing of an int failed
     ParseInt,
+    /// TODO: Needed?
     EmptyDocument,
+    /// Custom error with reason provided
     Custom(String),
+    /// Unknown error
     #[default]
     Unknown,
 }
 
+/// Location of an error, as a span between `start` and `end`
 #[derive(Debug, Clone)]
 pub struct Location {
+    /// line/col of the start of the error
     pub start: [usize; 2],
+    /// line/col of the end of the error
     pub end: [usize; 2],
 }
 
@@ -131,6 +145,7 @@ impl From<pest::error::Error<Rule>> for Error {
     }
 }
 
+/// The grammar of the parser
 #[derive(pest_derive::Parser)]
 #[grammar = "grammar.pest"]
 pub struct Grammar;

@@ -5,9 +5,11 @@ use pest::iterators::Pair;
 
 use super::{Error, Rule};
 
+/// Contains a `Vec` of all the clauses to be combined using logical ANDs. All clauses have to be satisfied for the parent operation to be executed
 #[derive(Debug, Clone)]
 pub struct NeedsBlock<'a> {
-    or_clauses: Vec<OrClause<'a>>,
+    /// The clauses to be combined using logical ANDs
+    pub or_clauses: Vec<OrClause<'a>>,
 }
 
 impl<'a> Display for NeedsBlock<'a> {
@@ -32,9 +34,12 @@ impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
         Ok(NeedsBlock { or_clauses })
     }
 }
+
+/// Contains a `Vec` of all the clauses to be combined using logical ORs. If any of those clauses are satisfied, the clause is satisfied.
 #[derive(Debug, Clone)]
-struct OrClause<'a> {
-    mod_clauses: Vec<ModClause<'a>>,
+pub struct OrClause<'a> {
+    /// The clauses to be combined using logical ORs
+    pub mod_clauses: Vec<ModClause<'a>>,
 }
 
 impl<'a> Display for OrClause<'a> {
@@ -65,10 +70,13 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
     }
 }
 
+/// A mod that is needed (or not) for the clause to be satisfied
 #[derive(Debug, Clone, Default)]
-struct ModClause<'a> {
-    negated: bool,
-    name: &'a str,
+pub struct ModClause<'a> {
+    /// If true, the mod should not be present for the clause to be satisfied
+    pub negated: bool,
+    /// Name of the mod to check for
+    pub name: &'a str,
 }
 
 impl<'a> Display for ModClause<'a> {

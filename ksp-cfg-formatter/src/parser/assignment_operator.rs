@@ -4,15 +4,23 @@ use std::fmt::Display;
 
 use super::Error;
 
+/// Assignment operator in a key-val
 #[derive(Debug, Default, Clone, Copy)]
 pub enum AssignmentOperator {
+    /// Default assignment, `=`
     #[default]
     Assign,
+    /// Multiply the variable by the value, `*=`
     Multiply,
+    /// Divide the variable by the value, `/=`
     Divide,
+    /// Increment the variable by the value, `+=`
     Add,
+    /// Decrement the variable by the value, `-=`
     Subtract,
+    /// Raise the variable by the value, `!=`
     Power,
+    /// Regex operation, `^=`
     RegexReplace,
 }
 

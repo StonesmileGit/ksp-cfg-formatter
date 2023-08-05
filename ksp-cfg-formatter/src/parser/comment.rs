@@ -2,8 +2,10 @@ use super::{ASTPrint, Rule};
 use pest::iterators::Pair;
 use std::{convert::Infallible, fmt::Display};
 
+/// A comment in the file. Includes the leading `//`
 #[derive(Debug, Clone, Copy)]
 pub struct Comment<'a> {
+    /// Text of the comment, including the leading `//`
     pub text: &'a str,
 }
 

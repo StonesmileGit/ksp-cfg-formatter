@@ -4,16 +4,26 @@ use super::{
 };
 use pest::iterators::Pair;
 
+/// Assignment operation
 #[derive(Debug, Default, Clone)]
 pub struct KeyVal<'a> {
+    /// Optional path to the variable
     pub path: Option<Path<'a>>,
+    /// Optional operator
     pub operator: Option<Operator>,
+    /// name of the variable
     pub key: &'a str,
+    /// Optional NEEDS block
     pub needs: Option<NeedsBlock<'a>>,
+    /// Optional index
     pub index: Option<Index>,
+    /// Optional array-index
     pub array_index: Option<ArrayIndex>,
+    /// The assignment operator between the variable and the value
     pub assignment_operator: AssignmentOperator,
+    /// The value to use in the assignment
     pub val: &'a str,
+    /// Optional trailing comment
     pub comment: Option<Comment<'a>>,
 }
 

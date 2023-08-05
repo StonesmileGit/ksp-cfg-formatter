@@ -5,19 +5,33 @@ use super::{
     Rule,
 };
 
+/// A node in the config file. Both top level node and internal node
 #[derive(Debug, Default)]
 pub struct Node<'a> {
+    /// Optional path to node, only allowed on internal nodes
     pub path: Option<Path<'a>>,
+    /// Optional operator
     pub operator: Option<Operator>,
+    /// Identifier of the node
     pub identifier: &'a str,
+    /// Optional name of the node. Same as `:HAS[name[<name>]]`
     pub name: Option<&'a str>,
+    /// Optional HAS block
     pub has: Option<HasBlock<'a>>,
+    /// Optional NEEDS block
     pub needs: Option<NeedsBlock<'a>>,
-    pub pass: Option<Pass<'a>>,
+    /// Pass for the patch to run
+    // TODO: Only allowed on top level nodes
+    pub pass: Pass<'a>,
+    /// Optional index of the node to match
     pub index: Option<Index>,
+    /// Optional comment after the identifier
     pub id_comment: Option<Comment<'a>>,
+    /// optional comments between identifier line and opening bracket
     pub comments_after_newline: Vec<Comment<'a>>,
+    /// Items inside the node
     pub block: Vec<NodeItem<'a>>,
+    /// Optional trailing comment after the closing bracket
     pub trailing_comment: Option<Comment<'a>>,
 }
 
@@ -97,7 +111,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                     node.needs = Some(NeedsBlock::try_from(pair)?)
                 }
                 Rule::passBlock => {
-                    if node.pass.is_some() {
+                    if node.pass != Pass::Default {
                         return Err(Error {
                             reason: crate::parser::Reason::Custom(
                                 "Only one pass is allowed".to_string(),
@@ -106,7 +120,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.pass = Some(Pass::try_from(pair).expect("Should be Infallable"));
+                    node.pass = Pass::try_from(pair).expect("Should be Infallable");
                 }
                 Rule::index => {
                     if node.index.is_some() {
@@ -161,7 +175,7 @@ impl<'a> ASTPrint for Node<'a> {
             self.identifier,
             self.name.unwrap_or_default(),
             self.has.clone().unwrap_or_default(),
-            self.pass.unwrap_or_default(),
+            self.pass,
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
             self.index.map_or(String::new(), |i| i.to_string()),
         );
@@ -251,10 +265,7 @@ fn short_node(arg: &Node) -> bool {
         .needs
         .clone()
         .map_or(0, |needs| needs.to_string().chars().count());
-    len += arg
-        .pass
-        .clone()
-        .map_or(0, |pass| pass.to_string().chars().count());
+    len += arg.pass.clone().to_string().chars().count();
     len += arg.index.map_or(0, |id| id.to_string().chars().count());
 
     match arg.block.first().unwrap() {

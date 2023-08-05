@@ -3,17 +3,26 @@ use std::fmt::Display;
 
 use super::{Error, Rule};
 
+/// The different kinds of operations that can be done
 #[derive(Debug, Clone, Default)]
 pub enum Operator {
+    /// No operator
     #[default]
     None,
+    /// Edit an existing node/variable
     Edit,
+    /// Edit-or-create a node/variable
     EditOrCreate,
+    /// Create a node/value if not found
     CreateIfNotFound,
+    /// Copy an existing node/variable
     Copy,
+    /// Delete a node/variable
     Delete,
+    /// Wanted?
     //TODO: Wanted?
     DeleteAlt,
+    /// Rename a node. Not allowed on top level nodes
     //TODO: This is technically not allowed in top level nodes
     Rename,
 }

@@ -4,15 +4,23 @@ use pest::iterators::Pair;
 
 use super::Rule;
 
-#[derive(Default, Debug, Clone, Copy)]
+/// Which pass a patch should run on
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum Pass<'a> {
+    /// Patches in First are run first. Ordering: (1)
+    First,
+    /// Default is run after First, before Before. Ordering: (2)
     #[default]
     Default,
-    First,
+    /// Before is run after Default, before For. Ordering: (3)
     Before(&'a str),
+    /// For is run after Before, before After. Ordering: (4)
     For(&'a str),
+    /// After is run after For, before Last. Ordering: (5)
     After(&'a str),
+    /// Last is run after After, before Final. Ordering: (6)
     Last(&'a str),
+    /// Final is run last
     Final,
 }
 

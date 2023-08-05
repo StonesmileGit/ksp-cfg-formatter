@@ -5,10 +5,13 @@ use pest::iterators::Pair;
 
 use super::Rule;
 
+/// Where the path starts from
 #[derive(Debug, Clone)]
 pub enum PathStart {
+    /// Path starts from the top level
     //'@'
     TopLevel,
+    /// Path starts from the root of the current top level node
     //'/'
     CurrentTopLevel,
 }
@@ -22,12 +25,18 @@ impl Display for PathStart {
     }
 }
 
+/// Segment of a path, separated by `/`
 #[derive(Debug, Clone)]
 pub enum PathSegment<'a> {
+    /// Segment is `..`, going up a level
     DotDot,
+    /// Name of a node to traverse into
     NodeName {
+        /// Node type
         node: &'a str,
+        /// Optional node name
         name: Option<&'a str>,
+        /// Optional index of the node
         index: Option<i32>,
     },
 }
@@ -79,10 +88,13 @@ impl<'a> Display for PathSegment<'a> {
 
 // TODO: Is this the best way to do it, since only the last segment can be/has to be a key?
 // Turns out the grammar is made to not include the key in the path...
+/// A path to a node or a variable
 #[derive(Debug, Clone)]
 pub struct Path<'a> {
-    start: Option<PathStart>,
-    segments: Vec<PathSegment<'a>>,
+    /// Optional start charecter of the path. Starts in current node if not specified
+    pub start: Option<PathStart>,
+    /// Segments of the path, separated by `/`
+    pub segments: Vec<PathSegment<'a>>,
 }
 
 impl<'a> Display for Path<'a> {

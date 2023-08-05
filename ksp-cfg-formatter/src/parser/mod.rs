@@ -2,18 +2,31 @@ use std::fmt::Display;
 
 use pest::iterators::Pair;
 
-pub mod assignment_operator;
-pub mod comment;
-pub mod document;
-pub mod has;
-pub mod indices;
-pub mod key_val;
-pub mod needs;
-pub mod node;
-pub mod node_item;
-pub mod operator;
-pub mod pass;
-pub mod path;
+mod assignment_operator;
+mod comment;
+mod document;
+mod has;
+mod indices;
+mod key_val;
+mod needs;
+mod node;
+mod node_item;
+mod operator;
+mod pass;
+mod path;
+
+pub use assignment_operator::AssignmentOperator;
+pub use comment::Comment;
+pub use document::Document;
+pub use has::{HasBlock, HasPredicate, MatchType};
+pub use indices::{ArrayIndex, Index};
+pub use key_val::KeyVal;
+pub use needs::NeedsBlock;
+pub use node::Node;
+pub use node_item::NodeItem;
+pub use operator::Operator;
+pub use pass::Pass;
+pub use path::{Path, PathSegment, PathStart};
 
 pub trait ASTPrint {
     #[must_use]

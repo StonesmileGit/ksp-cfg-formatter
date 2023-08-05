@@ -1,8 +1,7 @@
-use crate::Rule;
 use pest::iterators::Pair;
 use std::fmt::Display;
 
-use super::Error;
+use super::{Error, Rule};
 
 #[derive(Debug, Clone, Default)]
 pub enum Operator {

@@ -16,17 +16,15 @@ nodeBody = { (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ 
 assignment = { ("*" ~ path)? ~ operator? ~ keyIdentifier ~ needsBlock? ~ index? ~ arrayIndex? ~ Whitespace* ~ assignmentOperator ~ Whitespace* ~ value ~ Comment? }
 
 // Allowed: -_.+*? or Letter or Digit
-// TODO: Should LETTER be ASCII_ALPHA?
 // TODO: This is correct for nodes, but not key-value identifiers
 identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
 
 keyIdentifier = ${ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
 
-path = ${ ("@"|"/")? ~ (path_segment ~ "/")* }
-path_segment = {".." | identifier ~ nameBlock? }
+path         = ${ ("@" | "/")? ~ (path_segment ~ "/")* }
+path_segment =  { ".." | identifier ~ nameBlock? }
 
-// TODO: | is not allowed in top level nodes
-operator = { "@" | "+" | "-" | "%" | "!" | "&" | "|"}
+operator = { "@" | "+" | "-" | "%" | "!" | "&" | "|" }
 
 value = ${ (!(Newline | closingbracket | "//") ~ ANY)* }
 
@@ -41,7 +39,6 @@ Newline = ${ NEWLINE }
 assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^")? ~ "=" }
 
 // Block for targetting a node with the specified identifier, eg: @PART[NameOfPart]
-// TODO: Currently identifier can be one|two, but that is only allowed at top nodes, so not @PART[blah] { @MODULE[one|two] {}}
 // FIXME: Are spaces allowed?
 nameBlock = { "[" ~ ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)*)? ~ "]" }
 // nameBlock = { "[" ~ identifier ~ "]" }
@@ -49,13 +46,13 @@ nameBlock = { "[" ~ ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") 
 // TODO: Only supports positive has check for property
 // # for key-value
 // hasBlock = { ^":HAS[" ~ ("#" ~ identifier ~ ("[" ~ identifier ~ hasBlock? ~ "]")?) ~ "]" }
-hasBlock     =  { ^":HAS[" ~ (hasBlockPart ~ (("&" | ",") ~ hasBlockPart)*) ~ "]" }
+hasBlock     = { ^":HAS[" ~ (hasBlockPart ~ (("&" | ",") ~ hasBlockPart)*) ~ "]" }
 hasBlockPart = { hasNode | hasKey }
 // TODO: What is a valid identifier here?
 // TODO: modName can contain wildcard *
 // TODO: While OR is not allowed, seems like '|' as a char is...
-hasNode = _{ ("@" | "!" | "-") ~ identifier ~ hasNodeName? ~ hasBlock? }
-hasNodeName = { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
+hasNode     = _{ ("@" | "!" | "-") ~ identifier ~ hasNodeName? ~ hasBlock? }
+hasNodeName =  { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
 
 hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
 // TODO: Is this correct?
@@ -64,22 +61,18 @@ hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
 needsBlock = { ^":NEEDS[" ~ modOrClause ~ (("&" | ",") ~ modOrClause)* ~ "]" }
 
 modOrClause = { needsMod ~ ("|" ~ needsMod)* }
-needsMod = { negation? ~ modName }
-negation = {"!"}
+needsMod    = { negation? ~ modName }
+negation    = { "!" }
 
-passBlock = { firstPassBlock | namedPassBlock | finalPassBlock }
-
+passBlock      = { firstPassBlock | beforePass | forPass | afterPass | lastPass | finalPassBlock }
 firstPassBlock = { ^":FIRST" }
-
-namedPassBlock = _{ beforePass | forPass | afterPass | lastPass}
-beforePass = { ^":BEFORE[" ~ modName ~ "]" }
-forPass = {^":FOR[" ~ modName ~ "]" }
-afterPass = {^":AFTER[" ~ modName ~ "]" }
-lastPass = {^":LAST[" ~ modName ~ "]" }
+beforePass     = { ^":BEFORE[" ~ modName ~ "]" }
+forPass        = { ^":FOR[" ~ modName ~ "]" }
+afterPass      = { ^":AFTER[" ~ modName ~ "]" }
+lastPass       = { ^":LAST[" ~ modName ~ "]" }
+finalPassBlock = { ^":FINAL" }
 
 modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
-
-finalPassBlock = { ^":FINAL" }
 
 // TODO: what about white space?
 index = { "," ~ ("*" | ("-"? ~ ASCII_DIGIT+)) }

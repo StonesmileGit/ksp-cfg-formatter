@@ -3,9 +3,7 @@ use std::fmt::Display;
 use itertools::Itertools;
 use pest::iterators::Pair;
 
-use crate::Rule;
-
-use super::Error;
+use super::{Error, Rule};
 
 #[derive(Debug, Clone)]
 pub struct NeedsBlock<'a> {

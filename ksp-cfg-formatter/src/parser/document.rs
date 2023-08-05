@@ -1,8 +1,6 @@
 use pest::iterators::Pair;
 
-use crate::{parser::Error, Rule};
-
-use super::{node::parse_block_items, node_item::NodeItem, ASTPrint};
+use super::{node::parse_block_items, node_item::NodeItem, ASTPrint, Error, Rule};
 
 #[derive(Debug)]
 pub struct Document<'a> {

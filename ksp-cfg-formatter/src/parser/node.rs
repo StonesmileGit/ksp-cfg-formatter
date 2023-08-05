@@ -1,10 +1,8 @@
 use pest::iterators::Pair;
 
-use crate::Rule;
-
 use super::{
-    comment::Comment, has::HasBlock, indices::Index, key_val::KeyVal, needs::NeedsBlock,
-    node_item::NodeItem, operator::Operator, pass::Pass, path::Path, ASTPrint, Error,
+    ASTPrint, Comment, Error, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator, Pass, Path,
+    Rule,
 };
 
 #[derive(Debug, Default)]
@@ -72,6 +70,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                 Rule::Newline => newline_seen = true,
 
                 Rule::identifier => node.identifier = pair.as_str(),
+                // TODO: The name could be a |-separated list, but only on top level
                 Rule::nameBlock => node.name = Some(pair.as_str()),
                 Rule::hasBlock => {
                     if node.has.is_some() {

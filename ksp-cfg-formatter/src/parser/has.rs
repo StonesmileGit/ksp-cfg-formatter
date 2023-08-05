@@ -1,12 +1,10 @@
-use crate::Rule;
+use super::{Error, Rule};
 use itertools::Itertools;
 use pest::iterators::Pair;
 use std::fmt::Display;
 
-use super::Error;
-
 #[derive(Debug, Clone)]
-pub enum Predicate<'a> {
+pub enum HasPredicate<'a> {
     NodePredicate {
         negated: bool,
         node_type: &'a str,
@@ -21,10 +19,10 @@ pub enum Predicate<'a> {
     },
 }
 
-impl<'a> Display for Predicate<'a> {
+impl<'a> Display for HasPredicate<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Predicate::NodePredicate {
+            HasPredicate::NodePredicate {
                 negated,
                 node_type,
                 name,
@@ -39,7 +37,7 @@ impl<'a> Display for Predicate<'a> {
                     .clone()
                     .map_or_else(String::new, |has_block| has_block.to_string())
             ),
-            Predicate::KeyPredicate {
+            HasPredicate::KeyPredicate {
                 negated,
                 key,
                 value,
@@ -55,7 +53,7 @@ impl<'a> Display for Predicate<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for HasPredicate<'a> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
@@ -80,7 +78,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         }
                     };
                 }
-                Ok(Predicate::NodePredicate {
+                Ok(HasPredicate::NodePredicate {
                     negated: first_char.ne(&'@'),
                     node_type,
                     name,
@@ -119,7 +117,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Predicate<'a> {
                         }
                     }
                 }
-                Ok(Predicate::KeyPredicate {
+                Ok(HasPredicate::KeyPredicate {
                     negated: first_char.ne(&'#'),
                     key,
                     value,
@@ -158,7 +156,7 @@ impl Display for MatchType {
 
 #[derive(Debug, Clone, Default)]
 pub struct HasBlock<'a> {
-    predicates: Vec<Predicate<'a>>,
+    predicates: Vec<HasPredicate<'a>>,
 }
 
 impl<'a> Display for HasBlock<'a> {
@@ -177,7 +175,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for HasBlock<'a> {
         assert!(matches!(rule.as_rule(), Rule::hasBlock));
         let mut has_block = HasBlock::default();
         for rule in rule.into_inner() {
-            has_block.predicates.push(Predicate::try_from(rule)?);
+            has_block.predicates.push(HasPredicate::try_from(rule)?);
         }
         Ok(has_block)
     }

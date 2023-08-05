@@ -1,8 +1,6 @@
-use crate::Rule;
+use super::{Error, Rule};
 use pest::iterators::Pair;
 use std::fmt::Display;
-
-use super::Error;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Index {

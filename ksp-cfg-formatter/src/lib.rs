@@ -6,8 +6,7 @@ pub mod wasm_bindings;
 
 pub mod parser;
 
-use self::parser::document::Document;
-use parser::{ASTPrint, Grammar, Rule};
+use parser::{ASTPrint, Document, Grammar, Rule};
 use pest::Parser;
 
 /// Defines which End of Line sequence to be used

@@ -1,13 +1,7 @@
 use super::{
-    assignment_operator::AssignmentOperator,
-    comment::Comment,
-    indices::{ArrayIndex, Index},
-    needs::NeedsBlock,
-    operator::Operator,
-    path::Path,
-    ASTPrint, Error,
+    ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index, NeedsBlock, Operator, Path,
+    Rule,
 };
-use crate::Rule;
 use pest::iterators::Pair;
 
 #[derive(Debug, Default, Clone)]

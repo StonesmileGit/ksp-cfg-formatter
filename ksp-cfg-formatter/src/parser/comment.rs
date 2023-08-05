@@ -1,5 +1,4 @@
-use super::ASTPrint;
-use crate::Rule;
+use super::{ASTPrint, Rule};
 use pest::iterators::Pair;
 use std::{convert::Infallible, fmt::Display};
 

@@ -1,4 +1,4 @@
-use crate::Rule;
+use super::Rule;
 use pest::iterators::Pair;
 use std::fmt::Display;
 

@@ -145,7 +145,10 @@ impl From<pest::error::Error<Rule>> for Error {
     }
 }
 
-/// The grammar of the parser
-#[derive(pest_derive::Parser)]
-#[grammar = "grammar.pest"]
-pub struct Grammar;
+pub use grammar::{Grammar, Rule};
+mod grammar {
+    #![allow(missing_docs)]
+    #[derive(pest_derive::Parser)]
+    #[grammar = "grammar.pest"]
+    pub struct Grammar;
+}

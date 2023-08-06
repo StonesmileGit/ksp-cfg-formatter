@@ -6,7 +6,7 @@ use pest::iterators::Pair;
 use super::Rule;
 
 /// Where the path starts from
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PathStart {
     /// Path starts from the top level
     //'@'
@@ -26,7 +26,7 @@ impl Display for PathStart {
 }
 
 /// Segment of a path, separated by `/`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PathSegment<'a> {
     /// Segment is `..`, going up a level
     DotDot,
@@ -89,7 +89,7 @@ impl<'a> Display for PathSegment<'a> {
 // TODO: Is this the best way to do it, since only the last segment can be/has to be a key?
 // Turns out the grammar is made to not include the key in the path...
 /// A path to a node or a variable
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Path<'a> {
     /// Optional start charecter of the path. Starts in current node if not specified
     pub start: Option<PathStart>,

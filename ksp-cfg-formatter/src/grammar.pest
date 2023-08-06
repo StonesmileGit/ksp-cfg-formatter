@@ -8,7 +8,7 @@ closingbracket = { "}" }
 
 node = { ("#" ~ path)? ~ operator? ~ nodeBeforeBlock ~ openingbracket ~ nodeBody ~ closingbracket ~ (Comment | Whitespace+)? }
 
-nodeBeforeBlock = _{ identifier ~ nameBlock? ~ (index | hasBlock | passBlock | needsBlock)* ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
+nodeBeforeBlock = _{ identifier ~ ("[" ~ nameBlock ~ "]")? ~ (index | hasBlock | passBlock | needsBlock)* ~ Comment? ~ Newline? ~ (Whitespace* ~ Comment? ~ Newline)* ~ (Whitespace | Newline)* }
 
 nodeBody = { (Whitespace* ~ Newline)* ~ (Whitespace* ~ statement)* ~ Newline* ~ Whitespace* }
 
@@ -22,7 +22,7 @@ identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
 keyIdentifier = ${ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
 
 path         = ${ ("@" | "/")? ~ (path_segment ~ "/")* }
-path_segment =  { ".." | identifier ~ nameBlock? }
+path_segment =  { ".." | identifier ~ ("[" ~ nameBlock ~ "]")? }
 
 operator = { "@" | "+" | "-" | "%" | "!" | "&" | "|" }
 
@@ -40,7 +40,7 @@ assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^")? ~ "=" }
 
 // Block for targetting a node with the specified identifier, eg: @PART[NameOfPart]
 // FIXME: Are spaces allowed?
-nameBlock = { "[" ~ ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)*)? ~ "]" }
+nameBlock = { ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)*)? }
 // nameBlock = { "[" ~ identifier ~ "]" }
 
 // TODO: Only supports positive has check for property

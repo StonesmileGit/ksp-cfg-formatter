@@ -176,7 +176,8 @@ impl<'a> ASTPrint for Node<'a> {
             self.path.clone().map_or(String::new(), |p| p.to_string()),
             self.operator.clone().unwrap_or_default(),
             self.identifier,
-            self.name.unwrap_or_default(),
+            self.name
+                .map_or(String::new(), |name| format!("[{}]", name)),
             self.has.clone().unwrap_or_default(),
             self.pass,
             self.needs.clone().map_or(String::new(), |n| n.to_string()),

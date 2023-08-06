@@ -1,4 +1,4 @@
-//! Parser and formatter for Kerbal Space Program config files, including ModuleManager syntax
+//! Parser and formatter for Kerbal Space Program config files, including Module Manager syntax
 #![warn(missing_docs)]
 /// Contains code to interface with TypeScript
 #[cfg(target_family = "wasm")]
@@ -114,7 +114,8 @@ impl Formatter {
     }
 
     /// Makes the parser fail silently, returning the original text instead of causing a Panic
-    pub fn fail_silent(self) -> Self {
+    #[must_use]
+    pub const fn fail_silent(self) -> Self {
         Self {
             indentation: self.indentation,
             inline: self.inline,
@@ -141,6 +142,8 @@ impl Formatter {
     /// # let input = String::new();
     /// let output = formatter.format_text(&input);
     /// ```
+    /// # Panics
+    /// If formatter isn't set to fail silently, then an error that occurs causes the function to panic, displaying the error
     #[must_use]
     pub fn format_text(&self, text: &str) -> String {
         match ast_format(text, self) {

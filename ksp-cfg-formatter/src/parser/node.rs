@@ -96,7 +96,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.has = Some(HasBlock::try_from(pair)?)
+                    node.has = Some(HasBlock::try_from(pair)?);
                 }
                 Rule::needsBlock => {
                     if node.needs.is_some() {
@@ -108,7 +108,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.needs = Some(NeedsBlock::try_from(pair)?)
+                    node.needs = Some(NeedsBlock::try_from(pair)?);
                 }
                 Rule::passBlock => {
                     if node.pass != Pass::Default {
@@ -132,7 +132,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.index = Some(super::indices::Index::try_from(pair)?)
+                    node.index = Some(super::indices::Index::try_from(pair)?);
                 }
                 Rule::operator => node.operator = Some(Operator::try_from(pair)?),
                 Rule::path => {
@@ -150,6 +150,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
     }
 }
 
+// TODO: Assignments are performed before nodes, so order them that way (move assignments before any nodes)
+// Thoughts:
+//      What about comments and newlines?
 impl<'a> ASTPrint for Node<'a> {
     fn ast_print(
         &self,

@@ -6,7 +6,7 @@ use pest::iterators::Pair;
 use super::Rule;
 
 /// Where the path starts from
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathStart {
     /// Path starts from the top level
     //'@'
@@ -26,7 +26,7 @@ impl Display for PathStart {
 }
 
 /// Segment of a path, separated by `/`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathSegment<'a> {
     /// Segment is `..`, going up a level
     DotDot,
@@ -45,8 +45,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
     type Error = Infallible;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        // dbg!(&rule);
-        let res = if rule.as_str() == ".." {
+        if rule.as_str() == ".." {
             Ok(Self::DotDot)
         } else {
             // FIXME: The index should be parsed into the struct
@@ -65,9 +64,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
                 name,
                 index: None,
             })
-        };
-        // dbg!(&res);
-        res
+        }
     }
 }
 
@@ -89,7 +86,7 @@ impl<'a> Display for PathSegment<'a> {
 // TODO: Is this the best way to do it, since only the last segment can be/has to be a key?
 // Turns out the grammar is made to not include the key in the path...
 /// A path to a node or a variable
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Path<'a> {
     /// Optional start charecter of the path. Starts in current node if not specified
     pub start: Option<PathStart>,

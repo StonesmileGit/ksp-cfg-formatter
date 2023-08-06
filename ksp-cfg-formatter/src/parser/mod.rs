@@ -90,12 +90,7 @@ impl Display for Location {
 impl From<Pair<'_, Rule>> for Location {
     fn from(rule: Pair<'_, Rule>) -> Self {
         let start = rule.line_col();
-        let delta_line = rule
-            .as_str()
-            .as_bytes()
-            .iter()
-            .filter(|&&c| c == b'\n')
-            .count();
+        let delta_line = rule.as_str().chars().filter(|&c| c == '\n').count();
         let last_line = rule.as_str().split('\n').last();
         let col = last_line.map_or(0, |ll| ll.chars().count());
         Location {

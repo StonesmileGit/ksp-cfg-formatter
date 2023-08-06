@@ -5,7 +5,7 @@ use pest::iterators::Pair;
 use super::Rule;
 
 /// Which pass a patch should run on
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pass<'a> {
     /// Patches in First are run first. Ordering: (1)
     First,

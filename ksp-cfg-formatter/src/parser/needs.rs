@@ -94,12 +94,12 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
             match pair.as_rule() {
                 Rule::negation => mod_clause.negated = true,
                 Rule::modName => mod_clause.name = pair.as_str(),
-                _ => {
+                rl => {
                     return Err(Error {
                         source_text: pair.as_str().to_string(),
-                        reason: super::Reason::Custom(
-                            "Unexpected rule enountered when parsing 'mod clause'".to_string(),
-                        ),
+                        reason: super::Reason::Custom(format!(
+                            "Unexpected rule enountered when parsing 'mod clause', found '{rl:?}'"
+                        )),
                         location: Some(pair.into()),
                     });
                 }

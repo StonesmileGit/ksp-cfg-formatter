@@ -36,10 +36,10 @@ impl<'a> TryFrom<Pair<'a, Rule>> for AssignmentOperator {
             "-=" => Ok(AssignmentOperator::Subtract),
             "!=" => Ok(AssignmentOperator::Power),
             "^=" => Ok(AssignmentOperator::RegexReplace),
-            _ => Err(Error {
+            str => Err(Error {
                 source_text: rule.as_str().to_string(),
                 location: Some(rule.into()),
-                reason: super::Reason::Custom("Unexpected character combination encountered when parsing 'Assignment Operator'".to_string()),
+                reason: super::Reason::Custom(format!("Unexpected character combination encountered when parsing 'Assignment Operator', found '{str}'")),
             }),
         }
     }

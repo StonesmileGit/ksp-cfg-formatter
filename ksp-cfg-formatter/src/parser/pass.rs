@@ -1,8 +1,8 @@
-use std::{convert::Infallible, fmt::Display};
+use std::fmt::Display;
 
 use pest::iterators::Pair;
 
-use super::Rule;
+use super::{Error, Rule};
 
 /// Which pass a patch should run on
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,7 +39,7 @@ impl<'a> Display for Pass<'a> {
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Pass<'a> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(&rule.clone().into_inner().count().eq(&1));
@@ -51,7 +51,13 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Pass<'a> {
             Rule::afterPass => Ok(Pass::After(inner.into_inner().next().unwrap().as_str())),
             Rule::lastPass => Ok(Pass::Last(inner.into_inner().next().unwrap().as_str())),
             Rule::finalPassBlock => Ok(Pass::Final),
-            _ => panic!("rule not covered: {:?}", inner.as_rule()),
+            rl => Err(Error {
+                location: None,
+                reason: super::Reason::Custom(format!(
+                    "Error while parsing pass; rule not covered: {rl:?}",
+                )),
+                source_text: String::new(),
+            }),
         }
     }
 }

@@ -80,9 +80,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for HasPredicate<'a> {
                         Rule::identifier => node_type = rule.as_str(),
                         Rule::hasNodeName => name = Some(rule.as_str()),
                         Rule::hasBlock => has_block = Some(HasBlock::try_from(rule)?),
-                        _ => {
+                        rl => {
                             return Err(Error {
-                                reason: super::Reason::Custom(format!("Unexpected Rule '{:?}' encountered when trying to parse HAS block node predicate", rule.as_rule())),
+                                reason: super::Reason::Custom(format!("Unexpected Rule '{rl:?}' encountered when trying to parse HAS block node predicate")),
                                 source_text: rule.as_str().to_string(),
                                 location: Some(rule.into()),
                             });
@@ -119,9 +119,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for HasPredicate<'a> {
                             };
                             value = Some(val);
                         }
-                        _ => {
+                        rl => {
                             return Err(Error {
-                                reason: super::Reason::Custom(format!("Unexpected Rule '{:?}' encountered when trying to parse HAS block key predicate", rule.as_rule())),
+                                reason: super::Reason::Custom(format!("Unexpected Rule '{rl:?}' encountered when trying to parse HAS block key predicate")),
                                 source_text: rule.as_str().to_string(),
                                 location: Some(rule.into()),
                             });
@@ -135,10 +135,9 @@ impl<'a> TryFrom<Pair<'a, Rule>> for HasPredicate<'a> {
                     match_type,
                 })
             }
-            _ => Err(Error {
+            ch => Err(Error {
                 reason: super::Reason::Custom(
-                    "Unexpected first char encountered when trying to parse HAS block predicate"
-                        .to_string(),
+                    format!("Unexpected first char encountered when trying to parse HAS block predicate, found '{ch}'"),
                 ),
                 source_text: rule.as_str().to_string(),
                 location: Some(rule.into()),

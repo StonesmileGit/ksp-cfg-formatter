@@ -30,6 +30,12 @@ If no path is provided, text is read from stdin."
         help = "Prints output to stdout instead of writing back to file when reading from path"
     )]
     stdout: bool,
+
+    #[arg(
+        long,
+        help = "Parser only checks the file for errors, without formatting it"
+    )]
+    check: bool,
 }
 
 fn main() {
@@ -45,7 +51,17 @@ fn main() {
             let worker = thread::spawn(move || {
                 let text = fs::read_to_string(&path)
                     .map_or_else(|_| format!("Failed to read text from {path}"), |t| t);
-                format_file(&args, &text, Some(path.clone()));
+                if args.check {
+                    match ksp_cfg_formatter::parse_to_ast(&text) {
+                        Ok(_) => (),
+                        Err(err) => {
+                            println!("{}", path);
+                            println!("{}\n", err);
+                        }
+                    };
+                } else {
+                    format_file(&args, &text, Some(path.clone()));
+                }
             });
             workers.push(worker);
         }

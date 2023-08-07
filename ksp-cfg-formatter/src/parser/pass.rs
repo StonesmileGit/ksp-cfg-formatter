@@ -20,7 +20,7 @@ pub enum Pass<'a> {
     After(&'a str),
     /// Last is run after After, before Final. Ordering: (6)
     Last(&'a str),
-    /// Final is run last
+    /// Final is run last. Ordering: (7)
     Final,
 }
 

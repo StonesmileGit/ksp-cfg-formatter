@@ -153,6 +153,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Node<'a> {
 // TODO: Assignments are performed before nodes, so order them that way (move assignments before any nodes)
 // Thoughts:
 //      What about comments and newlines?
+//      This should be in a separate part of the parser, a sort of middle tool that is run after parsing, before printing
 impl<'a> ASTPrint for Node<'a> {
     fn ast_print(
         &self,

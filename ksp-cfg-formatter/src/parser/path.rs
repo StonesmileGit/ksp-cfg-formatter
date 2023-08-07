@@ -83,8 +83,6 @@ impl<'a> Display for PathSegment<'a> {
     }
 }
 
-// TODO: Is this the best way to do it, since only the last segment can be/has to be a key?
-// Turns out the grammar is made to not include the key in the path...
 /// A path to a node or a variable
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Path<'a> {

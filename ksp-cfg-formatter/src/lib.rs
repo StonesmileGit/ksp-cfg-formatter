@@ -126,10 +126,7 @@ impl Formatter {
 
     /// Takes the provided text and formats it according to the settings of the `Formatter`
     ///
-    /// If the formatting fails, the orginal text is returned unchanged
-    /// FIXME: This is not indicated in any way
-    ///
-    /// TODO: Explain the parts of the formatter.
+    /// If the formatter is set to fail silently, and formatting fails, the orginal text is returned unchanged
     ///
     /// Example:
     /// ```
@@ -178,9 +175,9 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
     ))
 }
 
-/// TODO: Temp
+/// Parses the text to a `Document` struct
 /// # Errors
-/// TODO
+/// If any part of the parser fails, the returned error indicates what caused it, where it occured, and the source text for the error
 pub fn parse_to_ast(text: &str) -> Result<Document, parser::Error> {
     let mut parsed_text = Grammar::parse(Rule::document, text)?;
     let document = parsed_text

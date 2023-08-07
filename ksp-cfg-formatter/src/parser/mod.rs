@@ -41,7 +41,7 @@ pub trait ASTPrint {
     ) -> String;
 }
 
-/// TODO: Temp
+/// Error from the parser, with context
 #[derive(Debug, Clone, thiserror::Error)]
 pub struct Error {
     /// The reason for the error
@@ -59,8 +59,6 @@ pub enum Reason {
     Pest(Box<pest::error::Error<Rule>>),
     /// Parsing of an int failed
     ParseInt,
-    /// TODO: Needed?
-    EmptyDocument,
     /// Custom error with reason provided
     Custom(String),
     /// Unknown error
@@ -108,7 +106,6 @@ impl Display for Error {
         match &self.reason {
             Reason::Pest(pest) => write!(f, "{pest}"),
             Reason::ParseInt => todo!(),
-            Reason::EmptyDocument => todo!(),
             Reason::Custom(text) => write!(
                 f,
                 "{}, found {}{}",

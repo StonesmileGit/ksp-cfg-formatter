@@ -23,7 +23,6 @@ pub enum Operator {
     //TODO: Wanted?
     DeleteAlt,
     /// Rename a node. Not allowed on top level nodes
-    //TODO: This is technically not allowed in top level nodes
     Rename,
 }
 

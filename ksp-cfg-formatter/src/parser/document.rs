@@ -22,7 +22,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Document<'a> {
                 });
             }
         }
-        let statements = parse_block_items(rule)?;
+        let statements = parse_block_items(rule, true)?;
         Ok(Document { statements })
     }
 }

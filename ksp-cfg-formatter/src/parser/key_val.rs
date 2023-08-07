@@ -27,10 +27,12 @@ pub struct KeyVal<'a> {
     pub comment: Option<Comment<'a>>,
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
+impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
     type Error = Error;
 
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+    fn try_from(rule_bool: (Pair<'a, Rule>, bool)) -> Result<Self, Self::Error> {
+        let rule = rule_bool.0;
+        let top_level = rule_bool.1;
         let pairs = rule.into_inner();
         let mut key_val = KeyVal::default();
         for pair in pairs {
@@ -51,7 +53,17 @@ impl<'a> TryFrom<Pair<'a, Rule>> for KeyVal<'a> {
                     key_val.array_index = Some(super::indices::ArrayIndex::try_from(pair)?);
                 }
                 Rule::operator => {
-                    key_val.operator = Some(Operator::try_from(pair)?);
+                    let op = Some(Operator::try_from(pair.clone())?);
+                    if top_level && matches!(op, Some(Operator::Rename)) {
+                        return Err(Error {
+                            reason: crate::parser::Reason::Custom(
+                                "Found rename operator on top level node".to_string(),
+                            ),
+                            source_text: pair.as_str().to_string(),
+                            location: Some(pair.into()),
+                        });
+                    }
+                    key_val.operator = op;
                 }
                 Rule::keyIdentifier => key_val.key = pair.as_str().trim(),
                 Rule::path => {

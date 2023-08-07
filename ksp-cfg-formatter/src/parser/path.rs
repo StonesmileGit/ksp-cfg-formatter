@@ -76,7 +76,7 @@ impl<'a> Display for PathSegment<'a> {
                 f,
                 "{}{}{}/",
                 node,
-                name.map_or_else(String::new, |name| format!("[{}]", name)),
+                name.map_or_else(String::new, |name| format!("[{name}]")),
                 index.map_or_else(String::new, |index| index.to_string())
             ),
         }

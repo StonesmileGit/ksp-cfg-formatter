@@ -57,11 +57,12 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let s = rule.as_str();
         let trimmed = &s[1..s.len() - 1];
-        let mut a = trimmed.split(',');
-        let b = a.next().unwrap();
-        let index = match b {
+        let split = trimmed.split_once(',');
+        let first = split.map_or(trimmed, |split| split.0);
+        let second = split.map(|split| split.1);
+        let index = match first {
             "*" => None,
-            _ => Some(match b.parse() {
+            _ => Some(match first.parse() {
                 Ok(i) => i,
                 Err(_) => {
                     return Err(super::Error {
@@ -72,7 +73,19 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
                 }
             }),
         };
-        let separator = a.next().map(|s| s.chars().next().unwrap());
+        if let Some(scnd) = second {
+            if scnd.chars().count() > 1 {
+                return Err(Error {
+                    reason: super::Reason::Custom(
+                        "Error while trying to parse array index delimiter, too many chars found"
+                            .to_string(),
+                    ),
+                    source_text: rule.as_str().to_string(),
+                    location: Some(rule.into()),
+                });
+            }
+        }
+        let separator = second.map(|s| s.chars().next().unwrap());
         Ok(ArrayIndex { index, separator })
     }
 }

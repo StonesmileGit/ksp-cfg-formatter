@@ -19,7 +19,8 @@ assignment = { ("*" ~ path)? ~ operator? ~ keyIdentifier ~ needsBlock? ~ index? 
 // TODO: This is correct for nodes, but not key-value identifiers
 identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
 
-keyIdentifier = ${ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
+keyIdentifier     = ${ keyIdentifierPart ~ (Whitespace* ~ keyIdentifierPart)* }
+keyIdentifierPart = _{ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
 
 path         = ${ ("@" | "/")? ~ (path_segment ~ "/")* }
 path_segment =  { ".." | identifier ~ ("[" ~ nameBlock ~ "]")? }
@@ -43,7 +44,6 @@ assignmentOperator = { ("*" | "/" | "+" | "-" | "!" | "^")? ~ "=" }
 nameBlock = { ((!("|" | "," | "]") ~ ANY)+ ~ (("|" | ",") ~ (!("|" | "]") ~ ANY)+)*)? }
 // nameBlock = { "[" ~ identifier ~ "]" }
 
-// TODO: Only supports positive has check for property
 // # for key-value
 // hasBlock = { ^":HAS[" ~ ("#" ~ identifier ~ ("[" ~ identifier ~ hasBlock? ~ "]")?) ~ "]" }
 hasBlock     = { ^":HAS[" ~ (hasBlockPart ~ (("&" | ",") ~ hasBlockPart)*) ~ "]" }

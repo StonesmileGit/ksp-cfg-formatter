@@ -77,11 +77,19 @@ pub struct Location {
 
 impl Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[{}, {}] to [{}, {}]",
-            self.start[0], self.start[1], self.end[0], self.end[1]
-        )
+        if self.end[0] - self.start[0] > 0 {
+            write!(
+                f,
+                "[{}, {}] to [{}, {}]",
+                self.start[0], self.start[1], self.end[0], self.end[1]
+            )
+        } else {
+            write!(
+                f,
+                "Ln {}, Col {}-{}",
+                self.start[0], self.start[1], self.end[1]
+            )
+        }
     }
 }
 
@@ -108,7 +116,7 @@ impl Display for Error {
             Reason::ParseInt => todo!(),
             Reason::Custom(text) => write!(
                 f,
-                "{}, found {}{}",
+                "{}, found '{}'{}",
                 text,
                 self.source_text,
                 self.location

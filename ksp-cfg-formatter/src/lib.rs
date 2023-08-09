@@ -6,6 +6,8 @@ pub mod wasm_bindings;
 
 /// Contains the types of the parser
 pub mod parser;
+/// Functions to perform transformations on the parsed AST
+pub mod transformer;
 
 use parser::{ASTPrint, Document, Grammar, Rule};
 use pest::Parser;
@@ -166,6 +168,8 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
     };
     let document = Grammar::parse(Rule::document, text)?.next().unwrap();
     let parsed_document = Document::try_from(document)?;
+    // let parsed_document = transformer::assignments_first(parsed_document)?;
+    let parsed_document = transformer::assignment_padding(parsed_document);
     let line_ending = if use_crlf { "\r\n" } else { "\n" };
     Ok(parsed_document.ast_print(
         0,

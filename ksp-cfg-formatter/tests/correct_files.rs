@@ -57,3 +57,5 @@ gen_test!(
 );
 
 gen_test!(has_needs_for, "tests/has_needs_for.cfg", true);
+
+gen_test!(nodes_above_keys, "tests/nodes_above_keys.cfg", true);

@@ -53,7 +53,13 @@ fn main() {
                     .map_or_else(|_| format!("Failed to read text from {path}"), |t| t);
                 if args.check {
                     match ksp_cfg_formatter::parse_to_ast(&text) {
-                        Ok(_) => (),
+                        Ok(doc) => match ksp_cfg_formatter::transformer::assignments_first(doc) {
+                            Ok(_) => (),
+                            Err(err) => {
+                                println!("{}", path);
+                                println!("{}\n", err);
+                            }
+                        },
                         Err(err) => {
                             println!("{}", path);
                             println!("{}\n", err);

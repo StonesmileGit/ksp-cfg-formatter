@@ -19,12 +19,33 @@ pub struct KeyVal<'a> {
     pub index: Option<Index>,
     /// Optional array-index
     pub array_index: Option<ArrayIndex>,
+    key_padding: Option<String>,
     /// The assignment operator between the variable and the value
     pub assignment_operator: AssignmentOperator,
     /// The value to use in the assignment
     pub val: &'a str,
     /// Optional trailing comment
     pub comment: Option<Comment<'a>>,
+}
+
+impl<'a> KeyVal<'a> {
+    pub fn left_side(&self) -> String {
+        format!(
+            "{}{}{}{}{}{}{}",
+            if self.path.is_some() { "*" } else { "" },
+            self.path
+                .clone()
+                .map_or_else(String::new, |p| p.to_string()),
+            self.operator.clone().unwrap_or_default(),
+            self.key,
+            self.needs.clone().map_or(String::new(), |n| n.to_string()),
+            self.index.map_or_else(String::new, |i| i.to_string()),
+            self.array_index.map_or_else(String::new, |i| i.to_string()),
+        )
+    }
+    pub fn set_key_padding(&mut self, n: usize) {
+        self.key_padding = Some(" ".repeat(n - self.left_side().len()));
+    }
 }
 
 impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
@@ -84,7 +105,7 @@ impl<'a> ASTPrint for KeyVal<'a> {
     fn ast_print(&self, depth: usize, indentation: &str, line_ending: &str, _: bool) -> String {
         let indentation = indentation.repeat(depth);
         format!(
-            "{}{}{}{}{}{}{}{} {} {}{}{}",
+            "{}{}{}{}{}{}{}{}{} {} {}{}{}",
             indentation,
             if self.path.is_some() { "*" } else { "" },
             self.path
@@ -95,6 +116,7 @@ impl<'a> ASTPrint for KeyVal<'a> {
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
             self.index.map_or_else(String::new, |i| i.to_string()),
             self.array_index.map_or_else(String::new, |i| i.to_string()),
+            self.key_padding.clone().map_or_else(String::new, |p| p),
             self.assignment_operator,
             self.val,
             self.comment.map_or_else(String::new, |c| c.to_string()),

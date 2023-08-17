@@ -7,7 +7,7 @@ use super::{
 };
 
 /// A node in the config file. Both top level node and internal node
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Node<'a> {
     top_level: bool,
     /// Optional path to node, only allowed on internal nodes
@@ -38,8 +38,29 @@ pub struct Node<'a> {
 
 impl<'a> Node<'a> {
     /// Indicates if a node is a top-level node or not
-    pub fn top_level(&self) -> bool {
+    #[must_use]
+    pub const fn top_level(&self) -> bool {
         self.top_level
+    }
+    /// Returns an iterator over all of the Nodes contained within this node
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &Node> {
+        self.block.iter().filter_map(|n| {
+            if let NodeItem::Node(node) = n {
+                Some(node)
+            } else {
+                None
+            }
+        })
+    }
+    /// Returns an iterator over all of the Assignments contained within this node
+    pub fn iter_keyvals(&self) -> impl Iterator<Item = &KeyVal> {
+        self.block.iter().filter_map(|n| {
+            if let NodeItem::KeyVal(kv) = n {
+                Some(kv)
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -53,7 +74,7 @@ pub(crate) fn parse_block_items(pair: Pair<Rule>, top_level: bool) -> Result<Vec
                 Comment::try_from(pair).expect("Parsing a comment is Infallable"),
             ))),
             Rule::assignment => {
-                block_items.push(Ok(NodeItem::KeyVal(KeyVal::try_from((pair, top_level))?)))
+                block_items.push(Ok(NodeItem::KeyVal(KeyVal::try_from((pair, top_level))?)));
             }
             Rule::EmptyLine => block_items.push(Ok(NodeItem::EmptyLine)),
             Rule::EOI | Rule::Newline => (),

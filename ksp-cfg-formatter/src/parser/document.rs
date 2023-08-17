@@ -3,7 +3,7 @@ use pest::iterators::Pair;
 use super::{node::parse_block_items, node_item::NodeItem, ASTPrint, Error, Rule};
 
 /// Contains all the statements of a file
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Document<'a> {
     /// List of all the statements. Can be `Node`s, `Comment`s, or `EmptyLine`s
     pub statements: Vec<NodeItem<'a>>,

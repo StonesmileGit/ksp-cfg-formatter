@@ -23,13 +23,14 @@ pub struct KeyVal<'a> {
     /// The assignment operator between the variable and the value
     pub assignment_operator: AssignmentOperator,
     /// The value to use in the assignment
+    // FIXME: The value has the trailing whitespace in case of a comment. Split into a separate field
     pub val: &'a str,
     /// Optional trailing comment
     pub comment: Option<Comment<'a>>,
 }
 
 impl<'a> KeyVal<'a> {
-    pub fn left_side(&self) -> String {
+    pub(crate) fn left_side(&self) -> String {
         format!(
             "{}{}{}{}{}{}{}",
             if self.path.is_some() { "*" } else { "" },
@@ -43,7 +44,7 @@ impl<'a> KeyVal<'a> {
             self.array_index.map_or_else(String::new, |i| i.to_string()),
         )
     }
-    pub fn set_key_padding(&mut self, n: usize) {
+    pub(crate) fn set_key_padding(&mut self, n: usize) {
         self.key_padding = Some(" ".repeat(n - self.left_side().len()));
     }
 }

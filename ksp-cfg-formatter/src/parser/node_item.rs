@@ -1,7 +1,7 @@
 use super::{ASTPrint, Comment, KeyVal, Node};
 
 /// Enum for the different items that can exist in a document/node
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NodeItem<'a> {
     /// A node
     Node(Node<'a>),

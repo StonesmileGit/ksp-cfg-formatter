@@ -10,12 +10,13 @@ fn main() -> anyhow::Result<()> {
     let dir = project_root();
     sh.change_dir(dir);
     cmd!(sh, "cargo build -p lsp-rs --release").run()?;
-    sh.create_dir("./client/server")?;
+    sh.create_dir("./lsp-extension/server")?;
     sh.copy_file(
         "./target/release/lsp-rs.exe",
         "./lsp-extension/server/lsp-rs.exe",
     )?;
     sh.change_dir("./lsp-extension");
+    cmd!(sh, "cmd.exe /c npm ci").run()?;
     cmd!(sh, "cmd.exe /c npm run package").run()?;
     Ok(())
 }

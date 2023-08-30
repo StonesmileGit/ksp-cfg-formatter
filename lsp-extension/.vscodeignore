@@ -1,0 +1,8 @@
+**
+!client/node_modules/vscode-languageclient/**
+!out/extension.js
+!LICENSE
+!README.md
+!package-lock.json
+!package.json
+!server

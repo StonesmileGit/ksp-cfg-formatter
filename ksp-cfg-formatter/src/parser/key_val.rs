@@ -1,6 +1,6 @@
 use super::{
-    ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index, NeedsBlock, Operator, Path,
-    Rule,
+    operator::OperatorKind, ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index,
+    NeedsBlock, Operator, Path, Range, Rule,
 };
 use pest::iterators::Pair;
 
@@ -27,6 +27,7 @@ pub struct KeyVal<'a> {
     pub val: &'a str,
     /// Optional trailing comment
     pub comment: Option<Comment<'a>>,
+    range: Range,
 }
 
 impl<'a> KeyVal<'a> {
@@ -54,9 +55,13 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
 
     fn try_from(rule_bool: (Pair<'a, Rule>, bool)) -> Result<Self, Self::Error> {
         let rule = rule_bool.0;
+        let range = Range::from(&rule);
         let top_level = rule_bool.1;
         let pairs = rule.into_inner();
-        let mut key_val = KeyVal::default();
+        let mut key_val = KeyVal {
+            range,
+            ..Default::default()
+        };
         for pair in pairs {
             match pair.as_rule() {
                 Rule::value => key_val.val = pair.as_str(),
@@ -76,14 +81,16 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
                 }
                 Rule::operator => {
                     let op = Some(Operator::try_from(pair.clone())?);
-                    if top_level && matches!(op, Some(Operator::Rename)) {
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom(
-                                "Found rename operator on top level node".to_string(),
-                            ),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
+                    if let Some(op) = &op {
+                        if top_level && matches!(op.get_kind(), OperatorKind::Rename) {
+                            return Err(Error {
+                                reason: crate::parser::Reason::Custom(
+                                    "Found rename operator on top level node".to_string(),
+                                ),
+                                source_text: pair.as_str().to_string(),
+                                location: Some(pair.into()),
+                            });
+                        }
                     }
                     key_val.operator = op;
                 }

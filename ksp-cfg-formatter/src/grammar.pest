@@ -1,4 +1,4 @@
-document = { SOI ~ "\u{FEFF}"? ~ Newline* ~ statement* ~ (Newline | Whitespace)* ~ EOI }
+document = { SOI ~ "\u{FEFF}"? ~ (Newline | Whitespace)* ~ statement* ~ (Newline | Whitespace)* ~ EOI }
 
 statement = _{ (assignment | node | Comment) ~ (EmptyLine | Newline)? }
 

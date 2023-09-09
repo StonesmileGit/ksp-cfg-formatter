@@ -4,26 +4,26 @@ use strsim::normalized_levenshtein;
 use crate::parser::{Document, KeyVal, NodeItem};
 
 /// Returns `None` if the strings are not similair enough, otherwise the max length is returned.
-fn max_len_if_similar(a: String, b: String) -> Option<usize> {
+fn max_len_if_similar(a: &str, b: &str) -> Option<usize> {
     const MIN_CLOSENESS: f64 = 0.8;
     const MAX_DIFF: usize = 4;
 
-    if normalized_levenshtein(a.as_str(), b.as_str()) < MIN_CLOSENESS {
+    if normalized_levenshtein(a, b) < MIN_CLOSENESS {
         return None;
     };
-    let a_len: usize = a.chars().count().try_into().unwrap();
-    let b_len: usize = b.chars().count().try_into().unwrap();
+    let a_len: usize = a.chars().count();
+    let b_len: usize = b.chars().count();
     if a_len.abs_diff(b_len) > MAX_DIFF {
         return None;
     };
-    return Some(a_len.max(b_len));
+    Some(a_len.max(b_len))
 }
 
-fn max_len_in_vec_if_similar(strs: &Vec<KeyVal>) -> Option<usize> {
+fn max_len_in_vec_if_similar(strs: &[KeyVal]) -> Option<usize> {
     strs.iter()
-        .map(|kv| kv.left_side())
+        .map(KeyVal::left_side)
         .tuple_windows()
-        .map(|t: (String, String)| max_len_if_similar(t.0, t.1))
+        .map(|t: (String, String)| max_len_if_similar(t.0.as_str(), t.1.as_str()))
         .reduce(|a, b| {
             if a.is_none() | b.is_none() {
                 None
@@ -34,6 +34,8 @@ fn max_len_in_vec_if_similar(strs: &Vec<KeyVal>) -> Option<usize> {
         .unwrap_or(None)
 }
 
+/// pads any assignments where similar keys are found in the immediately adjacent lines, with no empty lines in between
+#[must_use]
 pub fn assignment_padding(mut doc: Document) -> Document {
     doc.statements = handle_node_items(doc.statements);
     doc
@@ -53,7 +55,7 @@ fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
             NodeItem::Comment(comment) => {
                 processed = fix_kvs(accumulator, processed);
                 accumulator = Vec::new();
-                processed.push(NodeItem::Comment(comment))
+                processed.push(NodeItem::Comment(comment));
             }
             NodeItem::KeyVal(kv) => accumulator.push(kv),
             NodeItem::EmptyLine => {

@@ -1,11 +1,17 @@
 use pest::iterators::Pair;
 use std::fmt::Display;
 
-use super::{Error, Rule};
+use super::{Error, Range, Rule};
+
+#[derive(Debug, Clone, Default)]
+pub struct Operator {
+    kind: OperatorKind,
+    range: Range,
+}
 
 /// The different kinds of operations that can be done
-#[derive(Debug, Clone, Default)]
-pub enum Operator {
+#[derive(Debug, Clone, Default, Copy)]
+pub enum OperatorKind {
     /// No operator
     #[default]
     None,
@@ -26,19 +32,55 @@ pub enum Operator {
     Rename,
 }
 
+impl Operator {
+    #[must_use]
+    pub const fn get_pos(&self) -> super::Range {
+        self.range
+    }
+    #[must_use]
+    pub const fn get_kind(&self) -> OperatorKind {
+        self.kind
+    }
+}
+
 impl TryFrom<Pair<'_, Rule>> for Operator {
     type Error = Error;
 
     fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
+        let range = Range::from(&rule);
         match rule.as_str() {
-            "" => Ok(Self::None),
-            "@" => Ok(Self::Edit),
-            "%" => Ok(Self::EditOrCreate),
-            "&" => Ok(Self::CreateIfNotFound),
-            "+" => Ok(Self::Copy),
-            "!" => Ok(Self::Delete),
-            "-" => Ok(Self::DeleteAlt),
-            "|" => Ok(Self::Rename),
+            "" => Ok(Self {
+                kind: OperatorKind::None,
+                range,
+            }),
+            "@" => Ok(Self {
+                kind: OperatorKind::Edit,
+                range,
+            }),
+            "%" => Ok(Self {
+                kind: OperatorKind::EditOrCreate,
+                range,
+            }),
+            "&" => Ok(Self {
+                kind: OperatorKind::CreateIfNotFound,
+                range,
+            }),
+            "+" => Ok(Self {
+                kind: OperatorKind::Copy,
+                range,
+            }),
+            "!" => Ok(Self {
+                kind: OperatorKind::Delete,
+                range,
+            }),
+            "-" => Ok(Self {
+                kind: OperatorKind::DeleteAlt,
+                range,
+            }),
+            "|" => Ok(Self {
+                kind: OperatorKind::Rename,
+                range,
+            }),
             str => Err(Error {
                 source_text: str.to_string(),
                 location: Some(rule.into()),
@@ -50,15 +92,15 @@ impl TryFrom<Pair<'_, Rule>> for Operator {
 
 impl Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Operator::None => write!(f, ""),
-            Operator::Edit => write!(f, "@"),
-            Operator::EditOrCreate => write!(f, "%"),
-            Operator::Copy => write!(f, "+"),
-            Operator::Delete => write!(f, "!"),
-            Operator::DeleteAlt => write!(f, "-"),
-            Operator::CreateIfNotFound => write!(f, "&"),
-            Operator::Rename => write!(f, "|"),
+        match self.kind {
+            OperatorKind::None => write!(f, ""),
+            OperatorKind::Edit => write!(f, "@"),
+            OperatorKind::EditOrCreate => write!(f, "%"),
+            OperatorKind::Copy => write!(f, "+"),
+            OperatorKind::Delete => write!(f, "!"),
+            OperatorKind::DeleteAlt => write!(f, "-"),
+            OperatorKind::CreateIfNotFound => write!(f, "&"),
+            OperatorKind::Rename => write!(f, "|"),
         }
     }
 }

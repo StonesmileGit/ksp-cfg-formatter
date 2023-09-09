@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, num::TryFromIntError};
 
 use pest::iterators::Pair;
 
@@ -47,7 +47,7 @@ pub struct Error {
     /// The reason for the error
     pub reason: Reason,
     /// Optional line/col span indicating the origin of the error
-    pub location: Option<Location>,
+    pub location: Option<Range>,
     /// Source string from which the error occured
     pub source_text: String,
 }
@@ -66,45 +66,71 @@ pub enum Reason {
     Unknown,
 }
 
-/// Location of an error, as a span between `start` and `end`
-#[derive(Debug, Clone)]
-pub struct Location {
-    /// line/col of the start of the error
-    pub start: [usize; 2],
-    /// line/col of the end of the error
-    pub end: [usize; 2],
+/// Represents a text position in a text file, with line and character
+#[derive(Debug, Clone, Default, Copy)]
+pub struct Position {
+    /// The line that the position is pointing at
+    pub line: u32,
+    /// The character withing the line that the position is pointing at
+    pub char: u32,
 }
 
-impl Display for Location {
+impl Position {
+    /// Creates a position from a line number, and a character number
+    #[must_use]
+    pub const fn new(line: u32, char: u32) -> Self {
+        Self { line, char }
+    }
+}
+
+/// Location of an error, as a span between `start` and `end`
+#[derive(Debug, Clone, Default, Copy)]
+pub struct Range {
+    /// Position of the start of the error
+    pub start: Position,
+    /// Position of the end of the error
+    pub end: Position,
+}
+
+impl Display for Range {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.end[0] - self.start[0] > 0 {
+        if self.end.line - self.start.line > 0 {
             write!(
                 f,
                 "[{}, {}] to [{}, {}]",
-                self.start[0], self.start[1], self.end[0], self.end[1]
+                self.start.line, self.start.char, self.end.line, self.end.char
             )
         } else {
             write!(
                 f,
                 "Ln {}, Col {}-{}",
-                self.start[0], self.start[1], self.end[1]
+                self.start.line, self.start.char, self.end.char
             )
         }
     }
 }
-
-impl From<Pair<'_, Rule>> for Location {
+impl From<Pair<'_, Rule>> for Range {
     fn from(rule: Pair<'_, Rule>) -> Self {
+        Range::from(&rule)
+    }
+}
+
+impl From<&Pair<'_, Rule>> for Range {
+    fn from(rule: &Pair<'_, Rule>) -> Self {
         let start = rule.line_col();
         let delta_line = rule.as_str().chars().filter(|&c| c == '\n').count();
         let last_line = rule.as_str().split('\n').last();
         let col = last_line.map_or(0, |ll| ll.chars().count());
-        Location {
-            start: [start.0, start.1],
-            end: [
-                start.0 + delta_line,
-                if delta_line > 0 { col } else { start.1 + col },
-            ],
+        Range {
+            start: Position::new(start.0 as u32, start.1 as u32),
+            end: Position::new(
+                (start.0 + delta_line) as u32,
+                if delta_line > 0 {
+                    col as u32
+                } else {
+                    (start.1 + col) as u32
+                },
+            ),
         }
     }
 }
@@ -120,7 +146,6 @@ impl Display for Error {
                 text,
                 self.source_text,
                 self.location
-                    .clone()
                     .map_or(String::new(), |loc| format!(" at {loc}"))
             ),
             Reason::Unknown => write!(
@@ -128,7 +153,6 @@ impl Display for Error {
                 "UNKNOWN ERROR. source: {}{}",
                 self.source_text,
                 self.location
-                    .clone()
                     .map_or(String::new(), |loc| format!(" at {loc}"))
             ),
         }
@@ -139,8 +163,41 @@ impl From<pest::error::Error<Rule>> for Error {
     fn from(value: pest::error::Error<Rule>) -> Self {
         Error {
             reason: Reason::Pest(Box::new(value.clone())),
-            location: None,
             source_text: value.to_string(),
+            location: Some(
+                value
+                    .line_col
+                    .try_into()
+                    .map_or_else(|_| Range::default(), |it| it),
+            ),
+        }
+    }
+}
+
+impl TryFrom<pest::error::LineColLocation> for Range {
+    type Error = TryFromIntError;
+    fn try_from(value: pest::error::LineColLocation) -> Result<Range, TryFromIntError> {
+        match value {
+            pest::error::LineColLocation::Pos(pos) => Ok(Self {
+                start: Position {
+                    line: u32::try_from(pos.0)?,
+                    char: u32::try_from(pos.1)?,
+                },
+                end: Position {
+                    line: u32::try_from(pos.0)?,
+                    char: u32::try_from(pos.1)?,
+                },
+            }),
+            pest::error::LineColLocation::Span(start, end) => Ok(Self {
+                start: Position {
+                    line: u32::try_from(start.0)?,
+                    char: u32::try_from(start.1)?,
+                },
+                end: Position {
+                    line: u32::try_from(end.0)?,
+                    char: u32::try_from(end.1)?,
+                },
+            }),
         }
     }
 }

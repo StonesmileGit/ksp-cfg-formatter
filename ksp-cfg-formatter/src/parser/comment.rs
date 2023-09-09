@@ -1,4 +1,4 @@
-use super::{ASTPrint, Rule};
+use super::{ASTPrint, Range, Rule};
 use pest::iterators::Pair;
 use std::{convert::Infallible, fmt::Display};
 
@@ -7,14 +7,17 @@ use std::{convert::Infallible, fmt::Display};
 pub struct Comment<'a> {
     /// Text of the comment, including the leading `//`
     pub text: &'a str,
+    range: Range,
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Comment<'a> {
     type Error = Infallible;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+        let range = Range::from(&rule);
         Ok(Comment {
             text: rule.as_str(),
+            range,
         })
     }
 }

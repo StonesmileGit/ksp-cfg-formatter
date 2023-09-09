@@ -3,13 +3,14 @@ use std::fmt::Display;
 use itertools::Itertools;
 use pest::iterators::Pair;
 
-use super::{Error, Rule};
+use super::{Error, Range, Rule};
 
 /// Contains a `Vec` of all the clauses to be combined using logical ANDs. All clauses have to be satisfied for the parent operation to be executed
 #[derive(Debug, Clone)]
 pub struct NeedsBlock<'a> {
     /// The clauses to be combined using logical ANDs
     pub or_clauses: Vec<OrClause<'a>>,
+    range: Range,
 }
 
 impl<'a> Display for NeedsBlock<'a> {
@@ -22,6 +23,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Error> {
+        let range = Range::from(&rule);
         let mut or_clauses = vec![];
         for pair in rule.into_inner() {
             if pair.as_rule() == Rule::modOrClause {
@@ -31,7 +33,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
                 panic!("Got unexpected rule: {rule_name:?}");
             }
         }
-        Ok(NeedsBlock { or_clauses })
+        Ok(NeedsBlock { or_clauses, range })
     }
 }
 
@@ -40,6 +42,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
 pub struct OrClause<'a> {
     /// The clauses to be combined using logical ORs
     pub mod_clauses: Vec<ModClause<'a>>,
+    range: Range,
 }
 
 impl<'a> Display for OrClause<'a> {
@@ -52,6 +55,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+        let range = Range::from(&rule);
         let mut mod_clauses = vec![];
         for pair in rule.into_inner() {
             if pair.as_rule() == Rule::needsMod {
@@ -66,7 +70,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
                 });
             }
         }
-        Ok(OrClause { mod_clauses })
+        Ok(OrClause { mod_clauses, range })
     }
 }
 
@@ -77,6 +81,7 @@ pub struct ModClause<'a> {
     pub negated: bool,
     /// Name of the mod to check for
     pub name: &'a str,
+    range: Range,
 }
 
 impl<'a> Display for ModClause<'a> {
@@ -89,7 +94,11 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let mut mod_clause = ModClause::default();
+        let range = Range::from(&rule);
+        let mut mod_clause = ModClause {
+            range,
+            ..Default::default()
+        };
         for pair in rule.into_inner() {
             match pair.as_rule() {
                 Rule::negation => mod_clause.negated = true,

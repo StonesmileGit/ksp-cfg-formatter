@@ -1,9 +1,11 @@
 use itertools::Itertools;
 use pest::iterators::Pair;
 
+use crate::parser::operator::OperatorKind;
+
 use super::{
     ASTPrint, Comment, Error, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator, Pass, Path,
-    Rule,
+    Range, Rule,
 };
 
 /// A node in the config file. Both top level node and internal node
@@ -17,7 +19,7 @@ pub struct Node<'a> {
     /// Identifier of the node
     pub identifier: &'a str,
     /// Optional name of the node. Same as `:HAS[name[<name>]]`
-    pub name: Option<Vec<&'a str>>,
+    pub name: Option<(Vec<&'a str>, Range)>,
     /// Optional HAS block
     pub has: Option<HasBlock<'a>>,
     /// Optional NEEDS block
@@ -34,6 +36,8 @@ pub struct Node<'a> {
     pub block: Vec<NodeItem<'a>>,
     /// Optional trailing comment after the closing bracket
     pub trailing_comment: Option<Comment<'a>>,
+    /// the range that the node spans
+    pub range: Range,
 }
 
 impl<'a> Node<'a> {
@@ -89,10 +93,12 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
 
     fn try_from(rule_bool: (Pair<'a, Rule>, bool)) -> Result<Self, Self::Error> {
         let rule = rule_bool.0;
+        let range = Range::from(&rule);
         assert!(matches!(rule.as_rule(), Rule::node));
 
         let mut node = Node {
             top_level: rule_bool.1,
+            range,
             ..Default::default()
         };
 
@@ -120,15 +126,7 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                 Rule::identifier => node.identifier = pair.as_str(),
                 Rule::nameBlock => {
                     let names: Vec<&'a str> = pair.as_str().split('|').collect();
-                    if names.len() > 1 && !node.top_level {
-                        // TODO: This is technically a warning, and not an error
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom("Node name-filter contained multiple items, but is not top level node".to_string()),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
-                    }
-                    node.name = Some(names);
+                    node.name = Some((names, pair.into()));
                 }
                 Rule::hasBlock => {
                     if node.has.is_some() {
@@ -189,14 +187,16 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                 }
                 Rule::operator => {
                     let op = Some(Operator::try_from(pair.clone())?);
-                    if matches!(op, Some(Operator::Rename)) {
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom(
-                                "Found rename operator on node".to_string(),
-                            ),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
+                    if let Some(op) = &op {
+                        if matches!(op.get_kind(), OperatorKind::Rename) {
+                            return Err(Error {
+                                reason: crate::parser::Reason::Custom(
+                                    "Found rename operator on node".to_string(),
+                                ),
+                                source_text: pair.as_str().to_string(),
+                                location: Some(pair.into()),
+                            });
+                        }
                     }
                     node.operator = op;
                 }
@@ -244,7 +244,7 @@ impl<'a> ASTPrint for Node<'a> {
             self.identifier,
             self.name.clone().map_or(String::new(), |name| format!(
                 "[{}]",
-                name.iter().format("|")
+                name.0.iter().format("|")
             )),
             self.has.clone().unwrap_or_default(),
             self.pass,
@@ -331,7 +331,7 @@ fn short_node(arg: &Node) -> bool {
     len += arg
         .name
         .clone()
-        .map_or(0, |name| name.iter().map(|e| e.chars().count()).sum());
+        .map_or(0, |name| name.0.iter().map(|e| e.chars().count()).sum());
     len += arg
         .has
         .clone()

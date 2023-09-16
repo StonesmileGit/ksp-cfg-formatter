@@ -1,4 +1,15 @@
-use super::{Error, Rule};
+use super::{
+    nom::{CSTParse, IResult, LocatedSpan},
+    Error, Rule,
+};
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{anychar, digit1},
+    combinator::{map, opt, value},
+    number::complete::le_i32,
+    sequence::{delimited, pair, preceded},
+};
 use pest::iterators::Pair;
 use std::fmt::Display;
 
@@ -39,6 +50,27 @@ impl Display for Index {
             Index::All => write!(f, ",*"),
             Index::Number(n) => write!(f, ",{n}"),
         }
+    }
+}
+
+impl CSTParse<'_, Index> for Index {
+    fn parse(input: LocatedSpan) -> IResult<Index> {
+        // index = { "," ~ ("*" | ("-"? ~ ASCII_DIGIT+)) }
+        preceded(
+            tag(","),
+            alt((
+                value(Index::All, tag("*")),
+                // TODO: Allow negative numbers
+                map(digit1, |inner: LocatedSpan| {
+                    Index::Number(
+                        inner
+                            .fragment()
+                            .parse()
+                            .expect("Only digits are allowed to get through the parser"),
+                    )
+                }),
+            )),
+        )(input)
     }
 }
 
@@ -100,5 +132,24 @@ impl Display for ArrayIndex {
             self.separator
                 .map_or_else(String::new, |separator| separator.to_string())
         )
+    }
+}
+
+impl CSTParse<'_, ArrayIndex> for ArrayIndex {
+    fn parse(input: LocatedSpan) -> IResult<ArrayIndex> {
+        // arrayIndex = { "[" ~ ("*" | ASCII_DIGIT+) ~ ("," ~ ANY)? ~ "]" }
+        let array_index = pair(
+            alt((
+                value(None, tag("*")),
+                map(digit1, |n: LocatedSpan| Some(n.fragment().parse().unwrap())),
+            )),
+            opt(preceded(tag(","), anychar)),
+        );
+        map(delimited(tag("["), array_index, tag("]")), |inner| {
+            ArrayIndex {
+                index: inner.0,
+                separator: inner.1,
+            }
+        })(input)
     }
 }

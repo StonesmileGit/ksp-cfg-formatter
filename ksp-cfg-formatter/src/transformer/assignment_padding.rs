@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use strsim::normalized_levenshtein;
 
-use crate::parser::{Document, KeyVal, NodeItem};
+use crate::parser::{DocItem, Document, KeyVal, NodeItem};
 
 /// Returns `None` if the strings are not similair enough, otherwise the max length is returned.
 fn max_len_if_similar(a: &str, b: &str) -> Option<usize> {
@@ -37,8 +37,31 @@ fn max_len_in_vec_if_similar(strs: &[KeyVal]) -> Option<usize> {
 /// pads any assignments where similar keys are found in the immediately adjacent lines, with no empty lines in between
 #[must_use]
 pub fn assignment_padding(mut doc: Document) -> Document {
-    doc.statements = handle_node_items(doc.statements);
+    doc.statements = handle_doc_items(doc.statements);
     doc
+}
+
+fn handle_doc_items(items: Vec<DocItem>) -> Vec<DocItem> {
+    let items = items
+        .iter()
+        .map(|e| match e {
+            DocItem::Node(n) => NodeItem::Node(n.to_owned()),
+            DocItem::Comment(c) => NodeItem::Comment(c.to_owned()),
+            DocItem::EmptyLine => NodeItem::EmptyLine,
+            DocItem::Error => NodeItem::Error,
+        })
+        .collect();
+    let items = handle_node_items(items);
+    items
+        .iter()
+        .map(|e| match e {
+            NodeItem::Node(n) => DocItem::Node(n.to_owned()),
+            NodeItem::Comment(c) => DocItem::Comment(c.to_owned()),
+            NodeItem::EmptyLine => DocItem::EmptyLine,
+            NodeItem::Error => DocItem::Error,
+            NodeItem::KeyVal(_) => unreachable!(),
+        })
+        .collect_vec()
 }
 
 fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
@@ -63,6 +86,7 @@ fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
                 accumulator = Vec::new();
                 processed.push(NodeItem::EmptyLine);
             }
+            NodeItem::Error => todo!(),
         }
     }
     fix_kvs(accumulator, processed)

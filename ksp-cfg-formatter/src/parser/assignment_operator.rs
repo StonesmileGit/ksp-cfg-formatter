@@ -1,4 +1,5 @@
-use super::Rule;
+use super::{nom::CSTParse, Rule};
+use nom::{bytes::complete::tag, combinator::value};
 use pest::iterators::Pair;
 use std::fmt::Display;
 
@@ -56,5 +57,19 @@ impl Display for AssignmentOperator {
             AssignmentOperator::Power => write!(f, "!="),
             AssignmentOperator::RegexReplace => write!(f, "^="),
         }
+    }
+}
+
+impl CSTParse<'_, AssignmentOperator> for AssignmentOperator {
+    fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<AssignmentOperator> {
+        nom::branch::alt((
+            value(AssignmentOperator::Add, tag("+=")),
+            value(AssignmentOperator::Subtract, tag("-=")),
+            value(AssignmentOperator::Multiply, tag("*=")),
+            value(AssignmentOperator::Divide, tag("/=")),
+            value(AssignmentOperator::Power, tag("!=")),
+            value(AssignmentOperator::RegexReplace, tag("^=")),
+            value(AssignmentOperator::Assign, tag("=")),
+        ))(input)
     }
 }

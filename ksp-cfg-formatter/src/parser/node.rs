@@ -1,11 +1,18 @@
 use itertools::Itertools;
+use nom::branch::{alt, permutation};
+use nom::bytes::complete::{is_a, is_not, tag};
+use nom::character::complete::{alphanumeric1, char, line_ending, space0};
+use nom::combinator::{map, opt, recognize, verify};
+use nom::multi::{many0, many1, separated_list1};
+use nom::sequence::{delimited, preceded};
 use pest::iterators::Pair;
 
 use crate::parser::operator::OperatorKind;
 
+use super::nom::utils::{debug_fn, empty_line, expect, ws, ws_le};
 use super::{
-    ASTPrint, Comment, Error, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator, Pass, Path,
-    Range, Rule,
+    nom::CSTParse, ASTPrint, Comment, Error, HasBlock, Index, KeyVal, NeedsBlock, NodeItem,
+    Operator, Pass, Path, Range, Rule,
 };
 
 /// A node in the config file. Both top level node and internal node
@@ -358,4 +365,157 @@ fn short_node(arg: &Node) -> bool {
         _ => return false,
     }
     len <= MAX_LENGTH
+}
+
+use super::nom::{utils::ignore_line_ending, IResult, LocatedSpan};
+
+impl<'a> CSTParse<'a, Node<'a>> for Node<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Node<'a>> {
+        let path = opt(preceded(tag("#"), Path::parse));
+        let operator = opt(Operator::parse);
+        // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
+        let identifier = recognize(many1(alt((alphanumeric1, is_a("-_.+*?")))));
+        let name = opt(parse_name);
+        let has = opt(HasBlock::parse);
+        let needs = opt(NeedsBlock::parse);
+        let pass = opt(Pass::parse);
+        let index = opt(Index::parse);
+        let id_comment = opt(Comment::parse);
+        let comments_after_newline = many0(Comment::parse);
+        let block = preceded(opt(line_ending), preceded(space0, parse_block));
+        let trailing_comment = nom::combinator::opt(Comment::parse);
+        let node = nom::sequence::tuple((
+            debug_fn(path, "Got path", true),
+            debug_fn(operator, "Got operator", true),
+            debug_fn(identifier, "Got node id", true),
+            debug_fn(expect(name, "Expected name"), "Got name", true),
+            // FIXME: Order of has/needs/pass matters at the moment. Rework to take them in any order (one time, or many, for error handling?)
+            many0(verify(
+                permutation((
+                    debug_fn(has, "Got has", true),
+                    debug_fn(pass, "Got pass", true),
+                    debug_fn(needs, "Got needs", true),
+                )),
+                |a| a.0.is_some() | a.1.is_some() | a.2.is_some(),
+            )),
+            debug_fn(expect(index, "Expected index"), "Got index", true),
+            debug_fn(
+                expect(id_comment, "Expected id_comment"),
+                "Got id_comment",
+                true,
+            ),
+            debug_fn(
+                expect(comments_after_newline, "Expected comments after newline"),
+                "Got comments after newline",
+                true,
+            ),
+            debug_fn(block, "Got block", true),
+            debug_fn(
+                expect(trailing_comment, "Expected trailing comment"),
+                "Got trailing comment",
+                true,
+            ),
+        ));
+        nom::combinator::map(ws(node), |inner| Node {
+            top_level: false,
+            path: inner.0,
+            operator: inner.1,
+            // identifier: inner.2.map_or("ERROR", |s| s.fragment()),
+            identifier: inner.2.fragment(),
+            name: inner.3.unwrap_or(None),
+            has: inner
+                .4
+                .iter()
+                .map(|a| a.0.clone())
+                .flatten()
+                .collect_vec()
+                .first()
+                .cloned(),
+            // FIXME: swapped index on needs and pass
+            needs: inner
+                .4
+                .iter()
+                .map(|a| a.2.clone())
+                .flatten()
+                .collect_vec()
+                .first()
+                .cloned(),
+            pass: inner
+                .4
+                .iter()
+                .map(|a| a.1.clone())
+                .flatten()
+                .collect_vec()
+                .first()
+                .cloned()
+                .unwrap_or(Pass::Default),
+            index: inner.5.unwrap_or(None),
+            id_comment: inner.6.unwrap_or(None),
+            comments_after_newline: inner.7.unwrap_or(vec![]),
+            // block: inner.10.unwrap_or(vec![]),
+            block: inner.8,
+            trailing_comment: inner.9.unwrap_or(None),
+            // FIXME: Range is default
+            range: Range::default(),
+        })(input)
+    }
+}
+
+fn parse_name(input: LocatedSpan) -> IResult<(Vec<&str>, Range)> {
+    let list = delimited(tag("["), separated_list1(tag("|"), is_not("|]")), tag("]"));
+    map(list, |inner| {
+        let arr = inner.iter().map(|e: &LocatedSpan| *e.fragment()).collect();
+        (arr, Range::default())
+    })(input)
+}
+
+fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
+    let block = delimited(
+        char('{'),
+        ws_le(many0(ws(alt((
+            map(ignore_line_ending(ws(Comment::parse)), |c| {
+                NodeItem::Comment(c)
+            }),
+            map(ws(empty_line), |_| NodeItem::EmptyLine),
+            map(ws(KeyVal::parse), |kv| NodeItem::KeyVal(kv)),
+            map(ignore_line_ending(ws(Node::parse)), |n| NodeItem::Node(n)),
+        ))))),
+        char('}'),
+    );
+    map(block, |inner: Vec<NodeItem>| inner)(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use crate::parser::nom::{LocatedSpan, State};
+
+    use super::*;
+    #[test]
+    fn test_node() {
+        let input = "node { key = val }\r\n";
+        let res = Node::parse(LocatedSpan::new_extra(
+            input,
+            State(RefCell::new(Vec::new())),
+        ));
+
+        match res {
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
+            Err(err) => panic!("{}", err),
+        }
+    }
+    #[test]
+    fn test_node_2() {
+        let input = "node\r\n{\r\n\tkey = val\r\n\tkey = val\r\n}\r\n";
+        let res = Node::parse(LocatedSpan::new_extra(
+            input,
+            State(RefCell::new(Vec::new())),
+        ));
+
+        match res {
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
+            Err(err) => panic!("{:#?}", err),
+        }
+    }
 }

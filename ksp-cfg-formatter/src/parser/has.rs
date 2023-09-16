@@ -1,5 +1,19 @@
-use super::{Error, Rule};
+use super::{
+    nom::{
+        utils::{debug_fn, expect},
+        CSTParse, IResult, LocatedSpan,
+    },
+    Error, Rule,
+};
 use itertools::Itertools;
+use nom::{
+    branch::alt,
+    bytes::complete::{is_a, tag, tag_no_case},
+    character::complete::{alphanumeric1, anychar, line_ending, one_of},
+    combinator::{map, not, opt, peek, recognize, value},
+    multi::{many0, many1, many_till, separated_list1},
+    sequence::{delimited, tuple},
+};
 use pest::iterators::Pair;
 use std::fmt::Display;
 
@@ -194,5 +208,104 @@ impl<'a> TryFrom<Pair<'a, Rule>> for HasBlock<'a> {
             has_block.predicates.push(HasPredicate::try_from(rule)?);
         }
         Ok(has_block)
+    }
+}
+
+impl<'a> CSTParse<'a, HasBlock<'a>> for HasBlock<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<HasBlock<'a>> {
+        // hasBlock     = { ^":HAS[" ~ (hasBlockPart ~ (("&" | ",") ~ hasBlockPart)*) ~ "]" }
+        map(
+            delimited(
+                tag_no_case(":HAS["),
+                debug_fn(
+                    expect(
+                        separated_list1(alt((tag("&"), tag(","))), HasPredicate::parse),
+                        "Expected has predicate",
+                    ),
+                    "Got has predicates",
+                    true,
+                ),
+                tag("]"),
+            ),
+            |inner| HasBlock {
+                predicates: inner.unwrap_or_default(),
+            },
+        )(input)
+    }
+}
+
+impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<HasPredicate<'a>> {
+        // // TODO: Is this correct?
+        // hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
+        let has_value = delimited(
+            tag("["),
+            recognize(many_till(
+                anychar,
+                peek(alt((line_ending::<LocatedSpan, _>, tag("]"), tag("//")))),
+            )),
+            tag("]"),
+        );
+        // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
+        let identifier = recognize(many1(alt((alphanumeric1, is_a("-_.+*?")))));
+        // hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
+        let has_key = tuple((
+            alt((value(false, tag("#")), value(true, tag("~")))),
+            identifier,
+            // opt(has_value),
+            debug_fn(expect(has_value, "Expected value"), "Got value", true),
+        ));
+        let key_map = map(has_key, |inner| HasPredicate::KeyPredicate {
+            negated: inner.0,
+            key: inner.1.fragment(),
+            value: inner.2.map(|s| *s.fragment()),
+            match_type: MatchType::Literal,
+        });
+        // hasNodeName =  { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
+        // TODO: remove ´delimited´ when old parser is removed
+        let has_node_name = recognize(delimited(
+            tag("["),
+            recognize(many1(alt((alphanumeric1, is_a("/_-?*.|"))))),
+            tag("]"),
+        ));
+        // FIXME
+        let identifier = recognize(many1(alt((alphanumeric1, is_a("-_.+*?")))));
+        // hasNode     = _{ ("@" | "!" | "-") ~ identifier ~ hasNodeName? ~ hasBlock? }
+        let has_node = tuple((
+            alt((value(false, tag("@")), value(true, one_of("!-")))),
+            identifier,
+            opt(has_node_name),
+            opt(HasBlock::parse),
+        ));
+        let node_map = map(has_node, |inner| HasPredicate::NodePredicate {
+            negated: inner.0,
+            node_type: inner.1.fragment(),
+            name: inner.2.map(|s| *s.fragment()),
+            has_block: inner.3,
+        });
+        // hasBlockPart = { hasNode | hasKey }
+        alt((node_map, key_map))(input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use crate::parser::nom::State;
+
+    use super::*;
+    #[test]
+    fn test_has() {
+        let input = ":HAS[#key[value]]";
+        let res = HasBlock::parse(LocatedSpan::new_extra(
+            input,
+            State(RefCell::new(Vec::new())),
+        ));
+
+        match res {
+            Ok(it) => assert_eq!(input, it.1.to_string()),
+            Err(err) => panic!("{}", err),
+        }
     }
 }

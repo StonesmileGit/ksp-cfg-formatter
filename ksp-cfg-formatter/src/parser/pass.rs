@@ -1,8 +1,19 @@
 use std::fmt::Display;
 
+use nom::{
+    branch::alt,
+    bytes::complete::{is_a, tag_no_case},
+    character::complete::alphanumeric1,
+    combinator::{map, recognize},
+    multi::many1,
+    sequence::delimited,
+};
 use pest::iterators::Pair;
 
-use super::{Error, Rule};
+use super::{
+    nom::{CSTParse, IResult, LocatedSpan},
+    Error, Rule,
+};
 
 /// Which pass a patch should run on
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,5 +70,55 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Pass<'a> {
                 source_text: String::new(),
             }),
         }
+    }
+}
+
+impl<'a> CSTParse<'a, Pass<'a>> for Pass<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Pass<'a>> {
+        // firstPassBlock = { ^":FIRST" }
+        // beforePass     = { ^":BEFORE[" ~ modName ~ "]" }
+        // forPass        = { ^":FOR[" ~ modName ~ "]" }
+        // afterPass      = { ^":AFTER[" ~ modName ~ "]" }
+        // lastPass       = { ^":LAST[" ~ modName ~ "]" }
+        // finalPassBlock = { ^":FINAL" }
+
+        // modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
+        // passBlock      = { firstPassBlock | beforePass | forPass | afterPass | lastPass | finalPassBlock }
+        alt((
+            map(tag_no_case(":FIRST"), |_| Pass::First),
+            map(
+                delimited(
+                    tag_no_case(":BEFORE["),
+                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                    tag_no_case("]"),
+                ),
+                |inner| Pass::Before(inner.fragment()),
+            ),
+            map(
+                delimited(
+                    tag_no_case(":FOR["),
+                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                    tag_no_case("]"),
+                ),
+                |inner| Pass::For(inner.fragment()),
+            ),
+            map(
+                delimited(
+                    tag_no_case(":AFTER["),
+                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                    tag_no_case("]"),
+                ),
+                |inner| Pass::After(inner.fragment()),
+            ),
+            map(
+                delimited(
+                    tag_no_case(":LAST["),
+                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                    tag_no_case("]"),
+                ),
+                |inner| Pass::Last(inner.fragment()),
+            ),
+            map(tag_no_case(":FINAL"), |_| Pass::Final),
+        ))(input)
     }
 }

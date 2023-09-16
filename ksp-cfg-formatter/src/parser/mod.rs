@@ -15,9 +15,11 @@ mod operator;
 mod pass;
 mod path;
 
+pub mod nom;
+
 pub use assignment_operator::AssignmentOperator;
 pub use comment::Comment;
-pub use document::Document;
+pub use document::{DocItem, Document};
 pub use has::{HasBlock, HasPredicate, MatchType};
 pub use indices::{ArrayIndex, Index};
 pub use key_val::KeyVal;

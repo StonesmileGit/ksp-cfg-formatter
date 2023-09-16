@@ -11,6 +11,7 @@ pub enum NodeItem<'a> {
     KeyVal(KeyVal<'a>),
     /// An empty line
     EmptyLine,
+    Error,
 }
 impl<'a> ASTPrint for NodeItem<'a> {
     fn ast_print(
@@ -29,6 +30,7 @@ impl<'a> ASTPrint for NodeItem<'a> {
                 keyval.ast_print(depth, indentation, line_ending, should_collapse)
             }
             Self::EmptyLine => line_ending.to_owned(),
+            Self::Error => todo!(),
         }
     }
 }

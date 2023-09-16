@@ -6,38 +6,14 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Node<'a> {
         let mut result = LinterStateResult {
             top_level_no_op_result: false,
         };
-        // This node has an operator, but is in a top level node that does not!
-        if state.top_level_no_op.is_some() && self.operator.is_some() {
-            items.push(lsp_types::Diagnostic {
-                range: range_to_range(
-                    self.operator
-                        .as_ref()
-                        .expect("it was just determined that the operator existed")
-                        .get_pos(),
-                ),
-                severity: Some(lsp_types::DiagnosticSeverity::WARNING),
-                message: "Node has operator, even though the top level does not!".to_owned(),
-                related_information: Some(vec![lsp_types::DiagnosticRelatedInformation {
-                    location: state
-                        .top_level_no_op
-                        .clone()
-                        .expect("It was just determined that the top_level_no_op is Some"),
-                    message: "This is where it happened".to_owned(),
-                }]),
-                code: Some(lsp_types::NumberOrString::Number(1)),
-                source: Some("Unexpected_operator".to_owned()),
-                ..Default::default()
-            });
-            result.top_level_no_op_result = true;
-        }
 
-        if self.name.clone().map_or(false, |name| name.0.len() > 1) && !self.top_level() {
-            items.push(lsp_types::Diagnostic {
-                range: range_to_range(self.name.clone().expect("It was just determined that it is Some").1),
-                severity: Some(lsp_types::DiagnosticSeverity::WARNING),
-                message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
-                ..Default::default()
-            });
+        // This node has an operator, but is in a top level node that does not!
+        if let Some(diag) = op_in_noop(self, state, &mut result) {
+            items.push(diag);
+        }
+        // The node is filtering on names with '|', but that is only allowed on top level nodes
+        if let Some(diag) = or_in_child_node(self, state, &mut result) {
+            items.push(diag);
         }
 
         let mut state: LinterState = state.clone();
@@ -49,25 +25,94 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Node<'a> {
             });
         }
 
+        if let Some(has) = &self.has {
+            let (mut diagnostics, res) = has.lint(&state);
+            items.append(&mut diagnostics);
+        }
+
         for statement in &self.block {
             let (mut diagnostics, res) = statement.lint(&state);
             items.append(&mut diagnostics);
+            // take info from linter results and merge into this linter result
             result.top_level_no_op_result |= res.map_or(false, |res| res.top_level_no_op_result);
         }
-        if self.top_level() && result.top_level_no_op_result {
-            items.push(lsp_types::Diagnostic {
-                range: state
-                    .top_level_no_op
-                    // .clone()
-                    .expect("it was just determined that that top_level_no_op was Some")
-                    .range,
-                severity: Some(lsp_types::DiagnosticSeverity::HINT),
-                message:
-                    "This node has no operator, but contains something that does have an operator"
-                        .to_owned(),
-                ..Default::default()
-            });
+
+        // Add hint diagnostics to aid hints found in block statements
+        if let Some(diag) = top_level_no_op_hint(self, &state, &result) {
+            items.push(diag);
         }
+
         (items, Some(result))
+    }
+}
+
+fn top_level_no_op_hint(
+    node: &ksp_cfg_formatter::parser::Node<'_>,
+    state: &LinterState,
+    result: &LinterStateResult,
+) -> Option<lsp_types::Diagnostic> {
+    if node.top_level() && result.top_level_no_op_result {
+        Some(lsp_types::Diagnostic {
+            range: state
+                .top_level_no_op
+                .clone()
+                .expect("it was just determined that top_level_no_op was Some")
+                .range,
+            severity: Some(lsp_types::DiagnosticSeverity::HINT),
+            message: "This node has no operator, but contains something that does have an operator"
+                .to_owned(),
+            ..Default::default()
+        })
+    } else {
+        None
+    }
+}
+
+fn or_in_child_node(
+    node: &ksp_cfg_formatter::parser::Node<'_>,
+    state: &LinterState,
+    result: &mut LinterStateResult,
+) -> Option<lsp_types::Diagnostic> {
+    if node.name.clone().map_or(false, |name| name.0.len() > 1) && !node.top_level() {
+        Some(lsp_types::Diagnostic {
+            range: range_to_range(node.name.clone().expect("It was just determined that it is Some").1),
+            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+            message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
+            ..Default::default()
+        })
+    } else {
+        None
+    }
+}
+
+fn op_in_noop(
+    node: &ksp_cfg_formatter::parser::Node,
+    state: &LinterState,
+    result: &mut LinterStateResult,
+) -> Option<lsp_types::Diagnostic> {
+    if state.top_level_no_op.is_some() && node.operator.is_some() {
+        result.top_level_no_op_result = true;
+        Some(lsp_types::Diagnostic {
+            range: range_to_range(
+                node.operator
+                    .as_ref()
+                    .expect("it was just determined that the operator existed")
+                    .get_pos(),
+            ),
+            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+            message: "Node has operator, even though the top level does not!".to_owned(),
+            related_information: Some(vec![lsp_types::DiagnosticRelatedInformation {
+                location: state
+                    .top_level_no_op
+                    .clone()
+                    .expect("It was just determined that the top_level_no_op is Some"),
+                message: "This is where it happened".to_owned(),
+            }]),
+            code: Some(lsp_types::NumberOrString::Number(1)),
+            source: Some("Unexpected_operator".to_owned()),
+            ..Default::default()
+        })
+    } else {
+        None
     }
 }

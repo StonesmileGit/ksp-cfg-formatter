@@ -9,7 +9,7 @@ pub mod parser;
 /// Functions to perform transformations on the parsed AST
 pub mod transformer;
 
-use parser::{ASTPrint, Document, Grammar, Rule};
+use parser::{nom::parse, ASTPrint, Document, Grammar, Rule};
 use pest::Parser;
 
 /// Defines which End of Line sequence to be used
@@ -158,6 +158,21 @@ impl Formatter {
             }
         }
     }
+
+    pub fn format_text_nom(&self, text: &str) -> String {
+        match ast_format_nom(text, self) {
+            Ok(res) => res,
+            Err(err) => {
+                if self.fail_silent {
+                    text.to_string()
+                } else {
+                    dbg!("{}", &err);
+                    dbg!("{}", err.to_string());
+                    panic!()
+                }
+            }
+        }
+    }
 }
 
 fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error> {
@@ -168,6 +183,24 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
     };
     let document = Grammar::parse(Rule::document, text)?.next().unwrap();
     let parsed_document = Document::try_from(document)?;
+    // let parsed_document = transformer::assignments_first(parsed_document)?;
+    let parsed_document = transformer::assignment_padding(parsed_document);
+    let line_ending = if use_crlf { "\r\n" } else { "\n" };
+    Ok(parsed_document.ast_print(
+        0,
+        &settings.indentation.to_string(),
+        line_ending,
+        settings.inline,
+    ))
+}
+
+fn ast_format_nom(text: &str, settings: &Formatter) -> Result<String, parser::Error> {
+    let use_crlf = if matches!(settings.line_return, LineReturn::Identify) {
+        text.contains("\r\n")
+    } else {
+        matches!(settings.line_return, LineReturn::CRLF)
+    };
+    let (parsed_document, errors) = parse(text);
     // let parsed_document = transformer::assignments_first(parsed_document)?;
     let parsed_document = transformer::assignment_padding(parsed_document);
     let line_ending = if use_crlf { "\r\n" } else { "\n" };

@@ -1,4 +1,5 @@
 mod document;
+mod has;
 mod key_val;
 mod node;
 
@@ -36,14 +37,15 @@ pub(crate) fn range_to_range(parser_range: ksp_cfg_formatter::parser::Range) -> 
     )
 }
 
-use ksp_cfg_formatter::parser::NodeItem as NI;
-impl<'a> Lintable for NI<'a> {
+use ksp_cfg_formatter::parser::NodeItem;
+impl<'a> Lintable for NodeItem<'a> {
     fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
         match self {
-            NI::Node(node) => node.lint(state),
-            NI::Comment(comment) => comment.lint(state),
-            NI::KeyVal(key_val) => key_val.lint(state),
-            NI::EmptyLine => (vec![], None),
+            NodeItem::Node(node) => node.lint(state),
+            NodeItem::Comment(comment) => comment.lint(state),
+            NodeItem::KeyVal(key_val) => key_val.lint(state),
+            NodeItem::EmptyLine => (vec![], None),
+            NodeItem::Error => todo!(),
         }
     }
 }

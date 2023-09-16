@@ -1,6 +1,19 @@
 use super::{
-    operator::OperatorKind, ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index,
-    NeedsBlock, Operator, Path, Range, Rule,
+    nom::{
+        utils::{debug_fn, expect, ignore_line_ending, ws},
+        CSTParse, IResult, LocatedSpan,
+    },
+    operator::OperatorKind,
+    ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index, NeedsBlock, Operator, Path,
+    Range, Rule,
+};
+use nom::{
+    branch::alt,
+    bytes::complete::{is_a, is_not, tag},
+    character::complete::{alphanumeric1, anychar, line_ending, none_of, one_of, space1},
+    combinator::{eof, map, not, opt, peek, recognize, verify},
+    multi::{many1, many_till, separated_list1},
+    sequence::{pair, preceded, terminated, tuple},
 };
 use pest::iterators::Pair;
 
@@ -130,5 +143,112 @@ impl<'a> ASTPrint for KeyVal<'a> {
             self.comment.map_or_else(String::new, |c| c.to_string()),
             line_ending
         )
+    }
+}
+
+impl<'a> CSTParse<'a, KeyVal<'a>> for KeyVal<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<KeyVal<'a>> {
+        let path = opt(preceded(tag("*"), Path::parse));
+        let operator = opt(Operator::parse);
+        // keyIdentifier     = ${ keyIdentifierPart ~ (Whitespace* ~ keyIdentifierPart)* }
+        // keyIdentifierPart = _{ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
+        let key = recognize(separated_list1(
+            space1,
+            recognize(many1(alt((
+                is_a("#_.?"),
+                alphanumeric1,
+                terminated(is_a("-+*"), none_of("=")),
+                terminated(tag("/"), none_of("/=")),
+            )))),
+        ));
+        // let key = expect(
+        //     verify(
+        //         recognize(many_till(
+        //             anychar,
+        //             peek(alt((
+        //                 map(ws(AssignmentOperator::parse), |_| ()),
+        //                 map(line_ending, |_| ()),
+        //             ))),
+        //         )),
+        //         |s| !s.is_empty(),
+        //     ),
+        //     "A key has to be provided",
+        // );
+        // let key = expect(key, "Expected key");
+        let needs = opt(NeedsBlock::parse);
+        let index = opt(Index::parse);
+        let array_index = opt(ArrayIndex::parse);
+        let assignment_operator = ws(AssignmentOperator::parse);
+        let value = ignore_line_ending(recognize(many_till(
+            anychar,
+            peek(alt((tag("//"), is_a("}\r\n"), eof))),
+        )));
+        let comment = opt(ignore_line_ending(ws(Comment::parse)));
+        let key_val = tuple((
+            debug_fn(path, "Got path", true),
+            debug_fn(operator, "Got operator", true),
+            debug_fn(key, "Got key", true),
+            needs,
+            index,
+            array_index,
+            debug_fn(assignment_operator, "Got AOP", true),
+            debug_fn(value, "Got value", true),
+            comment,
+        ));
+        map(key_val, |inner| {
+            // dbg!(&inner);
+            let mut key_val = KeyVal {
+                path: inner.0,
+                operator: inner.1,
+                key: inner.2.fragment(),
+                needs: inner.3,
+                index: inner.4,
+                array_index: inner.5,
+                key_padding: None,
+                assignment_operator: inner.6,
+                val: inner.7.fragment(),
+                comment: inner.8,
+                range: Range::default(),
+            };
+            if key_val.comment.is_none() {
+                key_val.val = key_val.val.trim();
+            }
+            key_val
+        })(input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use crate::parser::nom::{LocatedSpan, State};
+
+    use super::*;
+    #[test]
+    fn test_key_val() {
+        let input = "key = val\r\n";
+        let res = KeyVal::parse(LocatedSpan::new_extra(
+            input,
+            State(RefCell::new(Vec::new())),
+        ));
+
+        match res {
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", false)),
+            Err(err) => panic!("{}", err),
+        }
+    }
+    #[test]
+    fn test_key_val_2() {
+        let input = "*@PART[RO-M55]/deleteMe = true\r\n";
+        let res = KeyVal::parse(LocatedSpan::new_extra(
+            input,
+            State(RefCell::new(Vec::new())),
+        ));
+
+        match res {
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", false)),
+            Err(err) => panic!("{}", err),
+        }
     }
 }

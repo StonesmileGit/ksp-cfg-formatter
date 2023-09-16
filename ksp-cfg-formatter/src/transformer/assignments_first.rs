@@ -1,12 +1,37 @@
-use crate::parser::{Document, Error, NodeItem};
+use itertools::Itertools;
+
+use crate::parser::{DocItem, Document, Error, NodeItem};
 
 /// Moves assignments first in the node, and child nodes last
 /// # Errors
 /// Returns an error if an empty line, or a comment is found at the bottom of a node
 // Assume empty line between keys and nodes
 pub fn assignments_first(mut doc: Document) -> Result<Document, Error> {
-    doc.statements = reorder_node_items(doc.statements)?;
+    doc.statements = reorder_doc_items(doc.statements)?;
     Ok(doc)
+}
+
+fn reorder_doc_items(items: Vec<DocItem>) -> Result<Vec<DocItem>, Error> {
+    let items = items
+        .iter()
+        .map(|e| match e {
+            DocItem::Node(n) => NodeItem::Node(n.to_owned()),
+            DocItem::Comment(c) => NodeItem::Comment(c.to_owned()),
+            DocItem::EmptyLine => NodeItem::EmptyLine,
+            DocItem::Error => NodeItem::Error,
+        })
+        .collect();
+    let items = reorder_node_items(items)?;
+    Ok(items
+        .iter()
+        .map(|e| match e {
+            NodeItem::Node(n) => DocItem::Node(n.to_owned()),
+            NodeItem::Comment(c) => DocItem::Comment(c.to_owned()),
+            NodeItem::EmptyLine => DocItem::EmptyLine,
+            NodeItem::Error => DocItem::Error,
+            NodeItem::KeyVal(_) => unreachable!(),
+        })
+        .collect_vec())
 }
 
 fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Error> {
@@ -52,6 +77,7 @@ fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Er
                     })
                 }
             },
+            NodeItem::Error => todo!(),
         }
     }
     key_stuff.reverse();

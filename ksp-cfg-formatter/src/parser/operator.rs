@@ -1,7 +1,11 @@
+use nom::{
+    bytes::complete::tag,
+    combinator::{map, value},
+};
 use pest::iterators::Pair;
 use std::fmt::Display;
 
-use super::{Error, Range, Rule};
+use super::{nom::CSTParse, Error, Range, Rule};
 
 #[derive(Debug, Clone, Default)]
 pub struct Operator {
@@ -102,5 +106,25 @@ impl Display for Operator {
             OperatorKind::CreateIfNotFound => write!(f, "&"),
             OperatorKind::Rename => write!(f, "|"),
         }
+    }
+}
+
+impl CSTParse<'_, Operator> for Operator {
+    fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<Operator> {
+        let operator = nom::branch::alt((
+            value(OperatorKind::Edit, tag("@")),
+            value(OperatorKind::EditOrCreate, tag("%")),
+            value(OperatorKind::Copy, tag("+")),
+            value(OperatorKind::Delete, tag("!")),
+            value(OperatorKind::DeleteAlt, tag("-")),
+            value(OperatorKind::CreateIfNotFound, tag("&")),
+            value(OperatorKind::Rename, tag("|")),
+            // value(OperatorKind::None, tag("")),
+        ));
+        map(operator, |inner| Operator {
+            kind: inner,
+            // FIXME: Range is default
+            range: Range::default(),
+        })(input)
     }
 }

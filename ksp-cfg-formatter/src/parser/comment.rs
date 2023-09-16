@@ -1,4 +1,8 @@
-use super::{ASTPrint, Range, Rule};
+use super::{
+    nom::{utils::ws, CSTParse},
+    ASTPrint, Range, Rule,
+};
+use nom::combinator::recognize;
 use pest::iterators::Pair;
 use std::{convert::Infallible, fmt::Display};
 
@@ -32,5 +36,19 @@ impl<'a> ASTPrint for Comment<'a> {
     fn ast_print(&self, depth: usize, indentation: &str, line_ending: &str, _: bool) -> String {
         let indentation = indentation.repeat(depth);
         format!("{}{}{}", indentation, self.text, line_ending)
+    }
+}
+
+impl<'a> CSTParse<'a, Comment<'a>> for Comment<'a> {
+    fn parse(input: super::nom::LocatedSpan<'a>) -> super::nom::IResult<Comment<'a>> {
+        let comment = recognize(ws(nom::sequence::pair(
+            nom::bytes::complete::tag("//"),
+            nom::bytes::complete::is_not("\r\n"),
+        )));
+        nom::combinator::map(comment, |inner: super::nom::LocatedSpan| Comment {
+            text: inner.fragment(),
+            // FIXME: This needs to change
+            range: Range::default(),
+        })(input)
     }
 }

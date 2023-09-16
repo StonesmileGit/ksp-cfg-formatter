@@ -1,9 +1,20 @@
 use std::fmt::Display;
 
 use itertools::Itertools;
+use nom::{
+    branch::alt,
+    bytes::complete::{is_a, tag, tag_no_case},
+    character::complete::{alphanumeric1, one_of},
+    combinator::{map, opt, recognize, value},
+    multi::{many1, separated_list1},
+    sequence::{delimited, pair},
+};
 use pest::iterators::Pair;
 
-use super::{Error, Range, Rule};
+use super::{
+    nom::{CSTParse, IResult, LocatedSpan},
+    Error, Range, Rule,
+};
 
 /// Contains a `Vec` of all the clauses to be combined using logical ANDs. All clauses have to be satisfied for the parent operation to be executed
 #[derive(Debug, Clone)]
@@ -115,5 +126,50 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
             }
         }
         Ok(mod_clause)
+    }
+}
+
+impl<'a> CSTParse<'a, NeedsBlock<'a>> for NeedsBlock<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<NeedsBlock<'a>> {
+        // needsBlock = { ^":NEEDS[" ~ modOrClause ~ (("&" | ",") ~ modOrClause)* ~ "]" }
+        map(
+            delimited(
+                tag_no_case(":NEEDS["),
+                separated_list1(one_of("&,"), OrClause::parse),
+                tag_no_case("]"),
+            ),
+            |inner| NeedsBlock {
+                or_clauses: inner,
+                range: Range::default(),
+            },
+        )(input)
+    }
+}
+
+impl<'a> CSTParse<'a, OrClause<'a>> for OrClause<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<OrClause<'a>> {
+        // modOrClause = { needsMod ~ ("|" ~ needsMod)* }
+        map(separated_list1(one_of("|"), ModClause::parse), |inner| {
+            OrClause {
+                mod_clauses: inner,
+                range: Range::default(),
+            }
+        })(input)
+    }
+}
+
+impl<'a> CSTParse<'a, ModClause<'a>> for ModClause<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<ModClause<'a>> {
+        // needsMod    = { negation? ~ modName }
+        // negation    = { "!" }
+        let negated = opt(tag::<_, LocatedSpan, _>("!"));
+        // modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
+        let mod_name = recognize(many1(alt((alphanumeric1, is_a("/_-?")))));
+        let mod_clause = pair(negated, mod_name);
+        map(mod_clause, |inner| ModClause {
+            negated: inner.0.is_some(),
+            name: inner.1.fragment(),
+            range: Range::default(),
+        })(input)
     }
 }

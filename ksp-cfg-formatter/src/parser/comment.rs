@@ -11,7 +11,7 @@ use std::{convert::Infallible, fmt::Display};
 pub struct Comment<'a> {
     /// Text of the comment, including the leading `//`
     pub text: &'a str,
-    range: Range,
+    _range: Range,
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Comment<'a> {
@@ -21,7 +21,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Comment<'a> {
         let range = Range::from(&rule);
         Ok(Comment {
             text: rule.as_str(),
-            range,
+            _range: range,
         })
     }
 }
@@ -48,7 +48,7 @@ impl<'a> CSTParse<'a, Comment<'a>> for Comment<'a> {
         nom::combinator::map(comment, |inner: super::nom::LocatedSpan| Comment {
             text: inner.fragment(),
             // FIXME: This needs to change
-            range: Range::default(),
+            _range: Range::default(),
         })(input)
     }
 }

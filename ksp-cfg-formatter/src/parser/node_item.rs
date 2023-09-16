@@ -11,6 +11,7 @@ pub enum NodeItem<'a> {
     KeyVal(KeyVal<'a>),
     /// An empty line
     EmptyLine,
+    /// An error instead of the node item
     Error,
 }
 impl<'a> ASTPrint for NodeItem<'a> {

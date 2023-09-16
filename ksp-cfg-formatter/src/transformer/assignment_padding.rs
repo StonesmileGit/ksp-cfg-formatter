@@ -45,8 +45,8 @@ fn handle_doc_items(items: Vec<DocItem>) -> Vec<DocItem> {
     let items = items
         .iter()
         .map(|e| match e {
-            DocItem::Node(n) => NodeItem::Node(n.to_owned()),
-            DocItem::Comment(c) => NodeItem::Comment(c.to_owned()),
+            DocItem::Node(n) => NodeItem::Node(n.clone()),
+            DocItem::Comment(c) => NodeItem::Comment(*c),
             DocItem::EmptyLine => NodeItem::EmptyLine,
             DocItem::Error => NodeItem::Error,
         })
@@ -55,8 +55,8 @@ fn handle_doc_items(items: Vec<DocItem>) -> Vec<DocItem> {
     items
         .iter()
         .map(|e| match e {
-            NodeItem::Node(n) => DocItem::Node(n.to_owned()),
-            NodeItem::Comment(c) => DocItem::Comment(c.to_owned()),
+            NodeItem::Node(n) => DocItem::Node(n.clone()),
+            NodeItem::Comment(c) => DocItem::Comment(*c),
             NodeItem::EmptyLine => DocItem::EmptyLine,
             NodeItem::Error => DocItem::Error,
             NodeItem::KeyVal(_) => unreachable!(),

@@ -15,6 +15,7 @@ mod operator;
 mod pass;
 mod path;
 
+/// Module with the same parser implemented using nom
 pub mod nom;
 
 pub use assignment_operator::AssignmentOperator;

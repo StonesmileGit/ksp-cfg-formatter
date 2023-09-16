@@ -1,8 +1,8 @@
 use itertools::Itertools;
 use nom::{
     branch::alt,
-    combinator::{all_consuming, eof, map, not, recognize, verify},
-    multi::{many0, many_till},
+    combinator::{eof, map},
+    multi::many_till,
 };
 use pest::iterators::Pair;
 
@@ -23,6 +23,7 @@ pub enum DocItem<'a> {
     Comment(Comment<'a>),
     /// An empty line
     EmptyLine,
+    /// An error instead of a doc item
     Error,
 }
 impl<'a> ASTPrint for DocItem<'a> {
@@ -109,13 +110,11 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
                     expect(
                         alt((
                             debug_fn(
-                                map(ignore_line_ending(ws(Comment::parse)), |c| {
-                                    DocItem::Comment(c)
-                                }),
+                                map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
                                 "Got Doc Comment",
                                 false,
                             ),
-                            map(ignore_line_ending(ws(Node::parse)), |n| DocItem::Node(n)),
+                            map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
                             debug_fn(
                                 map(utils::empty_line, |_| DocItem::EmptyLine),
                                 "Got empty line",

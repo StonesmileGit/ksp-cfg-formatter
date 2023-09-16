@@ -426,32 +426,28 @@ impl<'a> CSTParse<'a, Node<'a>> for Node<'a> {
             has: inner
                 .4
                 .iter()
-                .map(|a| a.0.clone())
-                .flatten()
+                .filter_map(|a| a.0.clone())
                 .collect_vec()
                 .first()
                 .cloned(),
-            // FIXME: swapped index on needs and pass
             needs: inner
                 .4
                 .iter()
-                .map(|a| a.2.clone())
-                .flatten()
+                .filter_map(|a| a.2.clone())
                 .collect_vec()
                 .first()
                 .cloned(),
             pass: inner
                 .4
                 .iter()
-                .map(|a| a.1.clone())
-                .flatten()
+                .filter_map(|a| a.1)
                 .collect_vec()
                 .first()
-                .cloned()
+                .copied()
                 .unwrap_or(Pass::Default),
             index: inner.5.unwrap_or(None),
             id_comment: inner.6.unwrap_or(None),
-            comments_after_newline: inner.7.unwrap_or(vec![]),
+            comments_after_newline: inner.7.unwrap_or_default(),
             // block: inner.10.unwrap_or(vec![]),
             block: inner.8,
             trailing_comment: inner.9.unwrap_or(None),
@@ -477,8 +473,8 @@ fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
                 NodeItem::Comment(c)
             }),
             map(ws(empty_line), |_| NodeItem::EmptyLine),
-            map(ws(KeyVal::parse), |kv| NodeItem::KeyVal(kv)),
-            map(ignore_line_ending(ws(Node::parse)), |n| NodeItem::Node(n)),
+            map(ws(KeyVal::parse), NodeItem::KeyVal),
+            map(ignore_line_ending(ws(Node::parse)), NodeItem::Node),
         ))))),
         char('}'),
     );

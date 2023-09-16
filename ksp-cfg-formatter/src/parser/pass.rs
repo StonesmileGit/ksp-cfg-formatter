@@ -11,7 +11,7 @@ use nom::{
 use pest::iterators::Pair;
 
 use super::{
-    nom::{CSTParse, IResult, LocatedSpan},
+    nom::{utils::expect, CSTParse, IResult, LocatedSpan},
     Error, Rule,
 };
 
@@ -89,34 +89,46 @@ impl<'a> CSTParse<'a, Pass<'a>> for Pass<'a> {
             map(
                 delimited(
                     tag_no_case(":BEFORE["),
-                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                    tag_no_case("]"),
+                    expect(
+                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                        "Expected pass identifier",
+                    ),
+                    expect(tag_no_case("]"), "Expected closing `]`"),
                 ),
-                |inner| Pass::Before(inner.fragment()),
+                |inner| Pass::Before(inner.map_or("", |s| s.fragment())),
             ),
             map(
                 delimited(
                     tag_no_case(":FOR["),
-                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                    tag_no_case("]"),
+                    expect(
+                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                        "Expected pass identifier",
+                    ),
+                    expect(tag_no_case("]"), "Expected closing `]`"),
                 ),
-                |inner| Pass::For(inner.fragment()),
+                |inner| Pass::For(inner.map_or("", |s| s.fragment())),
             ),
             map(
                 delimited(
                     tag_no_case(":AFTER["),
-                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                    tag_no_case("]"),
+                    expect(
+                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                        "Expected pass identifier",
+                    ),
+                    expect(tag_no_case("]"), "Expected closing `]`"),
                 ),
-                |inner| Pass::After(inner.fragment()),
+                |inner| Pass::After(inner.map_or("", |s| s.fragment())),
             ),
             map(
                 delimited(
                     tag_no_case(":LAST["),
-                    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                    tag_no_case("]"),
+                    expect(
+                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
+                        "Expected pass identifier",
+                    ),
+                    expect(tag_no_case("]"), "Expected closing `]`"),
                 ),
-                |inner| Pass::Last(inner.fragment()),
+                |inner| Pass::Last(inner.map_or("", |s| s.fragment())),
             ),
             map(tag_no_case(":FINAL"), |_| Pass::Final),
         ))(input)

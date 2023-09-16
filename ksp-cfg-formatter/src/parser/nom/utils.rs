@@ -35,11 +35,11 @@ where
         // dbg!(&input);
         match parser(input) {
             Ok((remaining, out)) => Ok((remaining, Some(out))),
-            Err(nom::Err::Error(error)) | Err(nom::Err::Failure(error)) => {
+            Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
                 let input = error.input;
                 let err = Error(input.to_range(), error_msg.to_string());
                 // dbg!(&input);
-                dbg!(&err);
+                // dbg!(&err);
                 input.extra.report_error(err); // Push error onto stack.
                 Ok((input, None)) // Parsing failed, but keep going.
             }
@@ -61,7 +61,7 @@ where
 {
     move |input| {
         // dbg!(&input);
-        let print = false;
+        let print = print & false;
         match parser(input) {
             Ok((remaining, out)) => {
                 if print {
@@ -74,7 +74,7 @@ where
                 }
                 Ok((remaining, out))
             }
-            Err(nom::Err::Error(error)) | Err(nom::Err::Failure(error)) => {
+            Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
                 if print {
                     println!("{}: {:#?}\n", success_msg.to_string(), &error);
                 }

@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    ops::{Deref, Range},
-};
+use std::{cell::RefCell, ops::Range};
 
 use nom::combinator::all_consuming;
 
@@ -37,7 +34,7 @@ pub struct Error(Range<usize>, String);
 #[derive(Clone, Debug)]
 pub struct State(pub RefCell<Vec<Error>>);
 
-impl<'a> State {
+impl State {
     /// Pushes an error onto the errors stack from within a `nom`
     /// parser combinator while still allowing parsing to continue.
     pub fn report_error(&self, error: Error) {
@@ -45,13 +42,15 @@ impl<'a> State {
     }
 }
 
+/// A trait with a function that implements parsing to the type
 pub trait CSTParse<'c, O> {
     /// Parse `O` from the input
     #[must_use]
     fn parse(input: LocatedSpan<'c>) -> IResult<O>;
 }
 
-pub fn parse<'a>(source: &'a str) -> (Document<'a>, Vec<Error>) {
+/// Parses a string into a document struct, also emmitting errors along the way
+pub fn parse(source: &str) -> (Document, Vec<Error>) {
     let errors = RefCell::new(Vec::new());
     let input = LocatedSpan::new_extra(source, State(errors));
     let (span, doc) = match all_consuming(debug_fn(Document::parse, "Got Document", true))(input) {

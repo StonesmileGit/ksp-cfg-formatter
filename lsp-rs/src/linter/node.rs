@@ -26,7 +26,7 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Node<'a> {
         }
 
         if let Some(has) = &self.has {
-            let (mut diagnostics, res) = has.lint(&state);
+            let (mut diagnostics, _res) = has.lint(&state);
             items.append(&mut diagnostics);
         }
 
@@ -70,8 +70,8 @@ fn top_level_no_op_hint(
 
 fn or_in_child_node(
     node: &ksp_cfg_formatter::parser::Node<'_>,
-    state: &LinterState,
-    result: &mut LinterStateResult,
+    _state: &LinterState,
+    _result: &mut LinterStateResult,
 ) -> Option<lsp_types::Diagnostic> {
     if node.name.clone().map_or(false, |name| name.0.len() > 1) && !node.top_level() {
         Some(lsp_types::Diagnostic {

@@ -7,7 +7,6 @@ use nom::{
     bytes::complete::tag,
     character::complete::{anychar, digit1},
     combinator::{map, opt, value},
-    number::complete::le_i32,
     sequence::{delimited, pair, preceded},
 };
 use pest::iterators::Pair;

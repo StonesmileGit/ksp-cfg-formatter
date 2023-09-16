@@ -1,6 +1,6 @@
 use super::{
     nom::{
-        utils::{debug_fn, expect, ignore_line_ending, ws},
+        utils::{debug_fn, ignore_line_ending, ws},
         CSTParse, IResult, LocatedSpan,
     },
     operator::OperatorKind,
@@ -9,11 +9,11 @@ use super::{
 };
 use nom::{
     branch::alt,
-    bytes::complete::{is_a, is_not, tag},
-    character::complete::{alphanumeric1, anychar, line_ending, none_of, one_of, space1},
-    combinator::{eof, map, not, opt, peek, recognize, verify},
+    bytes::complete::{is_a, tag},
+    character::complete::{alphanumeric1, anychar, none_of, space1},
+    combinator::{eof, map, opt, peek, recognize},
     multi::{many1, many_till, separated_list1},
-    sequence::{pair, preceded, terminated, tuple},
+    sequence::{preceded, terminated, tuple},
 };
 use pest::iterators::Pair;
 
@@ -40,7 +40,7 @@ pub struct KeyVal<'a> {
     pub val: &'a str,
     /// Optional trailing comment
     pub comment: Option<Comment<'a>>,
-    range: Range,
+    _range: Range,
 }
 
 impl<'a> KeyVal<'a> {
@@ -72,7 +72,7 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
         let top_level = rule_bool.1;
         let pairs = rule.into_inner();
         let mut key_val = KeyVal {
-            range,
+            _range: range,
             ..Default::default()
         };
         for pair in pairs {
@@ -208,7 +208,7 @@ impl<'a> CSTParse<'a, KeyVal<'a>> for KeyVal<'a> {
                 assignment_operator: inner.6,
                 val: inner.7.fragment(),
                 comment: inner.8,
-                range: Range::default(),
+                _range: Range::default(),
             };
             if key_val.comment.is_none() {
                 key_val.val = key_val.val.trim();

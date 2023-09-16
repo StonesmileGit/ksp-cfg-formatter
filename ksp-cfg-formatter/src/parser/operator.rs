@@ -7,6 +7,7 @@ use std::fmt::Display;
 
 use super::{nom::CSTParse, Error, Range, Rule};
 
+/// Struct holding info about the operator
 #[derive(Debug, Clone, Default)]
 pub struct Operator {
     kind: OperatorKind,
@@ -37,10 +38,12 @@ pub enum OperatorKind {
 }
 
 impl Operator {
+    /// Get the range the operator spans
     #[must_use]
     pub const fn get_pos(&self) -> super::Range {
         self.range
     }
+    /// Get what kind the operator is
     #[must_use]
     pub const fn get_kind(&self) -> OperatorKind {
         self.kind

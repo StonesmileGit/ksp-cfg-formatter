@@ -10,8 +10,8 @@ use nom::{
     branch::alt,
     bytes::complete::{is_a, tag, tag_no_case},
     character::complete::{alphanumeric1, anychar, line_ending, one_of},
-    combinator::{map, not, opt, peek, recognize, value},
-    multi::{many0, many1, many_till, separated_list1},
+    combinator::{map, opt, peek, recognize, value},
+    multi::{many1, many_till, separated_list1},
     sequence::{delimited, tuple},
 };
 use pest::iterators::Pair;
@@ -262,7 +262,7 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
             match_type: MatchType::Literal,
         });
         // hasNodeName =  { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
-        // TODO: remove ´delimited´ when old parser is removed
+        // TODO: remove ´recognize´ when old parser is removed
         let has_node_name = recognize(delimited(
             tag("["),
             recognize(many1(alt((alphanumeric1, is_a("/_-?*.|"))))),

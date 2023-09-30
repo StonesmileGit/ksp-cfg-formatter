@@ -12,8 +12,11 @@ use nom::{
 use pest::iterators::Pair;
 
 use super::{
-    nom::{utils::debug_fn, CSTParse, IResult, LocatedSpan},
-    Rule,
+    nom::{
+        utils::{debug_fn, expect, range_wrap},
+        CSTParse, IResult, LocatedSpan,
+    },
+    Range, Ranged, Rule,
 };
 
 /// Where the path starts from
@@ -52,30 +55,34 @@ pub enum PathSegment<'a> {
     },
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for PathSegment<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<PathSegment<'a>> {
     type Error = Infallible;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        if rule.as_str() == ".." {
-            Ok(Self::DotDot)
-        } else {
-            // FIXME: The index should be parsed into the struct
-            let mut node = "";
-            let mut name = None;
+        let range = Range::from(&rule);
+        Ok(Ranged::new(
+            if rule.as_str() == ".." {
+                PathSegment::DotDot
+            } else {
+                // FIXME: The index should be parsed into the struct
+                let mut node = "";
+                let mut name = None;
 
-            for pair in rule.into_inner() {
-                match pair.as_rule() {
-                    Rule::identifier => node = pair.as_str(),
-                    Rule::nameBlock => name = Some(pair.as_str()),
-                    _ => todo!(),
+                for pair in rule.into_inner() {
+                    match pair.as_rule() {
+                        Rule::identifier => node = pair.as_str(),
+                        Rule::nameBlock => name = Some(pair.as_str()),
+                        _ => todo!(),
+                    }
                 }
-            }
-            Ok(Self::NodeName {
-                node,
-                name,
-                index: None,
-            })
-        }
+                PathSegment::NodeName {
+                    node,
+                    name,
+                    index: None,
+                }
+            },
+            range,
+        ))
     }
 }
 
@@ -98,9 +105,9 @@ impl<'a> Display for PathSegment<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Path<'a> {
     /// Optional start charecter of the path. Starts in current node if not specified
-    pub start: Option<PathStart>,
+    pub start: Option<Ranged<PathStart>>,
     /// Segments of the path, separated by `/`
-    pub segments: Vec<PathSegment<'a>>,
+    pub segments: Vec<Ranged<PathSegment<'a>>>,
 }
 
 impl<'a> Display for Path<'a> {
@@ -116,11 +123,12 @@ impl<'a> Display for Path<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Path<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Path<'a>> {
     type Error = Infallible;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         // dbg!(&rule);
+        let range = Range::from(&rule);
         let text = rule.as_str();
         let mut start = None;
         match text.chars().next() {
@@ -131,40 +139,46 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Path<'a> {
         let mut segments = vec![];
         for pair in rule.into_inner() {
             match pair.as_rule() {
-                Rule::path_segment => segments.push(PathSegment::try_from(pair)?),
+                Rule::path_segment => segments.push(Ranged::<PathSegment>::try_from(pair)?),
                 _ => unreachable!(),
             }
         }
-        Ok(Path { start, segments })
+        Ok(Ranged::new(
+            Path {
+                start: start.map(|s| Ranged::new(s, Range::default())),
+                segments,
+            },
+            range,
+        ))
     }
 }
 
-impl<'a> CSTParse<'a, Path<'a>> for Path<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<Path<'a>> {
+impl<'a> CSTParse<'a, Ranged<Path<'a>>> for Path<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Path<'a>>> {
         let start = opt(PathStart::parse);
         let segments = many0(PathSegment::parse);
         let path = pair(
             debug_fn(start, "got path start", true),
             debug_fn(segments, "got path segments", true),
         );
-        map(path, |inner| Path {
+        range_wrap(map(path, |inner| Path {
             start: inner.0,
             segments: inner.1,
-        })(input)
+        }))(input)
     }
 }
 
-impl CSTParse<'_, PathStart> for PathStart {
-    fn parse(input: LocatedSpan<'_>) -> IResult<PathStart> {
-        alt((
+impl CSTParse<'_, Ranged<PathStart>> for PathStart {
+    fn parse(input: LocatedSpan<'_>) -> IResult<Ranged<PathStart>> {
+        range_wrap(alt((
             value(PathStart::TopLevel, tag("@")),
             value(PathStart::CurrentTopLevel, tag("/")),
-        ))(input)
+        )))(input)
     }
 }
 
-impl<'a> CSTParse<'a, PathSegment<'a>> for PathSegment<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<PathSegment<'a>> {
+impl<'a> CSTParse<'a, Ranged<PathSegment<'a>>> for PathSegment<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<PathSegment<'a>>> {
         // path         = ${ ("@" | "/")? ~ (path_segment ~ "/")* }
         // path_segment =  { ".." | identifier ~ ("[" ~ nameBlock ~ "]")? }
         let node = recognize(many1(alt((
@@ -173,23 +187,23 @@ impl<'a> CSTParse<'a, PathSegment<'a>> for PathSegment<'a> {
         ))));
         let name = opt(delimited(
             tag("["),
+            // TODO: is a list allowed here?
             recognize(separated_list1(tag("|"), is_not("|]"))),
-            tag("]"),
+            expect(tag("]"), "Expected closing `]`"),
         ));
         let segment = tuple((node, name));
-        let dot_dot = value(PathSegment::DotDot, tag(".."));
+        let dot_dot = map(tag(".."), |_| PathSegment::DotDot);
         let node_name = map(segment, |inner| PathSegment::NodeName {
             node: inner.0.fragment(),
             name: inner.1.map(|s| *s.fragment()),
             index: None,
         });
-        terminated(alt((dot_dot, node_name)), tag("/"))(input)
+        range_wrap(terminated(alt((dot_dot, node_name)), tag("/")))(input)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
 
     use crate::parser::nom::{LocatedSpan, State};
 
@@ -197,10 +211,7 @@ mod tests {
     #[test]
     fn test_path() {
         let input = "@PART[RO-M55]/";
-        let res = Path::parse(LocatedSpan::new_extra(
-            input,
-            State(RefCell::new(Vec::new())),
-        ));
+        let res = Path::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
             Ok(it) => assert_eq!(input, it.1.to_string()),

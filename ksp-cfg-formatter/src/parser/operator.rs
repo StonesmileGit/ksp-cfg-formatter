@@ -1,22 +1,15 @@
-use nom::{
-    bytes::complete::tag,
-    combinator::{map, value},
-};
+use nom::{bytes::complete::tag, combinator::value};
 use pest::iterators::Pair;
 use std::fmt::Display;
 
-use super::{nom::CSTParse, Error, Range, Rule};
-
-/// Struct holding info about the operator
-#[derive(Debug, Clone, Default)]
-pub struct Operator {
-    kind: OperatorKind,
-    range: Range,
-}
+use super::{
+    nom::{utils::range_wrap, CSTParse},
+    Error, Range, Ranged, Rule,
+};
 
 /// The different kinds of operations that can be done
 #[derive(Debug, Clone, Default, Copy)]
-pub enum OperatorKind {
+pub enum Operator {
     /// No operator
     #[default]
     None,
@@ -37,97 +30,58 @@ pub enum OperatorKind {
     Rename,
 }
 
-impl Operator {
-    /// Get the range the operator spans
-    #[must_use]
-    pub const fn get_pos(&self) -> super::Range {
-        self.range
-    }
-    /// Get what kind the operator is
-    #[must_use]
-    pub const fn get_kind(&self) -> OperatorKind {
-        self.kind
-    }
-}
-
-impl TryFrom<Pair<'_, Rule>> for Operator {
+impl TryFrom<Pair<'_, Rule>> for Ranged<Operator> {
     type Error = Error;
 
     fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
         let range = Range::from(&rule);
-        match rule.as_str() {
-            "" => Ok(Self {
-                kind: OperatorKind::None,
-                range,
-            }),
-            "@" => Ok(Self {
-                kind: OperatorKind::Edit,
-                range,
-            }),
-            "%" => Ok(Self {
-                kind: OperatorKind::EditOrCreate,
-                range,
-            }),
-            "&" => Ok(Self {
-                kind: OperatorKind::CreateIfNotFound,
-                range,
-            }),
-            "+" => Ok(Self {
-                kind: OperatorKind::Copy,
-                range,
-            }),
-            "!" => Ok(Self {
-                kind: OperatorKind::Delete,
-                range,
-            }),
-            "-" => Ok(Self {
-                kind: OperatorKind::DeleteAlt,
-                range,
-            }),
-            "|" => Ok(Self {
-                kind: OperatorKind::Rename,
-                range,
-            }),
+        let op = match rule.as_str() {
+            "" => Ok(Operator::None),
+            "@" => Ok(Operator::Edit),
+            "%" => Ok(Operator::EditOrCreate),
+            "&" => Ok(Operator::CreateIfNotFound),
+            "+" => Ok(Operator::Copy),
+            "!" => Ok(Operator::Delete),
+            "-" => Ok(Operator::DeleteAlt),
+            "|" => Ok(Operator::Rename),
             str => Err(Error {
                 source_text: str.to_string(),
                 location: Some(rule.into()),
                 reason: super::Reason::Custom("Parsing of operator failed".to_string()),
             }),
-        }
+        }?;
+        Ok(Ranged::new(op, range))
     }
 }
 
 impl Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind {
-            OperatorKind::None => write!(f, ""),
-            OperatorKind::Edit => write!(f, "@"),
-            OperatorKind::EditOrCreate => write!(f, "%"),
-            OperatorKind::Copy => write!(f, "+"),
-            OperatorKind::Delete => write!(f, "!"),
-            OperatorKind::DeleteAlt => write!(f, "-"),
-            OperatorKind::CreateIfNotFound => write!(f, "&"),
-            OperatorKind::Rename => write!(f, "|"),
+        match self {
+            Operator::None => write!(f, ""),
+            Operator::Edit => write!(f, "@"),
+            Operator::EditOrCreate => write!(f, "%"),
+            Operator::Copy => write!(f, "+"),
+            Operator::Delete => write!(f, "!"),
+            Operator::DeleteAlt => write!(f, "-"),
+            Operator::CreateIfNotFound => write!(f, "&"),
+            Operator::Rename => write!(f, "|"),
         }
     }
 }
 
-impl CSTParse<'_, Operator> for Operator {
-    fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<Operator> {
+impl CSTParse<'_, Ranged<Operator>> for Operator {
+    fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<Ranged<Operator>> {
+        // TODO: Maybe it woud be better to return a Range based on the consumed span?
         let operator = nom::branch::alt((
-            value(OperatorKind::Edit, tag("@")),
-            value(OperatorKind::EditOrCreate, tag("%")),
-            value(OperatorKind::Copy, tag("+")),
-            value(OperatorKind::Delete, tag("!")),
-            value(OperatorKind::DeleteAlt, tag("-")),
-            value(OperatorKind::CreateIfNotFound, tag("&")),
-            value(OperatorKind::Rename, tag("|")),
+            value(Operator::Edit, tag("@")),
+            value(Operator::EditOrCreate, tag("%")),
+            value(Operator::Copy, tag("+")),
+            value(Operator::Delete, tag("!")),
+            value(Operator::DeleteAlt, tag("-")),
+            value(Operator::CreateIfNotFound, tag("&")),
+            value(Operator::Rename, tag("|")),
             // value(OperatorKind::None, tag("")),
         ));
-        map(operator, |inner| Operator {
-            kind: inner,
-            // FIXME: Range is default
-            range: Range::default(),
-        })(input)
+        range_wrap(operator)(input)
     }
 }

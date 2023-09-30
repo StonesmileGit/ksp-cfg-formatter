@@ -1,5 +1,8 @@
-use super::{nom::CSTParse, Rule};
-use nom::{bytes::complete::tag, combinator::value};
+use super::{
+    nom::{utils::range_wrap, CSTParse, IResult, LocatedSpan},
+    Range, Ranged, Rule,
+};
+use nom::{branch::alt, bytes::complete::tag, combinator::value};
 use pest::iterators::Pair;
 use std::fmt::Display;
 
@@ -25,11 +28,12 @@ pub enum AssignmentOperator {
     RegexReplace,
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for AssignmentOperator {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<AssignmentOperator> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        match rule.as_str() {
+        let range = Range::from(&rule);
+        let kind = match rule.as_str() {
             "=" => Ok(AssignmentOperator::Assign),
             "*=" => Ok(AssignmentOperator::Multiply),
             "/=" => Ok(AssignmentOperator::Divide),
@@ -42,7 +46,8 @@ impl<'a> TryFrom<Pair<'a, Rule>> for AssignmentOperator {
                 location: Some(rule.into()),
                 reason: super::Reason::Custom(format!("Unexpected character combination encountered when parsing 'Assignment Operator', found '{str}'")),
             }),
-        }
+        }?;
+        Ok(Ranged { inner: kind, range })
     }
 }
 
@@ -59,10 +64,9 @@ impl Display for AssignmentOperator {
         }
     }
 }
-
-impl CSTParse<'_, AssignmentOperator> for AssignmentOperator {
-    fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<AssignmentOperator> {
-        nom::branch::alt((
+impl CSTParse<'_, Ranged<AssignmentOperator>> for AssignmentOperator {
+    fn parse(input: LocatedSpan) -> IResult<Ranged<AssignmentOperator>> {
+        range_wrap(alt((
             value(AssignmentOperator::Add, tag("+=")),
             value(AssignmentOperator::Subtract, tag("-=")),
             value(AssignmentOperator::Multiply, tag("*=")),
@@ -70,6 +74,6 @@ impl CSTParse<'_, AssignmentOperator> for AssignmentOperator {
             value(AssignmentOperator::Power, tag("!=")),
             value(AssignmentOperator::RegexReplace, tag("^=")),
             value(AssignmentOperator::Assign, tag("=")),
-        ))(input)
+        )))(input)
     }
 }

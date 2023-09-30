@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use strsim::normalized_levenshtein;
 
-use crate::parser::{DocItem, Document, KeyVal, NodeItem};
+use crate::parser::{DocItem, Document, KeyVal, NodeItem, Ranged};
 
 /// Returns `None` if the strings are not similair enough, otherwise the max length is returned.
 fn max_len_if_similar(a: &str, b: &str) -> Option<usize> {
@@ -19,9 +19,9 @@ fn max_len_if_similar(a: &str, b: &str) -> Option<usize> {
     Some(a_len.max(b_len))
 }
 
-fn max_len_in_vec_if_similar(strs: &[KeyVal]) -> Option<usize> {
+fn max_len_in_vec_if_similar(strs: &[Ranged<KeyVal>]) -> Option<usize> {
     strs.iter()
-        .map(KeyVal::left_side)
+        .map(|e| e.left_side())
         .tuple_windows()
         .map(|t: (String, String)| max_len_if_similar(t.0.as_str(), t.1.as_str()))
         .reduce(|a, b| {
@@ -43,36 +43,36 @@ pub fn assignment_padding(mut doc: Document) -> Document {
 
 fn handle_doc_items(items: Vec<DocItem>) -> Vec<DocItem> {
     let items = items
-        .iter()
+        .into_iter()
         .map(|e| match e {
             DocItem::Node(n) => NodeItem::Node(n.clone()),
-            DocItem::Comment(c) => NodeItem::Comment(*c),
+            DocItem::Comment(c) => NodeItem::Comment(c),
             DocItem::EmptyLine => NodeItem::EmptyLine,
-            DocItem::Error => NodeItem::Error,
+            DocItem::Error(e) => NodeItem::Error(e),
         })
-        .collect();
+        .collect_vec();
     let items = handle_node_items(items);
     items
-        .iter()
+        .into_iter()
         .map(|e| match e {
             NodeItem::Node(n) => DocItem::Node(n.clone()),
-            NodeItem::Comment(c) => DocItem::Comment(*c),
+            NodeItem::Comment(c) => DocItem::Comment(c),
             NodeItem::EmptyLine => DocItem::EmptyLine,
-            NodeItem::Error => DocItem::Error,
+            NodeItem::Error(e) => DocItem::Error(e),
             NodeItem::KeyVal(_) => unreachable!(),
         })
         .collect_vec()
 }
 
-fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
-    let mut accumulator: Vec<KeyVal> = vec![];
+fn handle_node_items<'a>(items: Vec<NodeItem<'a>>) -> Vec<NodeItem<'a>> {
+    let mut accumulator: Vec<Ranged<KeyVal>> = vec![];
     let mut processed: Vec<NodeItem> = vec![];
     for item in items {
         match item {
             NodeItem::Node(mut node) => {
                 processed = fix_kvs(accumulator, processed);
                 accumulator = Vec::new();
-                node.block = handle_node_items(node.block);
+                node.block = handle_node_items(node.block.clone());
                 processed.push(NodeItem::Node(node));
             }
             NodeItem::Comment(comment) => {
@@ -86,14 +86,14 @@ fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
                 accumulator = Vec::new();
                 processed.push(NodeItem::EmptyLine);
             }
-            NodeItem::Error => todo!(),
+            NodeItem::Error(_e) => todo!(),
         }
     }
     fix_kvs(accumulator, processed)
 }
 
 fn fix_kvs<'a>(
-    accumulator: Vec<KeyVal<'a>>,
+    accumulator: Vec<Ranged<KeyVal<'a>>>,
     mut processed: Vec<NodeItem<'a>>,
 ) -> Vec<NodeItem<'a>> {
     // TODO: If accumulator is almost empty, is it worth aligning then?

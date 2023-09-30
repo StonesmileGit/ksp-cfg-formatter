@@ -2,14 +2,12 @@ use std::{cell::RefCell, ops::Range};
 
 use nom::combinator::all_consuming;
 
-use self::utils::debug_fn;
-
-use super::Document;
+use super::{document::source_file, Document};
 
 pub(crate) mod utils;
 
 /// This used in place of `&str` or `&[u8]` in our `nom` parsers.
-pub(crate) type LocatedSpan<'a> = nom_locate::LocatedSpan<&'a str, State>;
+pub(crate) type LocatedSpan<'a> = nom_locate::LocatedSpan<&'a str, State<'a>>;
 /// Convenient type alias for `nom::IResult<I, O>` reduced to `IResult<O>`.
 pub(crate) type IResult<'a, T> = nom::IResult<LocatedSpan<'a>, T>;
 
@@ -27,18 +25,50 @@ impl<'a> ToRange for LocatedSpan<'a> {
 
 /// Error containing a text span and an error message to display.
 #[derive(Debug, Clone)]
-pub struct Error(Range<usize>, String);
+pub struct Error<'a> {
+    /// The LocatedSpan covered by the error
+    pub span: LocatedSpan<'a>,
+    /// The error message
+    pub message: String,
+}
+
+/// Holds the state of the parser, to allow for context aware parsing
+#[derive(Clone, Debug)]
+pub struct ParserState {
+    /// Indicates if the current node is on the top level
+    pub top_level: bool,
+}
+
+impl Default for ParserState {
+    fn default() -> Self {
+        Self { top_level: true }
+    }
+}
 
 /// Carried around in the `LocatedSpan::extra` field in
 /// between `nom` parsers.
 #[derive(Clone, Debug)]
-pub struct State(pub RefCell<Vec<Error>>);
+pub struct State<'a> {
+    /// List of accumulated errors while parsing
+    pub errors: RefCell<Vec<Error<'a>>>,
+    /// The current state of the parser
+    pub state: ParserState,
+}
 
-impl State {
+impl<'a> Default for State<'a> {
+    fn default() -> State<'a> {
+        State {
+            errors: RefCell::new(Vec::new()),
+            state: Default::default(),
+        }
+    }
+}
+
+impl<'a> State<'a> {
     /// Pushes an error onto the errors stack from within a `nom`
     /// parser combinator while still allowing parsing to continue.
-    pub fn report_error(&self, error: Error) {
-        self.0.borrow_mut().push(error);
+    pub fn report_error(&self, error: Error<'a>) {
+        self.errors.borrow_mut().push(error);
     }
 }
 
@@ -51,18 +81,9 @@ pub trait CSTParse<'c, O> {
 
 /// Parses a string into a document struct, also emmitting errors along the way
 pub fn parse(source: &str) -> (Document, Vec<Error>) {
-    let errors = RefCell::new(Vec::new());
-    let input = LocatedSpan::new_extra(source, State(errors));
-    let (span, doc) = match all_consuming(debug_fn(Document::parse, "Got Document", true))(input) {
-        Ok(it) => it,
-        Err(err) => {
-            dbg!(err);
-            panic!()
-        }
-    };
-    // let res = Document::parse(input);
-    // dbg!(res);
-    // panic!();
-    let a = span.into_fragment_and_extra();
-    (doc, a.1 .0.into_inner())
+    let input = LocatedSpan::new_extra(source, State::default());
+    let (span, doc) = all_consuming(source_file)(input).expect("parsing cannot fail");
+    let (_, state) = span.into_fragment_and_extra();
+    let errors = state.errors.borrow().clone();
+    (doc, errors)
 }

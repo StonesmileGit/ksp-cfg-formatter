@@ -12,16 +12,18 @@ use nom::{
 use pest::iterators::Pair;
 
 use super::{
-    nom::{utils::expect, CSTParse, IResult, LocatedSpan},
-    Error, Range, Rule,
+    nom::{
+        utils::{expect, range_wrap},
+        CSTParse, IResult, LocatedSpan,
+    },
+    Error, Range, Ranged, Rule,
 };
 
 /// Contains a `Vec` of all the clauses to be combined using logical ANDs. All clauses have to be satisfied for the parent operation to be executed
 #[derive(Debug, Clone)]
 pub struct NeedsBlock<'a> {
     /// The clauses to be combined using logical ANDs
-    pub or_clauses: Vec<OrClause<'a>>,
-    _range: Range,
+    pub or_clauses: Vec<Ranged<OrClause<'a>>>,
 }
 
 impl<'a> Display for NeedsBlock<'a> {
@@ -30,7 +32,7 @@ impl<'a> Display for NeedsBlock<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<NeedsBlock<'a>> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Error> {
@@ -38,16 +40,13 @@ impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
         let mut or_clauses = vec![];
         for pair in rule.into_inner() {
             if pair.as_rule() == Rule::modOrClause {
-                or_clauses.push(OrClause::try_from(pair)?);
+                or_clauses.push(Ranged::<OrClause>::try_from(pair)?);
             } else {
                 let rule_name = pair.as_rule();
                 panic!("Got unexpected rule: {rule_name:?}");
             }
         }
-        Ok(NeedsBlock {
-            or_clauses,
-            _range: range,
-        })
+        Ok(Ranged::new(NeedsBlock { or_clauses }, range))
     }
 }
 
@@ -55,8 +54,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for NeedsBlock<'a> {
 #[derive(Debug, Clone)]
 pub struct OrClause<'a> {
     /// The clauses to be combined using logical ORs
-    pub mod_clauses: Vec<ModClause<'a>>,
-    _range: Range,
+    pub mod_clauses: Vec<Ranged<ModClause<'a>>>,
 }
 
 impl<'a> Display for OrClause<'a> {
@@ -65,7 +63,7 @@ impl<'a> Display for OrClause<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<OrClause<'a>> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
@@ -73,7 +71,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
         let mut mod_clauses = vec![];
         for pair in rule.into_inner() {
             if pair.as_rule() == Rule::needsMod {
-                mod_clauses.push(ModClause::try_from(pair)?);
+                mod_clauses.push(Ranged::<ModClause>::try_from(pair)?);
             } else {
                 return Err(Error {
                     source_text: pair.as_str().to_string(),
@@ -84,10 +82,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for OrClause<'a> {
                 });
             }
         }
-        Ok(OrClause {
-            mod_clauses,
-            _range: range,
-        })
+        Ok(Ranged::new(OrClause { mod_clauses }, range))
     }
 }
 
@@ -98,7 +93,6 @@ pub struct ModClause<'a> {
     pub negated: bool,
     /// Name of the mod to check for
     pub name: &'a str,
-    _range: Range,
 }
 
 impl<'a> Display for ModClause<'a> {
@@ -107,13 +101,12 @@ impl<'a> Display for ModClause<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<ModClause<'a>> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let range = Range::from(&rule);
         let mut mod_clause = ModClause {
-            _range: range,
             ..Default::default()
         };
         for pair in rule.into_inner() {
@@ -131,14 +124,14 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ModClause<'a> {
                 }
             }
         }
-        Ok(mod_clause)
+        Ok(Ranged::new(mod_clause, range))
     }
 }
 
-impl<'a> CSTParse<'a, NeedsBlock<'a>> for NeedsBlock<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<NeedsBlock<'a>> {
+impl<'a> CSTParse<'a, Ranged<NeedsBlock<'a>>> for NeedsBlock<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<NeedsBlock<'a>>> {
         // needsBlock = { ^":NEEDS[" ~ modOrClause ~ (("&" | ",") ~ modOrClause)* ~ "]" }
-        map(
+        range_wrap(map(
             delimited(
                 tag_no_case(":NEEDS["),
                 expect(
@@ -149,62 +142,60 @@ impl<'a> CSTParse<'a, NeedsBlock<'a>> for NeedsBlock<'a> {
             ),
             |inner| NeedsBlock {
                 or_clauses: inner.unwrap_or_default(),
-                _range: Range::default(),
             },
-        )(input)
+        ))(input)
     }
 }
 
-impl<'a> CSTParse<'a, OrClause<'a>> for OrClause<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<OrClause<'a>> {
+impl<'a> CSTParse<'a, Ranged<OrClause<'a>>> for OrClause<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<OrClause<'a>>> {
         // modOrClause = { needsMod ~ ("|" ~ needsMod)* }
-        map(
+        range_wrap(map(
             expect(
-                separated_list1(one_of("|"), ModClause::parse),
+                separated_list1(one_of("|"), expect(ModClause::parse, "Expected mod")),
                 "Expected OR'd mods",
             ),
-            |inner| OrClause {
-                mod_clauses: inner.unwrap_or_default(),
-                _range: Range::default(),
+            |inner| {
+                let mod_clauses = inner
+                    .unwrap_or_default()
+                    .into_iter()
+                    .flatten()
+                    .collect_vec();
+                OrClause { mod_clauses }
             },
-        )(input)
+        ))(input)
     }
 }
 
-impl<'a> CSTParse<'a, ModClause<'a>> for ModClause<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<ModClause<'a>> {
+impl<'a> CSTParse<'a, Ranged<ModClause<'a>>> for ModClause<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<ModClause<'a>>> {
         // needsMod    = { negation? ~ modName }
         // negation    = { "!" }
         let negated = opt(tag::<_, LocatedSpan, _>("!"));
         // modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
         let mod_name = recognize(many1(alt((alphanumeric1, is_a("/_-?")))));
         let mod_clause = pair(negated, mod_name);
-        map(mod_clause, |inner| ModClause {
+        range_wrap(map(mod_clause, |inner| ModClause {
             negated: inner.0.is_some(),
             name: inner.1.fragment(),
-            _range: Range::default(),
-        })(input)
+        }))(input)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
 
     use crate::parser::nom::State;
 
     use super::*;
     #[test]
     fn test_needs() {
-        let input = ":NEEDS[]";
-        let res = NeedsBlock::parse(LocatedSpan::new_extra(
-            input,
-            State(RefCell::new(Vec::new())),
-        ));
+        let input = ":NEEDS[mod]";
+        let res = NeedsBlock::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
             Ok(it) => {
-                let errors = it.0.extra.0.into_inner();
+                let errors = it.0.extra.errors.borrow().clone();
                 if errors.len() > 0 {
                     for error in &errors {
                         eprintln!("{:#?}", error);

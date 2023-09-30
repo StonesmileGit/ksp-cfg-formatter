@@ -1,11 +1,12 @@
+use std::ops::Deref;
+
 use super::{
     nom::{
-        utils::{debug_fn, ignore_line_ending, ws},
+        utils::{debug_fn, ignore_line_ending, range_wrap, ws},
         CSTParse, IResult, LocatedSpan,
     },
-    operator::OperatorKind,
     ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index, NeedsBlock, Operator, Path,
-    Range, Rule,
+    Range, Ranged, Rule,
 };
 use nom::{
     branch::alt,
@@ -21,26 +22,25 @@ use pest::iterators::Pair;
 #[derive(Debug, Default, Clone)]
 pub struct KeyVal<'a> {
     /// Optional path to the variable
-    pub path: Option<Path<'a>>,
+    pub path: Option<Ranged<Path<'a>>>,
     /// Optional operator
-    pub operator: Option<Operator>,
+    pub operator: Option<Ranged<Operator>>,
     /// name of the variable
-    pub key: &'a str,
+    pub key: Ranged<&'a str>,
     /// Optional NEEDS block
-    pub needs: Option<NeedsBlock<'a>>,
+    pub needs: Option<Ranged<NeedsBlock<'a>>>,
     /// Optional index
-    pub index: Option<Index>,
+    pub index: Option<Ranged<Index>>,
     /// Optional array-index
-    pub array_index: Option<ArrayIndex>,
+    pub array_index: Option<Ranged<ArrayIndex>>,
     key_padding: Option<String>,
     /// The assignment operator between the variable and the value
-    pub assignment_operator: AssignmentOperator,
+    pub assignment_operator: Ranged<AssignmentOperator>,
     /// The value to use in the assignment
     // FIXME: The value has the trailing whitespace in case of a comment. Split into a separate field
-    pub val: &'a str,
+    pub val: Ranged<&'a str>,
     /// Optional trailing comment
-    pub comment: Option<Comment<'a>>,
-    _range: Range,
+    pub comment: Option<Ranged<Comment<'a>>>,
 }
 
 impl<'a> KeyVal<'a> {
@@ -54,8 +54,12 @@ impl<'a> KeyVal<'a> {
             self.operator.clone().unwrap_or_default(),
             self.key,
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
-            self.index.map_or_else(String::new, |i| i.to_string()),
-            self.array_index.map_or_else(String::new, |i| i.to_string()),
+            self.index
+                .as_deref()
+                .map_or_else(String::new, |i| i.to_string()),
+            self.array_index
+                .as_deref()
+                .map_or_else(String::new, |i| i.to_string()),
         )
     }
     pub(crate) fn set_key_padding(&mut self, n: usize) {
@@ -63,7 +67,7 @@ impl<'a> KeyVal<'a> {
     }
 }
 
-impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
+impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Ranged<KeyVal<'a>> {
     type Error = Error;
 
     fn try_from(rule_bool: (Pair<'a, Rule>, bool)) -> Result<Self, Self::Error> {
@@ -72,30 +76,30 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
         let top_level = rule_bool.1;
         let pairs = rule.into_inner();
         let mut key_val = KeyVal {
-            _range: range,
             ..Default::default()
         };
         for pair in pairs {
             match pair.as_rule() {
-                Rule::value => key_val.val = pair.as_str(),
+                Rule::value => key_val.val = Ranged::new(pair.as_str(), pair.into()),
                 Rule::Comment => {
-                    key_val.comment =
-                        Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
+                    key_val.comment = Some(
+                        Ranged::<Comment>::try_from(pair).expect("Parsing a comment is Infallable"),
+                    );
                 }
                 Rule::assignmentOperator => {
-                    key_val.assignment_operator = AssignmentOperator::try_from(pair)?;
+                    key_val.assignment_operator = Ranged::<AssignmentOperator>::try_from(pair)?;
                 }
-                Rule::needsBlock => key_val.needs = Some(NeedsBlock::try_from(pair)?),
+                Rule::needsBlock => key_val.needs = Some(Ranged::<NeedsBlock>::try_from(pair)?),
                 Rule::index => {
-                    key_val.index = Some(super::indices::Index::try_from(pair)?);
+                    key_val.index = Some(Ranged::<Index>::try_from(pair)?);
                 }
                 Rule::arrayIndex => {
-                    key_val.array_index = Some(super::indices::ArrayIndex::try_from(pair)?);
+                    key_val.array_index = Some(Ranged::<ArrayIndex>::try_from(pair)?);
                 }
                 Rule::operator => {
-                    let op = Some(Operator::try_from(pair.clone())?);
+                    let op = Some(Ranged::<Operator>::try_from(pair.clone())?);
                     if let Some(op) = &op {
-                        if top_level && matches!(op.get_kind(), OperatorKind::Rename) {
+                        if top_level && matches!(op.deref(), Operator::Rename) {
                             return Err(Error {
                                 reason: crate::parser::Reason::Custom(
                                     "Found rename operator on top level node".to_string(),
@@ -107,18 +111,20 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for KeyVal<'a> {
                     }
                     key_val.operator = op;
                 }
-                Rule::keyIdentifier => key_val.key = pair.as_str().trim(),
+                Rule::keyIdentifier => key_val.key = Ranged::new(pair.as_str().trim(), pair.into()),
                 Rule::path => {
-                    key_val.path =
-                        Some(Path::try_from(pair).expect("Parsing a path is currently Infallable"));
+                    key_val.path = Some(
+                        Ranged::<Path>::try_from(pair)
+                            .expect("Parsing a path is currently Infallable"),
+                    );
                 }
                 _ => unreachable!(),
             }
         }
         if key_val.comment.is_none() {
-            key_val.val = key_val.val.trim();
+            *key_val.val = key_val.val.trim();
         }
-        Ok(key_val)
+        Ok(Ranged::new(key_val, range))
     }
 }
 
@@ -135,54 +141,52 @@ impl<'a> ASTPrint for KeyVal<'a> {
             self.operator.clone().unwrap_or_default(),
             self.key,
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
-            self.index.map_or_else(String::new, |i| i.to_string()),
-            self.array_index.map_or_else(String::new, |i| i.to_string()),
+            self.index
+                .as_deref()
+                .map_or_else(String::new, |i| i.to_string()),
+            self.array_index
+                .as_deref()
+                .map_or_else(String::new, |i| i.to_string()),
             self.key_padding.clone().map_or_else(String::new, |p| p),
             self.assignment_operator,
             self.val,
-            self.comment.map_or_else(String::new, |c| c.to_string()),
+            self.comment
+                .as_ref()
+                .map_or_else(String::new, |c| c.to_string()),
             line_ending
         )
     }
 }
 
-impl<'a> CSTParse<'a, KeyVal<'a>> for KeyVal<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<KeyVal<'a>> {
+impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<KeyVal<'a>>> {
         let path = opt(preceded(tag("*"), Path::parse));
         let operator = opt(Operator::parse);
         // keyIdentifier     = ${ keyIdentifierPart ~ (Whitespace* ~ keyIdentifierPart)* }
         // keyIdentifierPart = _{ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
-        let key = recognize(separated_list1(
-            space1,
-            recognize(many1(alt((
-                is_a("#_.?"),
-                alphanumeric1,
-                terminated(is_a("-+*"), none_of("=")),
-                terminated(tag("/"), none_of("/=")),
-            )))),
+        let key = range_wrap(map(
+            recognize(separated_list1(
+                space1::<LocatedSpan, _>,
+                recognize(many1(alt((
+                    is_a("#_.?"),
+                    alphanumeric1,
+                    terminated(is_a("-+*"), none_of("=")),
+                    terminated(tag("/"), none_of("/=")),
+                )))),
+            )),
+            |s| *s.fragment(),
         ));
-        // let key = expect(
-        //     verify(
-        //         recognize(many_till(
-        //             anychar,
-        //             peek(alt((
-        //                 map(ws(AssignmentOperator::parse), |_| ()),
-        //                 map(line_ending, |_| ()),
-        //             ))),
-        //         )),
-        //         |s| !s.is_empty(),
-        //     ),
-        //     "A key has to be provided",
-        // );
-        // let key = expect(key, "Expected key");
         let needs = opt(NeedsBlock::parse);
         let index = opt(Index::parse);
         let array_index = opt(ArrayIndex::parse);
         let assignment_operator = ws(AssignmentOperator::parse);
-        let value = ignore_line_ending(recognize(many_till(
-            anychar,
-            peek(alt((tag("//"), is_a("}\r\n"), eof))),
-        )));
+        let value = range_wrap(map(
+            ignore_line_ending(recognize(many_till(
+                anychar,
+                peek(alt((tag("//"), is_a("}\r\n"), eof))),
+            ))),
+            |s| *s.fragment(),
+        ));
         let comment = opt(ignore_line_ending(ws(Comment::parse)));
         let key_val = tuple((
             debug_fn(path, "Got path", true),
@@ -195,32 +199,41 @@ impl<'a> CSTParse<'a, KeyVal<'a>> for KeyVal<'a> {
             debug_fn(value, "Got value", true),
             comment,
         ));
-        map(key_val, |inner| {
+        range_wrap(map(key_val, |inner| {
+            let path = inner.0;
+            let operator = inner.1;
+            let key = inner.2;
+            let needs = inner.3;
+            let index = inner.4;
+            let array_index = inner.5;
+            let key_padding = None;
+            let assignment_operator = inner.6;
+            let val = inner.7;
+            let comment = inner.8;
+            // This technically only has to contain the first and last range that is Some, since it's "added up" later
             // dbg!(&inner);
             let mut key_val = KeyVal {
-                path: inner.0,
-                operator: inner.1,
-                key: inner.2.fragment(),
-                needs: inner.3,
-                index: inner.4,
-                array_index: inner.5,
-                key_padding: None,
-                assignment_operator: inner.6,
-                val: inner.7.fragment(),
-                comment: inner.8,
-                _range: Range::default(),
+                path,
+                operator,
+                key,
+                needs,
+                index,
+                array_index,
+                key_padding,
+                assignment_operator,
+                val,
+                comment,
             };
             if key_val.comment.is_none() {
-                key_val.val = key_val.val.trim();
+                *key_val.val = key_val.val.trim();
             }
             key_val
-        })(input)
+        }))(input)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
 
     use crate::parser::nom::{LocatedSpan, State};
 
@@ -228,10 +241,7 @@ mod tests {
     #[test]
     fn test_key_val() {
         let input = "key = val\r\n";
-        let res = KeyVal::parse(LocatedSpan::new_extra(
-            input,
-            State(RefCell::new(Vec::new())),
-        ));
+        let res = KeyVal::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
             Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", false)),
@@ -241,10 +251,7 @@ mod tests {
     #[test]
     fn test_key_val_2() {
         let input = "*@PART[RO-M55]/deleteMe = true\r\n";
-        let res = KeyVal::parse(LocatedSpan::new_extra(
-            input,
-            State(RefCell::new(Vec::new())),
-        ));
+        let res = KeyVal::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
             Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", false)),

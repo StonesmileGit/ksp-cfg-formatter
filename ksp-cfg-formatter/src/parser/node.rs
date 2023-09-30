@@ -1,15 +1,16 @@
+use std::ops::Deref;
+
 use itertools::Itertools;
 use nom::branch::{alt, permutation};
 use nom::bytes::complete::{is_a, is_not, tag};
 use nom::character::complete::{alphanumeric1, char, line_ending, space0};
 use nom::combinator::{map, opt, recognize, verify};
 use nom::multi::{many0, many1, separated_list1};
-use nom::sequence::{delimited, preceded};
+use nom::sequence::{delimited, preceded, tuple};
 use pest::iterators::Pair;
 
-use crate::parser::operator::OperatorKind;
-
-use super::nom::utils::{debug_fn, empty_line, expect, ws, ws_le};
+use super::nom::utils::{debug_fn, empty_line, error_till, expect, range_wrap, ws, ws_le};
+use super::Ranged;
 use super::{
     nom::CSTParse, ASTPrint, Comment, Error, HasBlock, Index, KeyVal, NeedsBlock, NodeItem,
     Operator, Pass, Path, Range, Rule,
@@ -20,31 +21,29 @@ use super::{
 pub struct Node<'a> {
     top_level: bool,
     /// Optional path to node, only allowed on internal nodes
-    pub path: Option<Path<'a>>,
+    pub path: Option<Ranged<Path<'a>>>,
     /// Optional operator
-    pub operator: Option<Operator>,
+    pub operator: Option<Ranged<Operator>>,
     /// Identifier of the node
-    pub identifier: &'a str,
+    pub identifier: Ranged<&'a str>,
     /// Optional name of the node. Same as `:HAS[name[<name>]]`
-    pub name: Option<(Vec<&'a str>, Range)>,
+    pub name: Option<Ranged<Vec<&'a str>>>,
     /// Optional HAS block
-    pub has: Option<HasBlock<'a>>,
+    pub has: Option<Ranged<HasBlock<'a>>>,
     /// Optional NEEDS block
-    pub needs: Option<NeedsBlock<'a>>,
+    pub needs: Option<Ranged<NeedsBlock<'a>>>,
     /// Pass for the patch to run
-    pub pass: Pass<'a>,
+    pub pass: Option<Ranged<Pass<'a>>>,
     /// Optional index of the node to match
-    pub index: Option<Index>,
+    pub index: Option<Ranged<Index>>,
     /// Optional comment after the identifier
-    pub id_comment: Option<Comment<'a>>,
+    pub id_comment: Option<Ranged<Comment<'a>>>,
     /// optional comments between identifier line and opening bracket
-    pub comments_after_newline: Vec<Comment<'a>>,
+    pub comments_after_newline: Vec<Ranged<Comment<'a>>>,
     /// Items inside the node
     pub block: Vec<NodeItem<'a>>,
     /// Optional trailing comment after the closing bracket
-    pub trailing_comment: Option<Comment<'a>>,
-    /// the range that the node spans
-    pub range: Range,
+    pub trailing_comment: Option<Ranged<Comment<'a>>>,
 }
 
 impl<'a> Node<'a> {
@@ -54,7 +53,7 @@ impl<'a> Node<'a> {
         self.top_level
     }
     /// Returns an iterator over all of the Nodes contained within this node
-    pub fn iter_nodes(&self) -> impl Iterator<Item = &Node> {
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &Ranged<Node>> {
         self.block.iter().filter_map(|n| {
             if let NodeItem::Node(node) = n {
                 Some(node)
@@ -64,7 +63,7 @@ impl<'a> Node<'a> {
         })
     }
     /// Returns an iterator over all of the Assignments contained within this node
-    pub fn iter_keyvals(&self) -> impl Iterator<Item = &KeyVal> {
+    pub fn iter_keyvals(&self) -> impl Iterator<Item = &Ranged<KeyVal>> {
         self.block.iter().filter_map(|n| {
             if let NodeItem::KeyVal(kv) = n {
                 Some(kv)
@@ -80,12 +79,16 @@ pub(crate) fn parse_block_items(pair: Pair<Rule>, top_level: bool) -> Result<Vec
     let mut block_items = vec![];
     for pair in pair.into_inner() {
         match pair.as_rule() {
-            Rule::node => block_items.push(Ok(NodeItem::Node(Node::try_from((pair, top_level))?))),
+            Rule::node => block_items.push(Ok(NodeItem::Node(Ranged::<Node>::try_from((
+                pair, top_level,
+            ))?))),
             Rule::Comment => block_items.push(Ok(NodeItem::Comment(
-                Comment::try_from(pair).expect("Parsing a comment is Infallable"),
+                Ranged::<Comment>::try_from(pair).expect("Parsing a comment is Infallable"),
             ))),
             Rule::assignment => {
-                block_items.push(Ok(NodeItem::KeyVal(KeyVal::try_from((pair, top_level))?)));
+                block_items.push(Ok(NodeItem::KeyVal(Ranged::<KeyVal>::try_from((
+                    pair, top_level,
+                ))?)));
             }
             Rule::EmptyLine => block_items.push(Ok(NodeItem::EmptyLine)),
             Rule::EOI | Rule::Newline => (),
@@ -95,7 +98,7 @@ pub(crate) fn parse_block_items(pair: Pair<Rule>, top_level: bool) -> Result<Vec
     block_items.into_iter().collect()
 }
 
-impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
+impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Ranged<Node<'a>> {
     type Error = Error;
 
     fn try_from(rule_bool: (Pair<'a, Rule>, bool)) -> Result<Self, Self::Error> {
@@ -105,7 +108,6 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
 
         let mut node = Node {
             top_level: rule_bool.1,
-            range,
             ..Default::default()
         };
 
@@ -116,24 +118,29 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
             match pair.as_rule() {
                 Rule::Comment => {
                     if body_seen {
-                        node.trailing_comment =
-                            Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
+                        node.trailing_comment = Some(
+                            Ranged::<Comment>::try_from(pair)
+                                .expect("Parsing a comment is Infallable"),
+                        );
                     } else if newline_seen {
                         node.comments_after_newline.push(
-                            Comment::try_from(pair).expect("Parsing a comment is Infallable"),
+                            Ranged::<Comment>::try_from(pair)
+                                .expect("Parsing a comment is Infallable"),
                         );
                     } else {
-                        node.id_comment =
-                            Some(Comment::try_from(pair).expect("Parsing a comment is Infallable"));
+                        node.id_comment = Some(
+                            Ranged::<Comment>::try_from(pair)
+                                .expect("Parsing a comment is Infallable"),
+                        );
                     }
                 }
                 Rule::openingbracket | Rule::closingbracket => (),
                 Rule::Newline => newline_seen = true,
 
-                Rule::identifier => node.identifier = pair.as_str(),
+                Rule::identifier => node.identifier = Ranged::new(pair.as_str(), pair.into()),
                 Rule::nameBlock => {
                     let names: Vec<&'a str> = pair.as_str().split('|').collect();
-                    node.name = Some((names, pair.into()));
+                    node.name = Some(Ranged::new(names, pair.into()));
                 }
                 Rule::hasBlock => {
                     if node.has.is_some() {
@@ -145,7 +152,7 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.has = Some(HasBlock::try_from(pair)?);
+                    node.has = Some(Ranged::<HasBlock>::try_from(pair)?);
                 }
                 Rule::needsBlock => {
                     if node.needs.is_some() {
@@ -157,10 +164,10 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.needs = Some(NeedsBlock::try_from(pair)?);
+                    node.needs = Some(Ranged::<NeedsBlock>::try_from(pair)?);
                 }
                 Rule::passBlock => {
-                    if node.pass != Pass::Default {
+                    if node.pass.is_some() {
                         return Err(Error {
                             reason: crate::parser::Reason::Custom(
                                 "Only one pass is allowed".to_string(),
@@ -178,7 +185,7 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.pass = Pass::try_from(pair).expect("Should be Infallable");
+                    node.pass = Some(Ranged::<Pass>::try_from(pair).expect("Should be Infallable"));
                 }
                 Rule::index => {
                     if node.index.is_some() {
@@ -190,12 +197,12 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                             location: Some(pair.into()),
                         });
                     }
-                    node.index = Some(super::indices::Index::try_from(pair)?);
+                    node.index = Some(Ranged::<Index>::try_from(pair)?);
                 }
                 Rule::operator => {
-                    let op = Some(Operator::try_from(pair.clone())?);
+                    let op = Some(Ranged::<Operator>::try_from(pair.clone())?);
                     if let Some(op) = &op {
-                        if matches!(op.get_kind(), OperatorKind::Rename) {
+                        if matches!(op.deref(), Operator::Rename) {
                             return Err(Error {
                                 reason: crate::parser::Reason::Custom(
                                     "Found rename operator on node".to_string(),
@@ -208,8 +215,10 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                     node.operator = op;
                 }
                 Rule::path => {
-                    node.path =
-                        Some(Path::try_from(pair).expect("Parsing path is supposedly Infallable"));
+                    node.path = Some(
+                        Ranged::<Path>::try_from(pair)
+                            .expect("Parsing path is supposedly Infallable"),
+                    );
                 }
                 Rule::nodeBody => {
                     node.block = parse_block_items(pair, false)?;
@@ -218,7 +227,7 @@ impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Node<'a> {
                 _ => unreachable!(),
             }
         }
-        Ok(node)
+        Ok(Ranged::new(node, range))
     }
 }
 
@@ -251,12 +260,14 @@ impl<'a> ASTPrint for Node<'a> {
             self.identifier,
             self.name.clone().map_or(String::new(), |name| format!(
                 "[{}]",
-                name.0.iter().format("|")
+                name.iter().format("|")
             )),
             self.has.clone().unwrap_or_default(),
-            self.pass,
+            self.pass.clone().map_or(String::new(), |p| p.to_string()),
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
-            self.index.map_or(String::new(), |i| i.to_string()),
+            self.index
+                .as_deref()
+                .map_or(String::new(), |i| i.to_string()),
         );
         output.push_str(
             match self.block.len() {
@@ -338,7 +349,7 @@ fn short_node(arg: &Node) -> bool {
     len += arg
         .name
         .clone()
-        .map_or(0, |name| name.0.iter().map(|e| e.chars().count()).sum());
+        .map_or(0, |name| name.iter().map(|e| e.chars().count()).sum());
     len += arg
         .has
         .clone()
@@ -347,8 +358,14 @@ fn short_node(arg: &Node) -> bool {
         .needs
         .clone()
         .map_or(0, |needs| needs.to_string().chars().count());
-    len += arg.pass.clone().to_string().chars().count();
-    len += arg.index.map_or(0, |id| id.to_string().chars().count());
+    len += arg
+        .pass
+        .clone()
+        .map_or(0, |p| p.to_string().chars().count());
+    len += arg
+        .index
+        .as_deref()
+        .map_or(0, |id| id.to_string().chars().count());
 
     match arg.block.first().unwrap() {
         NodeItem::KeyVal(kv) => {
@@ -369,12 +386,19 @@ fn short_node(arg: &Node) -> bool {
 
 use super::nom::{utils::ignore_line_ending, IResult, LocatedSpan};
 
-impl<'a> CSTParse<'a, Node<'a>> for Node<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<Node<'a>> {
+impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Node<'a>>> {
+        let top_level = input.extra.state.top_level.clone();
         let path = opt(preceded(tag("#"), Path::parse));
         let operator = opt(Operator::parse);
         // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
-        let identifier = recognize(many1(alt((alphanumeric1, is_a("-_.+*?")))));
+        let identifier = range_wrap(map(
+            recognize(many1(alt((
+                alphanumeric1::<LocatedSpan, _>,
+                is_a("-_.+*?"),
+            )))),
+            |inner| *inner.fragment(),
+        ));
         let name = opt(parse_name);
         let has = opt(HasBlock::parse);
         let needs = opt(NeedsBlock::parse);
@@ -383,8 +407,8 @@ impl<'a> CSTParse<'a, Node<'a>> for Node<'a> {
         let id_comment = opt(Comment::parse);
         let comments_after_newline = many0(Comment::parse);
         let block = preceded(opt(line_ending), preceded(space0, parse_block));
-        let trailing_comment = nom::combinator::opt(Comment::parse);
-        let node = nom::sequence::tuple((
+        let trailing_comment = opt(Comment::parse);
+        let node = tuple((
             debug_fn(path, "Got path", true),
             debug_fn(operator, "Got operator", true),
             debug_fn(identifier, "Got node id", true),
@@ -416,12 +440,12 @@ impl<'a> CSTParse<'a, Node<'a>> for Node<'a> {
                 true,
             ),
         ));
-        nom::combinator::map(ws(node), |inner| Node {
-            top_level: false,
+        let res = range_wrap(map(ws(node), |inner| Node {
+            top_level,
             path: inner.0,
             operator: inner.1,
             // identifier: inner.2.map_or("ERROR", |s| s.fragment()),
-            identifier: inner.2.fragment(),
+            identifier: inner.2,
             name: inner.3.unwrap_or(None),
             has: inner
                 .4
@@ -439,33 +463,61 @@ impl<'a> CSTParse<'a, Node<'a>> for Node<'a> {
                 .cloned(),
             pass: inner
                 .4
-                .iter()
+                .into_iter()
                 .filter_map(|a| a.1)
                 .collect_vec()
                 .first()
-                .copied()
-                .unwrap_or(Pass::Default),
+                .cloned(),
             index: inner.5.unwrap_or(None),
             id_comment: inner.6.unwrap_or(None),
             comments_after_newline: inner.7.unwrap_or_default(),
             // block: inner.10.unwrap_or(vec![]),
             block: inner.8,
             trailing_comment: inner.9.unwrap_or(None),
-            // FIXME: Range is default
-            range: Range::default(),
-        })(input)
+        }))(input);
+        // extra line to handle life time stuff
+        res
     }
 }
 
-fn parse_name(input: LocatedSpan) -> IResult<(Vec<&str>, Range)> {
-    let list = delimited(tag("["), separated_list1(tag("|"), is_not("|]")), tag("]"));
-    map(list, |inner| {
-        let arr = inner.iter().map(|e: &LocatedSpan| *e.fragment()).collect();
-        (arr, Range::default())
-    })(input)
+fn parse_name(input: LocatedSpan) -> IResult<Ranged<Vec<&str>>> {
+    let list = delimited(
+        tag("["),
+        separated_list1(tag("|"), is_not("|]")),
+        expect(tag("]"), "Expected closing ]"),
+    );
+    range_wrap(map(list, |inner| {
+        inner.iter().map(|e: &LocatedSpan| *e.fragment()).collect()
+    }))(input)
 }
 
-fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
+/// Takes a parser and sets the settings according to what is needed for parsing an inner block, and then setting them back as needed on the returned settings as needed
+pub(crate) fn settings_for_inner_block<'a, F, T>(
+    mut parser: F,
+) -> impl FnMut(LocatedSpan<'a>) -> IResult<T>
+where
+    F: FnMut(LocatedSpan<'a>) -> IResult<T>,
+{
+    move |input: LocatedSpan<'a>| {
+        let top_level = input.extra.state.top_level.clone();
+        let mut input = input;
+        input.extra.state.top_level = false;
+        let res = parser(input);
+        match res {
+            Ok(mut it) => {
+                it.0.extra.state.top_level = top_level;
+                Ok(it)
+            }
+            Err(nom::Err::Error(mut err) | nom::Err::Failure(mut err)) => {
+                err.input.extra.state.top_level = top_level;
+                Err(nom::Err::Error(err))
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+
+fn parse_block<'a>(input: LocatedSpan<'a>) -> IResult<Vec<NodeItem>> {
     let block = delimited(
         char('{'),
         ws_le(many0(ws(alt((
@@ -474,16 +526,25 @@ fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
             }),
             map(ws(empty_line), |_| NodeItem::EmptyLine),
             map(ws(KeyVal::parse), NodeItem::KeyVal),
-            map(ignore_line_ending(ws(Node::parse)), NodeItem::Node),
+            settings_for_inner_block(map(ignore_line_ending(ws(Node::parse)), NodeItem::Node)),
+            debug_fn(
+                map(
+                    recognize(error_till(verify(is_not("}\r\n"), |s: &LocatedSpan| {
+                        s.len() > 0
+                    }))),
+                    |s| NodeItem::Error(Ranged::new(s.clone().fragment(), s.into())),
+                ),
+                "Got an error while parsing node. Skipped line",
+                true,
+            ),
         ))))),
-        char('}'),
+        expect(char('}'), "Expected closing }"),
     );
     map(block, |inner: Vec<NodeItem>| inner)(input)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
 
     use crate::parser::nom::{LocatedSpan, State};
 
@@ -491,10 +552,7 @@ mod tests {
     #[test]
     fn test_node() {
         let input = "node { key = val }\r\n";
-        let res = Node::parse(LocatedSpan::new_extra(
-            input,
-            State(RefCell::new(Vec::new())),
-        ));
+        let res = Node::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
             Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
@@ -504,10 +562,7 @@ mod tests {
     #[test]
     fn test_node_2() {
         let input = "node\r\n{\r\n\tkey = val\r\n\tkey = val\r\n}\r\n";
-        let res = Node::parse(LocatedSpan::new_extra(
-            input,
-            State(RefCell::new(Vec::new())),
-        ));
+        let res = Node::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
             Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),

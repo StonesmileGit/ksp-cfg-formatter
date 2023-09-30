@@ -13,28 +13,28 @@ pub fn assignments_first(mut doc: Document) -> Result<Document, Error> {
 
 fn reorder_doc_items(items: Vec<DocItem>) -> Result<Vec<DocItem>, Error> {
     let items = items
-        .iter()
+        .into_iter()
         .map(|e| match e {
             DocItem::Node(n) => NodeItem::Node(n.clone()),
-            DocItem::Comment(c) => NodeItem::Comment(*c),
+            DocItem::Comment(c) => NodeItem::Comment(c),
             DocItem::EmptyLine => NodeItem::EmptyLine,
-            DocItem::Error => NodeItem::Error,
+            DocItem::Error(e) => NodeItem::Error(e),
         })
         .collect();
     let items = reorder_node_items(items)?;
     Ok(items
-        .iter()
+        .into_iter()
         .map(|e| match e {
             NodeItem::Node(n) => DocItem::Node(n.clone()),
-            NodeItem::Comment(c) => DocItem::Comment(*c),
+            NodeItem::Comment(c) => DocItem::Comment(c),
             NodeItem::EmptyLine => DocItem::EmptyLine,
-            NodeItem::Error => DocItem::Error,
+            NodeItem::Error(e) => DocItem::Error(e),
             NodeItem::KeyVal(_) => unreachable!(),
         })
         .collect_vec())
 }
 
-fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Error> {
+fn reorder_node_items<'a>(mut node_items: Vec<NodeItem<'a>>) -> Result<Vec<NodeItem<'a>>, Error> {
     let mut key_stuff = vec![];
     let mut node_stuff = vec![];
 
@@ -44,7 +44,7 @@ fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Er
         match item {
             NodeItem::Node(mut node) => {
                 processing_key = Some(false);
-                node.block = reorder_node_items(node.block)?;
+                node.block = reorder_node_items(node.block.clone())?;
                 node_stuff.push(NodeItem::Node(node));
             }
             NodeItem::Comment(_) => match processing_key {
@@ -77,7 +77,7 @@ fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Er
                     })
                 }
             },
-            NodeItem::Error => todo!(),
+            NodeItem::Error(_e) => todo!(),
         }
     }
     key_stuff.reverse();

@@ -11,8 +11,11 @@ use nom::{
 use pest::iterators::Pair;
 
 use super::{
-    nom::{utils::expect, CSTParse, IResult, LocatedSpan},
-    Error, Rule,
+    nom::{
+        utils::{expect, range_wrap},
+        CSTParse, IResult, LocatedSpan,
+    },
+    Error, Range, Ranged, Rule,
 };
 
 /// Which pass a patch should run on
@@ -49,13 +52,14 @@ impl<'a> Display for Pass<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Pass<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Pass<'a>> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         assert!(&rule.clone().into_inner().count().eq(&1));
+        let range = Range::from(&rule);
         let inner = rule.into_inner().next().unwrap();
-        match inner.as_rule() {
+        let pass = match inner.as_rule() {
             Rule::firstPassBlock => Ok(Pass::First),
             Rule::beforePass => Ok(Pass::Before(inner.into_inner().next().unwrap().as_str())),
             Rule::forPass => Ok(Pass::For(inner.into_inner().next().unwrap().as_str())),
@@ -69,12 +73,13 @@ impl<'a> TryFrom<Pair<'a, Rule>> for Pass<'a> {
                 )),
                 source_text: String::new(),
             }),
-        }
+        }?;
+        Ok(Ranged::new(pass, range))
     }
 }
 
-impl<'a> CSTParse<'a, Pass<'a>> for Pass<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<Pass<'a>> {
+impl<'a> CSTParse<'a, Ranged<Pass<'a>>> for Pass<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Pass<'a>>> {
         // firstPassBlock = { ^":FIRST" }
         // beforePass     = { ^":BEFORE[" ~ modName ~ "]" }
         // forPass        = { ^":FOR[" ~ modName ~ "]" }
@@ -84,7 +89,7 @@ impl<'a> CSTParse<'a, Pass<'a>> for Pass<'a> {
 
         // modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
         // passBlock      = { firstPassBlock | beforePass | forPass | afterPass | lastPass | finalPassBlock }
-        alt((
+        range_wrap(alt((
             map(tag_no_case(":FIRST"), |_| Pass::First),
             map(
                 delimited(
@@ -131,6 +136,6 @@ impl<'a> CSTParse<'a, Pass<'a>> for Pass<'a> {
                 |inner| Pass::Last(inner.map_or("", |s| s.fragment())),
             ),
             map(tag_no_case(":FINAL"), |_| Pass::Final),
-        ))(input)
+        )))(input)
     }
 }

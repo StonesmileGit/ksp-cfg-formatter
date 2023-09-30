@@ -1,8 +1,15 @@
 use super::{
-    nom::{utils::ws, CSTParse},
-    ASTPrint, Range, Rule,
+    nom::{
+        utils::{range_wrap, ws},
+        CSTParse, IResult, LocatedSpan,
+    },
+    ASTPrint, Range, Ranged, Rule,
 };
-use nom::combinator::recognize;
+use nom::{
+    bytes::complete::{is_not, tag},
+    combinator::{map, recognize},
+    sequence::pair,
+};
 use pest::iterators::Pair;
 use std::{convert::Infallible, fmt::Display};
 
@@ -11,18 +18,19 @@ use std::{convert::Infallible, fmt::Display};
 pub struct Comment<'a> {
     /// Text of the comment, including the leading `//`
     pub text: &'a str,
-    _range: Range,
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Comment<'a> {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Comment<'a>> {
     type Error = Infallible;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let range = Range::from(&rule);
-        Ok(Comment {
-            text: rule.as_str(),
-            _range: range,
-        })
+        Ok(Ranged::new(
+            Comment {
+                text: rule.as_str(),
+            },
+            range,
+        ))
     }
 }
 
@@ -39,16 +47,11 @@ impl<'a> ASTPrint for Comment<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Comment<'a>> for Comment<'a> {
-    fn parse(input: super::nom::LocatedSpan<'a>) -> super::nom::IResult<Comment<'a>> {
-        let comment = recognize(ws(nom::sequence::pair(
-            nom::bytes::complete::tag("//"),
-            nom::bytes::complete::is_not("\r\n"),
-        )));
-        nom::combinator::map(comment, |inner: super::nom::LocatedSpan| Comment {
+impl<'a> CSTParse<'a, Ranged<Comment<'a>>> for Comment<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Comment<'a>>> {
+        let comment = recognize(ws(pair(tag("//"), is_not("\r\n"))));
+        range_wrap(map(comment, |inner: LocatedSpan| Comment {
             text: inner.fragment(),
-            // FIXME: This needs to change
-            _range: Range::default(),
-        })(input)
+        }))(input)
     }
 }

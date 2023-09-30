@@ -1,6 +1,6 @@
 use super::{
-    nom::{CSTParse, IResult, LocatedSpan},
-    Error, Rule,
+    nom::{utils::range_wrap, CSTParse, IResult, LocatedSpan},
+    Error, Range, Ranged, Rule,
 };
 use nom::{
     branch::alt,
@@ -21,25 +21,29 @@ pub enum Index {
     Number(i32),
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Index {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Index> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+        let range = Range::from(&rule);
         let s = rule.as_str();
         let a = &s[1..];
-        match a {
-            "*" => Ok(Self::All),
-            _ => Ok(Self::Number(match a.parse() {
-                Ok(i) => i,
-                Err(_) => {
-                    return Err(super::Error {
-                        location: Some(rule.into()),
-                        reason: super::Reason::ParseInt,
-                        source_text: s.to_string(),
-                    })
-                }
-            })),
-        }
+        Ok(Ranged::new(
+            match a {
+                "*" => Index::All,
+                _ => Index::Number(match a.parse() {
+                    Ok(i) => i,
+                    Err(_) => {
+                        return Err(super::Error {
+                            location: Some(rule.into()),
+                            reason: super::Reason::ParseInt,
+                            source_text: s.to_string(),
+                        })
+                    }
+                }),
+            },
+            range,
+        ))
     }
 }
 
@@ -52,10 +56,10 @@ impl Display for Index {
     }
 }
 
-impl CSTParse<'_, Index> for Index {
-    fn parse(input: LocatedSpan) -> IResult<Index> {
+impl CSTParse<'_, Ranged<Index>> for Index {
+    fn parse(input: LocatedSpan) -> IResult<Ranged<Index>> {
         // index = { "," ~ ("*" | ("-"? ~ ASCII_DIGIT+)) }
-        preceded(
+        range_wrap(preceded(
             tag(","),
             alt((
                 value(Index::All, tag("*")),
@@ -69,7 +73,7 @@ impl CSTParse<'_, Index> for Index {
                     )
                 }),
             )),
-        )(input)
+        ))(input)
     }
 }
 
@@ -82,10 +86,11 @@ pub struct ArrayIndex {
     pub separator: Option<char>,
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
+impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<ArrayIndex> {
     type Error = Error;
 
     fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
+        let range = Range::from(&rule);
         let s = rule.as_str();
         let trimmed = &s[1..s.len() - 1];
         let split = trimmed.split_once(',');
@@ -117,7 +122,7 @@ impl<'a> TryFrom<Pair<'a, Rule>> for ArrayIndex {
             }
         }
         let separator = second.map(|s| s.chars().next().unwrap());
-        Ok(ArrayIndex { index, separator })
+        Ok(Ranged::new(ArrayIndex { index, separator }, range))
     }
 }
 
@@ -134,8 +139,8 @@ impl Display for ArrayIndex {
     }
 }
 
-impl CSTParse<'_, ArrayIndex> for ArrayIndex {
-    fn parse(input: LocatedSpan) -> IResult<ArrayIndex> {
+impl CSTParse<'_, Ranged<ArrayIndex>> for ArrayIndex {
+    fn parse(input: LocatedSpan) -> IResult<Ranged<ArrayIndex>> {
         // arrayIndex = { "[" ~ ("*" | ASCII_DIGIT+) ~ ("," ~ ANY)? ~ "]" }
         let array_index = pair(
             alt((
@@ -144,11 +149,11 @@ impl CSTParse<'_, ArrayIndex> for ArrayIndex {
             )),
             opt(preceded(tag(","), anychar)),
         );
-        map(delimited(tag("["), array_index, tag("]")), |inner| {
+        range_wrap(map(delimited(tag("["), array_index, tag("]")), |inner| {
             ArrayIndex {
                 index: inner.0,
                 separator: inner.1,
             }
-        })(input)
+        }))(input)
     }
 }

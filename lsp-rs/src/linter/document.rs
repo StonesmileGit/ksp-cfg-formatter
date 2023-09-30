@@ -24,7 +24,7 @@ impl<'a> Lintable for DocItem<'a> {
             DocItem::Node(n) => n.lint(state),
             DocItem::Comment(c) => c.lint(state),
             DocItem::EmptyLine => (vec![], None),
-            DocItem::Error => todo!(),
+            DocItem::Error(_e) => (vec![], None),
         }
     }
 }

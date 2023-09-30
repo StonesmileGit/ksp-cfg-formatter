@@ -1,6 +1,6 @@
 use super::{range_to_range, Lintable, LinterState, LinterStateResult};
 
-impl<'a> Lintable for ksp_cfg_formatter::parser::Node<'a> {
+impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parser::Node<'a>> {
     fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {
@@ -21,7 +21,7 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Node<'a> {
         if self.top_level() && self.operator.is_none() {
             state.top_level_no_op = Some(lsp_types::Location {
                 uri: state.this_url.clone(),
-                range: range_to_range(self.range),
+                range: range_to_range(self.get_pos()),
             });
         }
 
@@ -73,9 +73,9 @@ fn or_in_child_node(
     _state: &LinterState,
     _result: &mut LinterStateResult,
 ) -> Option<lsp_types::Diagnostic> {
-    if node.name.clone().map_or(false, |name| name.0.len() > 1) && !node.top_level() {
+    if node.name.clone().map_or(false, |name| name.len() > 1) && !node.top_level() {
         Some(lsp_types::Diagnostic {
-            range: range_to_range(node.name.clone().expect("It was just determined that it is Some").1),
+            range: range_to_range(node.name.as_ref().expect("It was just determined that it is Some").get_pos()),
             severity: Some(lsp_types::DiagnosticSeverity::WARNING),
             message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
             ..Default::default()

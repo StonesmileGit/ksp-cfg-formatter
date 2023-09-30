@@ -1,18 +1,18 @@
-use super::{ASTPrint, Comment, KeyVal, Node};
+use super::{ASTPrint, Comment, KeyVal, Node, Ranged};
 
 /// Enum for the different items that can exist in a document/node
 #[derive(Debug, Clone)]
 pub enum NodeItem<'a> {
     /// A node
-    Node(Node<'a>),
+    Node(Ranged<Node<'a>>),
     /// A Comment
-    Comment(Comment<'a>),
+    Comment(Ranged<Comment<'a>>),
     /// An assignment, Not allowed in top level, checked for in `Document` code
-    KeyVal(KeyVal<'a>),
+    KeyVal(Ranged<KeyVal<'a>>),
     /// An empty line
     EmptyLine,
     /// An error instead of the node item
-    Error,
+    Error(Ranged<&'a str>),
 }
 impl<'a> ASTPrint for NodeItem<'a> {
     fn ast_print(
@@ -31,7 +31,7 @@ impl<'a> ASTPrint for NodeItem<'a> {
                 keyval.ast_print(depth, indentation, line_ending, should_collapse)
             }
             Self::EmptyLine => line_ending.to_owned(),
-            Self::Error => todo!(),
+            Self::Error(e) => e.to_string(),
         }
     }
 }

@@ -1,11 +1,9 @@
-use crate::parser::Range;
-
 use super::{
     nom::{
         utils::{debug_fn, expect, range_wrap},
         CSTParse, IResult, LocatedSpan,
     },
-    Error, Ranged, Rule,
+    Ranged,
 };
 use itertools::Itertools;
 use nom::{
@@ -16,7 +14,6 @@ use nom::{
     multi::{many1, many_till, separated_list1},
     sequence::{delimited, tuple},
 };
-use pest::iterators::Pair;
 use std::fmt::Display;
 
 /// Predicate to filter nodes for which to run an operation
@@ -80,88 +77,6 @@ impl<'a> Display for HasPredicate<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for HasPredicate<'a> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let first_char = rule.as_str().chars().next().unwrap();
-        match first_char {
-            // Node
-            '@' | '!' => {
-                let mut node_type = "";
-                let mut name = None;
-                let mut has_block = None;
-                for rule in rule.into_inner() {
-                    match rule.as_rule() {
-                        Rule::identifier => node_type = rule.as_str(),
-                        Rule::hasNodeName => name = Some(rule.as_str()),
-                        Rule::hasBlock => has_block = Some(Ranged::<HasBlock>::try_from(rule)?),
-                        rl => {
-                            return Err(Error {
-                                reason: super::Reason::Custom(format!("Unexpected Rule '{rl:?}' encountered when trying to parse HAS block node predicate")),
-                                source_text: rule.as_str().to_string(),
-                                location: Some(rule.into()),
-                            });
-                        }
-                    };
-                }
-                Ok(HasPredicate::NodePredicate {
-                    negated: first_char.ne(&'@'),
-                    node_type,
-                    name,
-                    has_block,
-                })
-            }
-            // Key
-            '#' | '~' => {
-                let mut key = "";
-                let mut value = None;
-                let mut match_type = MatchType::default();
-                for rule in rule.into_inner() {
-                    match rule.as_rule() {
-                        Rule::identifier => key = rule.as_str(),
-                        Rule::hasValue => {
-                            let mut val = rule.as_str();
-                            match val.chars().next() {
-                                Some('<') => {
-                                    match_type = MatchType::LessThan;
-                                    val = &val[1..];
-                                }
-                                Some('>') => {
-                                    match_type = MatchType::GreaterThan;
-                                    val = &val[1..];
-                                }
-                                _ => (),
-                            };
-                            value = Some(val);
-                        }
-                        rl => {
-                            return Err(Error {
-                                reason: super::Reason::Custom(format!("Unexpected Rule '{rl:?}' encountered when trying to parse HAS block key predicate")),
-                                source_text: rule.as_str().to_string(),
-                                location: Some(rule.into()),
-                            });
-                        }
-                    }
-                }
-                Ok(HasPredicate::KeyPredicate {
-                    negated: first_char.ne(&'#'),
-                    key,
-                    value,
-                    match_type,
-                })
-            }
-            ch => Err(Error {
-                reason: super::Reason::Custom(
-                    format!("Unexpected first char encountered when trying to parse HAS block predicate, found '{ch}'"),
-                ),
-                source_text: rule.as_str().to_string(),
-                location: Some(rule.into()),
-            }),
-        }
-    }
-}
-
 /// Enum for the type of comparison to perform on a value
 #[derive(Default, Debug, Clone)]
 pub enum MatchType {
@@ -197,20 +112,6 @@ impl<'a> Display for HasBlock<'a> {
             return write!(f, "");
         }
         write!(f, ":HAS[{}]", self.predicates.iter().format(","))
-    }
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<HasBlock<'a>> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        assert!(matches!(rule.as_rule(), Rule::hasBlock));
-        let range = Range::from(&rule);
-        let mut has_block = HasBlock::default();
-        for rule in rule.into_inner() {
-            has_block.predicates.push(HasPredicate::try_from(rule)?);
-        }
-        Ok(Ranged::new(has_block, range))
     }
 }
 

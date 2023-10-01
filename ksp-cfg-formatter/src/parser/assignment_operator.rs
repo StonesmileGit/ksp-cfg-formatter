@@ -1,12 +1,9 @@
 use super::{
     nom::{utils::range_wrap, CSTParse, IResult, LocatedSpan},
-    Range, Ranged, Rule,
+    Ranged,
 };
 use nom::{branch::alt, bytes::complete::tag, combinator::value};
-use pest::iterators::Pair;
 use std::fmt::Display;
-
-use super::Error;
 
 /// Assignment operator in a key-val
 #[derive(Debug, Default, Clone, Copy)]
@@ -26,29 +23,6 @@ pub enum AssignmentOperator {
     Power,
     /// Regex operation, `^=`
     RegexReplace,
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<AssignmentOperator> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        let kind = match rule.as_str() {
-            "=" => Ok(AssignmentOperator::Assign),
-            "*=" => Ok(AssignmentOperator::Multiply),
-            "/=" => Ok(AssignmentOperator::Divide),
-            "+=" => Ok(AssignmentOperator::Add),
-            "-=" => Ok(AssignmentOperator::Subtract),
-            "!=" => Ok(AssignmentOperator::Power),
-            "^=" => Ok(AssignmentOperator::RegexReplace),
-            str => Err(Error {
-                source_text: rule.as_str().to_string(),
-                location: Some(rule.into()),
-                reason: super::Reason::Custom(format!("Unexpected character combination encountered when parsing 'Assignment Operator', found '{str}'")),
-            }),
-        }?;
-        Ok(Ranged { inner: kind, range })
-    }
 }
 
 impl Display for AssignmentOperator {

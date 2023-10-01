@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Display};
+use std::fmt::Display;
 
 use itertools::Itertools;
 use nom::{
@@ -9,14 +9,13 @@ use nom::{
     multi::{many0, many1, separated_list1},
     sequence::{delimited, pair, terminated, tuple},
 };
-use pest::iterators::Pair;
 
 use super::{
     nom::{
         utils::{debug_fn, expect, range_wrap},
         CSTParse, IResult, LocatedSpan,
     },
-    Range, Ranged, Rule,
+    Ranged,
 };
 
 /// Where the path starts from
@@ -55,37 +54,6 @@ pub enum PathSegment<'a> {
     },
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<PathSegment<'a>> {
-    type Error = Infallible;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        Ok(Ranged::new(
-            if rule.as_str() == ".." {
-                PathSegment::DotDot
-            } else {
-                // FIXME: The index should be parsed into the struct
-                let mut node = "";
-                let mut name = None;
-
-                for pair in rule.into_inner() {
-                    match pair.as_rule() {
-                        Rule::identifier => node = pair.as_str(),
-                        Rule::nameBlock => name = Some(pair.as_str()),
-                        _ => todo!(),
-                    }
-                }
-                PathSegment::NodeName {
-                    node,
-                    name,
-                    index: None,
-                }
-            },
-            range,
-        ))
-    }
-}
-
 impl<'a> Display for PathSegment<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -120,36 +88,6 @@ impl<'a> Display for Path<'a> {
                 .map_or_else(String::new, |s| s.to_string()),
             self.segments.iter().format("")
         )
-    }
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Path<'a>> {
-    type Error = Infallible;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        // dbg!(&rule);
-        let range = Range::from(&rule);
-        let text = rule.as_str();
-        let mut start = None;
-        match text.chars().next() {
-            Some('@') => start = Some(PathStart::TopLevel),
-            Some('/') => start = Some(PathStart::CurrentTopLevel),
-            _ => (),
-        };
-        let mut segments = vec![];
-        for pair in rule.into_inner() {
-            match pair.as_rule() {
-                Rule::path_segment => segments.push(Ranged::<PathSegment>::try_from(pair)?),
-                _ => unreachable!(),
-            }
-        }
-        Ok(Ranged::new(
-            Path {
-                start: start.map(|s| Ranged::new(s, Range::default())),
-                segments,
-            },
-            range,
-        ))
     }
 }
 

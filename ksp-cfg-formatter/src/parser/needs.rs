@@ -9,14 +9,13 @@ use nom::{
     multi::{many1, separated_list1},
     sequence::{delimited, pair},
 };
-use pest::iterators::Pair;
 
 use super::{
     nom::{
         utils::{expect, range_wrap},
         CSTParse, IResult, LocatedSpan,
     },
-    Error, Range, Ranged, Rule,
+    Ranged,
 };
 
 /// Contains a `Vec` of all the clauses to be combined using logical ANDs. All clauses have to be satisfied for the parent operation to be executed
@@ -29,24 +28,6 @@ pub struct NeedsBlock<'a> {
 impl<'a> Display for NeedsBlock<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, ":NEEDS[{}]", self.or_clauses.iter().format(","))
-    }
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<NeedsBlock<'a>> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Error> {
-        let range = Range::from(&rule);
-        let mut or_clauses = vec![];
-        for pair in rule.into_inner() {
-            if pair.as_rule() == Rule::modOrClause {
-                or_clauses.push(Ranged::<OrClause>::try_from(pair)?);
-            } else {
-                let rule_name = pair.as_rule();
-                panic!("Got unexpected rule: {rule_name:?}");
-            }
-        }
-        Ok(Ranged::new(NeedsBlock { or_clauses }, range))
     }
 }
 
@@ -63,29 +44,6 @@ impl<'a> Display for OrClause<'a> {
     }
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<OrClause<'a>> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        let mut mod_clauses = vec![];
-        for pair in rule.into_inner() {
-            if pair.as_rule() == Rule::needsMod {
-                mod_clauses.push(Ranged::<ModClause>::try_from(pair)?);
-            } else {
-                return Err(Error {
-                    source_text: pair.as_str().to_string(),
-                    location: Some(pair.into()),
-                    reason: super::Reason::Custom(
-                        "Unexpected rule enountered when parsing 'or clause'".to_string(),
-                    ),
-                });
-            }
-        }
-        Ok(Ranged::new(OrClause { mod_clauses }, range))
-    }
-}
-
 /// A mod that is needed (or not) for the clause to be satisfied
 #[derive(Debug, Clone, Default)]
 pub struct ModClause<'a> {
@@ -98,33 +56,6 @@ pub struct ModClause<'a> {
 impl<'a> Display for ModClause<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}", if self.negated { "!" } else { "" }, self.name)
-    }
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<ModClause<'a>> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        let mut mod_clause = ModClause {
-            ..Default::default()
-        };
-        for pair in rule.into_inner() {
-            match pair.as_rule() {
-                Rule::negation => mod_clause.negated = true,
-                Rule::modName => mod_clause.name = pair.as_str(),
-                rl => {
-                    return Err(Error {
-                        source_text: pair.as_str().to_string(),
-                        reason: super::Reason::Custom(format!(
-                            "Unexpected rule enountered when parsing 'mod clause', found '{rl:?}'"
-                        )),
-                        location: Some(pair.into()),
-                    });
-                }
-            }
-        }
-        Ok(Ranged::new(mod_clause, range))
     }
 }
 

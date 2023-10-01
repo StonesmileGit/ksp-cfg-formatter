@@ -1,12 +1,10 @@
-use std::ops::Deref;
-
 use super::{
     nom::{
         utils::{ignore_line_ending, range_wrap, ws},
         CSTParse, IResult, LocatedSpan,
     },
-    ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index, NeedsBlock, Operator, Path,
-    Range, Ranged, Rule,
+    ASTPrint, ArrayIndex, AssignmentOperator, Comment, Index, NeedsBlock, Operator, Path, Range,
+    Ranged,
 };
 use nom::{
     branch::alt,
@@ -16,7 +14,6 @@ use nom::{
     multi::{many1, many_till, separated_list1},
     sequence::{preceded, terminated, tuple},
 };
-use pest::iterators::Pair;
 
 /// Assignment operation
 #[derive(Debug, Default, Clone)]
@@ -64,67 +61,6 @@ impl<'a> KeyVal<'a> {
     }
     pub(crate) fn set_key_padding(&mut self, n: usize) {
         self.key_padding = Some(" ".repeat(n - self.left_side().len()));
-    }
-}
-
-impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Ranged<KeyVal<'a>> {
-    type Error = Error;
-
-    fn try_from(rule_bool: (Pair<'a, Rule>, bool)) -> Result<Self, Self::Error> {
-        let rule = rule_bool.0;
-        let range = Range::from(&rule);
-        let top_level = rule_bool.1;
-        let pairs = rule.into_inner();
-        let mut key_val = KeyVal {
-            ..Default::default()
-        };
-        for pair in pairs {
-            match pair.as_rule() {
-                Rule::value => key_val.val = Ranged::new(pair.as_str(), pair.into()),
-                Rule::Comment => {
-                    key_val.comment = Some(
-                        Ranged::<Comment>::try_from(pair).expect("Parsing a comment is Infallable"),
-                    );
-                }
-                Rule::assignmentOperator => {
-                    key_val.assignment_operator = Ranged::<AssignmentOperator>::try_from(pair)?;
-                }
-                Rule::needsBlock => key_val.needs = Some(Ranged::<NeedsBlock>::try_from(pair)?),
-                Rule::index => {
-                    key_val.index = Some(Ranged::<Index>::try_from(pair)?);
-                }
-                Rule::arrayIndex => {
-                    key_val.array_index = Some(Ranged::<ArrayIndex>::try_from(pair)?);
-                }
-                Rule::operator => {
-                    let op = Some(Ranged::<Operator>::try_from(pair.clone())?);
-                    if let Some(op) = &op {
-                        if top_level && matches!(op.deref(), Operator::Rename) {
-                            return Err(Error {
-                                reason: crate::parser::Reason::Custom(
-                                    "Found rename operator on top level node".to_string(),
-                                ),
-                                source_text: pair.as_str().to_string(),
-                                location: Some(pair.into()),
-                            });
-                        }
-                    }
-                    key_val.operator = op;
-                }
-                Rule::keyIdentifier => key_val.key = Ranged::new(pair.as_str().trim(), pair.into()),
-                Rule::path => {
-                    key_val.path = Some(
-                        Ranged::<Path>::try_from(pair)
-                            .expect("Parsing a path is currently Infallable"),
-                    );
-                }
-                _ => unreachable!(),
-            }
-        }
-        if key_val.comment.is_none() {
-            *key_val.val = key_val.val.trim();
-        }
-        Ok(Ranged::new(key_val, range))
     }
 }
 

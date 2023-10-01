@@ -1,6 +1,6 @@
 use super::{
     nom::{utils::range_wrap, CSTParse, IResult, LocatedSpan},
-    Error, Range, Ranged, Rule,
+    Ranged,
 };
 use nom::{
     branch::alt,
@@ -9,7 +9,6 @@ use nom::{
     combinator::{map, opt, value},
     sequence::{delimited, pair, preceded},
 };
-use pest::iterators::Pair;
 use std::fmt::Display;
 
 /// Selects from multiple matching objects
@@ -19,32 +18,6 @@ pub enum Index {
     All,
     /// Integer match to operate on. Can be negative to start from back, `,i`
     Number(i32),
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Index> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        let s = rule.as_str();
-        let a = &s[1..];
-        Ok(Ranged::new(
-            match a {
-                "*" => Index::All,
-                _ => Index::Number(match a.parse() {
-                    Ok(i) => i,
-                    Err(_) => {
-                        return Err(super::Error {
-                            location: Some(rule.into()),
-                            reason: super::Reason::ParseInt,
-                            source_text: s.to_string(),
-                        })
-                    }
-                }),
-            },
-            range,
-        ))
-    }
 }
 
 impl Display for Index {
@@ -84,46 +57,6 @@ pub struct ArrayIndex {
     pub index: Option<i32>,
     /// Char separating the values in the array. `,` if not specified
     pub separator: Option<char>,
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<ArrayIndex> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        let s = rule.as_str();
-        let trimmed = &s[1..s.len() - 1];
-        let split = trimmed.split_once(',');
-        let first = split.map_or(trimmed, |split| split.0);
-        let second = split.map(|split| split.1);
-        let index = match first {
-            "*" => None,
-            _ => Some(match first.parse() {
-                Ok(i) => i,
-                Err(_) => {
-                    return Err(super::Error {
-                        location: Some(rule.into()),
-                        reason: super::Reason::ParseInt,
-                        source_text: s.to_string(),
-                    })
-                }
-            }),
-        };
-        if let Some(scnd) = second {
-            if scnd.chars().count() > 1 {
-                return Err(Error {
-                    reason: super::Reason::Custom(
-                        "Error while trying to parse array index delimiter, too many chars found"
-                            .to_string(),
-                    ),
-                    source_text: rule.as_str().to_string(),
-                    location: Some(rule.into()),
-                });
-            }
-        }
-        let separator = second.map(|s| s.chars().next().unwrap());
-        Ok(Ranged::new(ArrayIndex { index, separator }, range))
-    }
 }
 
 impl Display for ArrayIndex {

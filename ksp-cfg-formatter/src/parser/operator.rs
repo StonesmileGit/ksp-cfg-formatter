@@ -1,10 +1,9 @@
 use nom::{bytes::complete::tag, combinator::value};
-use pest::iterators::Pair;
 use std::fmt::Display;
 
 use super::{
     nom::{utils::range_wrap, CSTParse},
-    Error, Range, Ranged, Rule,
+    Ranged,
 };
 
 /// The different kinds of operations that can be done
@@ -28,30 +27,6 @@ pub enum Operator {
     DeleteAlt,
     /// Rename a node. Not allowed on top level nodes
     Rename,
-}
-
-impl TryFrom<Pair<'_, Rule>> for Ranged<Operator> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'_, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        let op = match rule.as_str() {
-            "" => Ok(Operator::None),
-            "@" => Ok(Operator::Edit),
-            "%" => Ok(Operator::EditOrCreate),
-            "&" => Ok(Operator::CreateIfNotFound),
-            "+" => Ok(Operator::Copy),
-            "!" => Ok(Operator::Delete),
-            "-" => Ok(Operator::DeleteAlt),
-            "|" => Ok(Operator::Rename),
-            str => Err(Error {
-                source_text: str.to_string(),
-                location: Some(rule.into()),
-                reason: super::Reason::Custom("Parsing of operator failed".to_string()),
-            }),
-        }?;
-        Ok(Ranged::new(op, range))
-    }
 }
 
 impl Display for Operator {

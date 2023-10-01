@@ -72,36 +72,24 @@ pub(crate) fn handle_diagnostics_request(
         .data_base
         .get(&key)
         .ok_or_else(|| anyhow::format_err!("no text provided"))?;
-    let ast = match ksp_cfg_formatter::parse_to_ast(text) {
-        Ok(it) => it,
-        Err(parse_err) => {
-            return Ok(lsp_types::DocumentDiagnosticReportResult::Report(
-                lsp_types::DocumentDiagnosticReport::Full(
-                    lsp_types::RelatedFullDocumentDiagnosticReport {
-                        related_documents: None,
-                        full_document_diagnostic_report: lsp_types::FullDocumentDiagnosticReport {
-                            result_id: None,
-                            items: vec![lsp_types::Diagnostic {
-                                range: crate::linter::range_to_range(
-                                    parse_err.location.unwrap_or_default(),
-                                ),
-                                severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                                message: parse_err.to_string(),
-                                ..Default::default()
-                            }],
-                        },
-                    },
-                ),
-            ))
-        }
-    };
-    let items = crate::linter::lint_ast(&ast, params.text_document.uri);
+    let (doc, errors) = ksp_cfg_formatter::parser::nom::parse(text);
+    let mut disp_errors = vec![];
+    for error in errors {
+        disp_errors.push(lsp_types::Diagnostic {
+            range: crate::linter::range_to_range(error.range),
+            severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+            message: error.message,
+            ..Default::default()
+        })
+    }
+    let mut items = crate::linter::lint_ast(&doc, params.text_document.uri);
+    disp_errors.append(&mut items);
     Ok(lsp_types::DocumentDiagnosticReportResult::Report(
         lsp_types::DocumentDiagnosticReport::Full(lsp_types::RelatedFullDocumentDiagnosticReport {
             related_documents: None,
             full_document_diagnostic_report: lsp_types::FullDocumentDiagnosticReport {
                 result_id: None,
-                items,
+                items: disp_errors,
             },
         }),
     ))

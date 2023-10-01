@@ -3,35 +3,20 @@ use super::{
         utils::{range_wrap, ws},
         CSTParse, IResult, LocatedSpan,
     },
-    ASTPrint, Range, Ranged, Rule,
+    ASTPrint, Ranged,
 };
 use nom::{
     bytes::complete::{is_not, tag},
     combinator::{map, recognize},
     sequence::pair,
 };
-use pest::iterators::Pair;
-use std::{convert::Infallible, fmt::Display};
+use std::fmt::Display;
 
 /// A comment in the file. Includes the leading `//`
 #[derive(Debug, Clone, Copy)]
 pub struct Comment<'a> {
     /// Text of the comment, including the leading `//`
     pub text: &'a str,
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Comment<'a>> {
-    type Error = Infallible;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        let range = Range::from(&rule);
-        Ok(Ranged::new(
-            Comment {
-                text: rule.as_str(),
-            },
-            range,
-        ))
-    }
 }
 
 impl<'a> Display for Comment<'a> {

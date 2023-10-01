@@ -1,19 +1,18 @@
 use nom::{
     branch::alt,
     bytes::complete::{is_not, take},
-    character::complete::anychar,
+    character::complete::{anychar, multispace0},
     combinator::{eof, map, not, recognize, rest, verify},
     multi::many_till,
     sequence::{preceded, terminated},
 };
-use pest::iterators::Pair;
 
 use super::{
     nom::{
         utils::{self, debug_fn, error_till, expect, ignore_line_ending, ws},
         CSTParse, IResult, LocatedSpan,
     },
-    ASTPrint, Comment, Error, Node, Ranged, Rule,
+    ASTPrint, Comment, Node, Ranged,
 };
 
 /// Enum for the different items that can exist in a document/node
@@ -54,42 +53,6 @@ pub struct Document<'a> {
     pub statements: Vec<DocItem<'a>>,
 }
 
-impl<'a> TryFrom<Pair<'a, Rule>> for Document<'a> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Error> {
-        for statement in rule.clone().into_inner() {
-            if statement.as_rule() == Rule::assignment {
-                return Err(Error {
-                    reason: super::Reason::Custom("Top level assignment found".to_string()),
-                    source_text: statement.as_str().to_string(),
-                    location: Some(statement.into()),
-                });
-            }
-        }
-        let statements = parse_block_items(rule, true)?;
-        Ok(Document { statements })
-    }
-}
-fn parse_block_items(pair: Pair<Rule>, top_level: bool) -> Result<Vec<DocItem>, Error> {
-    assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
-    let mut block_items = vec![];
-    for pair in pair.into_inner() {
-        match pair.as_rule() {
-            Rule::node => block_items.push(Ok(DocItem::Node(super::Ranged::<Node>::try_from((
-                pair, top_level,
-            ))?))),
-            Rule::Comment => block_items.push(Ok(DocItem::Comment(
-                Ranged::<Comment>::try_from(pair).expect("Parsing a comment is Infallable"),
-            ))),
-            Rule::EmptyLine => block_items.push(Ok(DocItem::EmptyLine)),
-            Rule::EOI | Rule::Newline => (),
-            _ => unreachable!(),
-        }
-    }
-    block_items.into_iter().collect()
-}
-
 impl<'a> ASTPrint for Document<'a> {
     fn ast_print(
         &self,
@@ -119,29 +82,32 @@ pub fn source_file(input: LocatedSpan) -> IResult<Document> {
 impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Document<'a>> {
         map(
-            many_till(
-                debug_fn(
-                    alt((
-                        map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
-                        map(utils::empty_line, |_| DocItem::EmptyLine),
-                        map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
-                        // If none of the above succeeded, consume the line as an error and try again
-                        debug_fn(
-                            map(
-                                recognize(error_till(verify(
-                                    is_not("}\r\n"),
-                                    |s: &LocatedSpan| s.len() > 0,
-                                ))),
-                                |a| DocItem::Error(Ranged::new(a.clone().fragment(), a.into())),
+            preceded(
+                multispace0,
+                many_till(
+                    debug_fn(
+                        alt((
+                            map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
+                            map(utils::empty_line, |_| DocItem::EmptyLine),
+                            map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
+                            // If none of the above succeeded, consume the line as an error and try again
+                            debug_fn(
+                                map(
+                                    recognize(error_till(verify(
+                                        is_not("}\r\n"),
+                                        |s: &LocatedSpan| s.len() > 0,
+                                    ))),
+                                    |a| DocItem::Error(Ranged::new(a.clone().fragment(), a.into())),
+                                ),
+                                "Got an error while parsing doc. Skipped line",
+                                true,
                             ),
-                            "Got an error while parsing doc. Skipped line",
-                            true,
-                        ),
-                    )),
-                    "Got DocItem",
-                    true,
+                        )),
+                        "Got DocItem",
+                        true,
+                    ),
+                    eof,
                 ),
-                eof,
             ),
             |inner| {
                 let res = Document {

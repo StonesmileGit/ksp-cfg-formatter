@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use itertools::Itertools;
 use nom::branch::{alt, permutation};
 use nom::bytes::complete::{is_a, is_not, tag};
@@ -9,13 +7,12 @@ use nom::character::complete::{
 use nom::combinator::{all_consuming, map, opt, peek, recognize, verify};
 use nom::multi::{many0, many1, many_till, separated_list1};
 use nom::sequence::{delimited, preceded, tuple};
-use pest::iterators::Pair;
 
 use super::nom::utils::{debug_fn, empty_line, error_till, expect, range_wrap, ws, ws_le};
 use super::Ranged;
 use super::{
-    nom::CSTParse, ASTPrint, Comment, Error, HasBlock, Index, KeyVal, NeedsBlock, NodeItem,
-    Operator, Pass, Path, Range, Rule,
+    nom::CSTParse, ASTPrint, Comment, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator,
+    Pass, Path, Range,
 };
 
 /// A node in the config file. Both top level node and internal node
@@ -73,163 +70,6 @@ impl<'a> Node<'a> {
                 None
             }
         })
-    }
-}
-
-pub(crate) fn parse_block_items(pair: Pair<Rule>, top_level: bool) -> Result<Vec<NodeItem>, Error> {
-    assert!(matches!(pair.as_rule(), Rule::nodeBody | Rule::document));
-    let mut block_items = vec![];
-    for pair in pair.into_inner() {
-        match pair.as_rule() {
-            Rule::node => block_items.push(Ok(NodeItem::Node(Ranged::<Node>::try_from((
-                pair, top_level,
-            ))?))),
-            Rule::Comment => block_items.push(Ok(NodeItem::Comment(
-                Ranged::<Comment>::try_from(pair).expect("Parsing a comment is Infallable"),
-            ))),
-            Rule::assignment => {
-                block_items.push(Ok(NodeItem::KeyVal(Ranged::<KeyVal>::try_from((
-                    pair, top_level,
-                ))?)));
-            }
-            Rule::EmptyLine => block_items.push(Ok(NodeItem::EmptyLine)),
-            Rule::EOI | Rule::Newline => (),
-            _ => unreachable!(),
-        }
-    }
-    block_items.into_iter().collect()
-}
-
-impl<'a> TryFrom<(Pair<'a, Rule>, bool)> for Ranged<Node<'a>> {
-    type Error = Error;
-
-    fn try_from(rule_bool: (Pair<'a, Rule>, bool)) -> Result<Self, Self::Error> {
-        let rule = rule_bool.0;
-        let range = Range::from(&rule);
-        assert!(matches!(rule.as_rule(), Rule::node));
-
-        let mut node = Node {
-            top_level: rule_bool.1,
-            ..Default::default()
-        };
-
-        let mut body_seen = false;
-        let mut newline_seen = false;
-
-        for pair in rule.into_inner() {
-            match pair.as_rule() {
-                Rule::Comment => {
-                    if body_seen {
-                        node.trailing_comment = Some(
-                            Ranged::<Comment>::try_from(pair)
-                                .expect("Parsing a comment is Infallable"),
-                        );
-                    } else if newline_seen {
-                        node.comments_after_newline.push(
-                            Ranged::<Comment>::try_from(pair)
-                                .expect("Parsing a comment is Infallable"),
-                        );
-                    } else {
-                        node.id_comment = Some(
-                            Ranged::<Comment>::try_from(pair)
-                                .expect("Parsing a comment is Infallable"),
-                        );
-                    }
-                }
-                Rule::openingbracket | Rule::closingbracket => (),
-                Rule::Newline => newline_seen = true,
-
-                Rule::identifier => node.identifier = Ranged::new(pair.as_str(), pair.into()),
-                Rule::nameBlock => {
-                    let names: Vec<&'a str> = pair.as_str().split('|').collect();
-                    node.name = Some(Ranged::new(names, pair.into()));
-                }
-                Rule::hasBlock => {
-                    if node.has.is_some() {
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom(
-                                "Only one 'HAS' block is allowed".to_string(),
-                            ),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
-                    }
-                    node.has = Some(Ranged::<HasBlock>::try_from(pair)?);
-                }
-                Rule::needsBlock => {
-                    if node.needs.is_some() {
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom(
-                                "Only one 'NEEDS' block is allowed".to_string(),
-                            ),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
-                    }
-                    node.needs = Some(Ranged::<NeedsBlock>::try_from(pair)?);
-                }
-                Rule::passBlock => {
-                    if node.pass.is_some() {
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom(
-                                "Only one pass is allowed".to_string(),
-                            ),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
-                    }
-                    if !node.top_level {
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom(
-                                "Pass specifiers are only allowed on top-level nodes".to_string(),
-                            ),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
-                    }
-                    node.pass = Some(Ranged::<Pass>::try_from(pair).expect("Should be Infallable"));
-                }
-                Rule::index => {
-                    if node.index.is_some() {
-                        return Err(Error {
-                            reason: crate::parser::Reason::Custom(
-                                "Only one 'INDEX' block is allowed".to_string(),
-                            ),
-                            source_text: pair.as_str().to_string(),
-                            location: Some(pair.into()),
-                        });
-                    }
-                    node.index = Some(Ranged::<Index>::try_from(pair)?);
-                }
-                Rule::operator => {
-                    let op = Some(Ranged::<Operator>::try_from(pair.clone())?);
-                    if let Some(op) = &op {
-                        if matches!(op.deref(), Operator::Rename) {
-                            return Err(Error {
-                                reason: crate::parser::Reason::Custom(
-                                    "Found rename operator on node".to_string(),
-                                ),
-                                source_text: pair.as_str().to_string(),
-                                location: Some(pair.into()),
-                            });
-                        }
-                    }
-                    node.operator = op;
-                }
-                Rule::path => {
-                    node.path = Some(
-                        Ranged::<Path>::try_from(pair)
-                            .expect("Parsing path is supposedly Infallable"),
-                    );
-                }
-                Rule::nodeBody => {
-                    node.block = parse_block_items(pair, false)?;
-                    body_seen = true;
-                }
-                _ => unreachable!(),
-            }
-        }
-        Ok(Ranged::new(node, range))
     }
 }
 

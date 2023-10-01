@@ -20,8 +20,6 @@ macro_rules! gen_test {
             let formatter = Formatter::new(Indentation::Tabs, $inline, LineReturn::Identify);
             let formatted_text = formatter.format_text(&text);
             assert_eq!(text, formatted_text);
-            let formatted_text = formatter.format_text_nom(&text);
-            assert_eq!(text, formatted_text);
         }
     };
 }

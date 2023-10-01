@@ -8,14 +8,13 @@ use nom::{
     multi::many1,
     sequence::delimited,
 };
-use pest::iterators::Pair;
 
 use super::{
     nom::{
         utils::{expect, range_wrap},
         CSTParse, IResult, LocatedSpan,
     },
-    Error, Range, Ranged, Rule,
+    Ranged,
 };
 
 /// Which pass a patch should run on
@@ -49,32 +48,6 @@ impl<'a> Display for Pass<'a> {
             Pass::Last(mod_name) => write!(f, ":LAST[{mod_name}]"),
             Pass::Final => write!(f, ":FINAL"),
         }
-    }
-}
-
-impl<'a> TryFrom<Pair<'a, Rule>> for Ranged<Pass<'a>> {
-    type Error = Error;
-
-    fn try_from(rule: Pair<'a, Rule>) -> Result<Self, Self::Error> {
-        assert!(&rule.clone().into_inner().count().eq(&1));
-        let range = Range::from(&rule);
-        let inner = rule.into_inner().next().unwrap();
-        let pass = match inner.as_rule() {
-            Rule::firstPassBlock => Ok(Pass::First),
-            Rule::beforePass => Ok(Pass::Before(inner.into_inner().next().unwrap().as_str())),
-            Rule::forPass => Ok(Pass::For(inner.into_inner().next().unwrap().as_str())),
-            Rule::afterPass => Ok(Pass::After(inner.into_inner().next().unwrap().as_str())),
-            Rule::lastPass => Ok(Pass::Last(inner.into_inner().next().unwrap().as_str())),
-            Rule::finalPassBlock => Ok(Pass::Final),
-            rl => Err(Error {
-                location: None,
-                reason: super::Reason::Custom(format!(
-                    "Error while parsing pass; rule not covered: {rl:?}",
-                )),
-                source_text: String::new(),
-            }),
-        }?;
-        Ok(Ranged::new(pass, range))
     }
 }
 

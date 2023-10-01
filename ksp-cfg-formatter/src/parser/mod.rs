@@ -1,11 +1,8 @@
 use self::nom::LocatedSpan;
 use std::{
     fmt::Display,
-    num::TryFromIntError,
     ops::{Deref, DerefMut},
 };
-
-use pest::iterators::Pair;
 
 mod assignment_operator;
 mod comment;
@@ -63,8 +60,6 @@ pub struct Error {
 /// Reason for the error that occured
 #[derive(Debug, Clone, Default)]
 pub enum Reason {
-    /// An error from the PEST parser
-    Pest(Box<pest::error::Error<Rule>>),
     /// Parsing of an int failed
     ParseInt,
     /// Custom error with reason provided
@@ -214,31 +209,6 @@ impl Display for Range {
         }
     }
 }
-impl From<Pair<'_, Rule>> for Range {
-    fn from(rule: Pair<'_, Rule>) -> Self {
-        Range::from(&rule)
-    }
-}
-
-impl From<&Pair<'_, Rule>> for Range {
-    fn from(rule: &Pair<'_, Rule>) -> Self {
-        let start = rule.line_col();
-        let delta_line = rule.as_str().chars().filter(|&c| c == '\n').count();
-        let last_line = rule.as_str().split('\n').last();
-        let col = last_line.map_or(0, |ll| ll.chars().count());
-        Range {
-            start: Position::new(start.0 as u32, start.1 as u32),
-            end: Position::new(
-                (start.0 + delta_line) as u32,
-                if delta_line > 0 {
-                    col as u32
-                } else {
-                    (start.1 + col) as u32
-                },
-            ),
-        }
-    }
-}
 
 impl<'a> From<LocatedSpan<'a>> for Range {
     fn from(value: LocatedSpan) -> Self {
@@ -261,7 +231,6 @@ impl<'a> From<LocatedSpan<'a>> for Range {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.reason {
-            Reason::Pest(pest) => write!(f, "{pest}"),
             Reason::ParseInt => todo!(),
             Reason::Custom(text) => write!(
                 f,
@@ -282,21 +251,6 @@ impl Display for Error {
     }
 }
 
-impl From<pest::error::Error<Rule>> for Error {
-    fn from(value: pest::error::Error<Rule>) -> Self {
-        Error {
-            reason: Reason::Pest(Box::new(value.clone())),
-            source_text: value.to_string(),
-            location: Some(
-                value
-                    .line_col
-                    .try_into()
-                    .map_or_else(|_| Range::default(), |it| it),
-            ),
-        }
-    }
-}
-
 impl<'a> From<nom::Error> for Error {
     fn from(value: nom::Error) -> Self {
         Self {
@@ -305,40 +259,4 @@ impl<'a> From<nom::Error> for Error {
             source_text: value.source.to_string(),
         }
     }
-}
-
-impl TryFrom<pest::error::LineColLocation> for Range {
-    type Error = TryFromIntError;
-    fn try_from(value: pest::error::LineColLocation) -> Result<Range, TryFromIntError> {
-        match value {
-            pest::error::LineColLocation::Pos(pos) => Ok(Self {
-                start: Position {
-                    line: u32::try_from(pos.0)?,
-                    col: u32::try_from(pos.1)?,
-                },
-                end: Position {
-                    line: u32::try_from(pos.0)?,
-                    col: u32::try_from(pos.1)?,
-                },
-            }),
-            pest::error::LineColLocation::Span(start, end) => Ok(Self {
-                start: Position {
-                    line: u32::try_from(start.0)?,
-                    col: u32::try_from(start.1)?,
-                },
-                end: Position {
-                    line: u32::try_from(end.0)?,
-                    col: u32::try_from(end.1)?,
-                },
-            }),
-        }
-    }
-}
-
-pub use grammar::{Grammar, Rule};
-mod grammar {
-    #![allow(missing_docs)]
-    #[derive(pest_derive::Parser)]
-    #[grammar = "grammar.pest"]
-    pub struct Grammar;
 }

@@ -26,6 +26,7 @@
 	"activationEvents": [
 		"onLanguage:ksp-cfg"
 	],
+	"extensionDependencies": ["al2me6.ksp-cfg-support"],
 	"main": "./out/extension",
 	"contributes": {
 		"configuration": {

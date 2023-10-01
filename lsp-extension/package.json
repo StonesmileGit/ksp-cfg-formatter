@@ -1,18 +1,25 @@
 {
 	"name": "ksp-cfg-lsp",
-	"description": "A language server example",
-	"author": "me",
-	"license": "CC BY-NC-SA 4.0",
-	"version": "1.0.0",
-	"publisher": "me",
+	"displayName": "KSP CFG Language Server",
+	"description": "A language server for KSP cfg files with support for Module Manager syntax",
+	"version": "0.0.1",
+	"publisher": "Stonesmile",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/StonesmileGit/lsp-rs-test"
+		"url": "https://github.com/StonesmileGit/ksp-cfg-formatter"
 	},
-	"categories": [],
+	"categories": ["Programming Languages", "Linters", "Formatters"],
 	"keywords": [
-		"multi-root ready"
-	],
+		"Kerbal Space Program",
+		"KSP",
+		"ksp",
+		"Kerbal",
+		"ksp",
+		"cfg",
+		"sfs",
+		"craft",
+		"modulemanager"
+	  ],
 	"engines": {
 		"vscode": "^1.75.0"
 	},

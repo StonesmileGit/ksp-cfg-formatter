@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use super::{
     nom::{
-        utils::{debug_fn, ignore_line_ending, range_wrap, ws},
+        utils::{ignore_line_ending, range_wrap, ws},
         CSTParse, IResult, LocatedSpan,
     },
     ASTPrint, ArrayIndex, AssignmentOperator, Comment, Error, Index, NeedsBlock, Operator, Path,
@@ -11,8 +11,8 @@ use super::{
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag},
-    character::complete::{alphanumeric1, anychar, none_of, space1},
-    combinator::{eof, map, opt, peek, recognize},
+    character::complete::{alphanumeric1, anychar, none_of, one_of, space0, space1},
+    combinator::{all_consuming, map, opt, peek, recognize},
     multi::{many1, many_till, separated_list1},
     sequence::{preceded, terminated, tuple},
 };
@@ -160,75 +160,122 @@ impl<'a> ASTPrint for KeyVal<'a> {
 
 impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<KeyVal<'a>>> {
-        let path = opt(preceded(tag("*"), Path::parse));
-        let operator = opt(Operator::parse);
-        // keyIdentifier     = ${ keyIdentifierPart ~ (Whitespace* ~ keyIdentifierPart)* }
-        // keyIdentifierPart = _{ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
-        let key = range_wrap(map(
-            recognize(separated_list1(
-                space1::<LocatedSpan, _>,
-                recognize(many1(alt((
-                    is_a("#_.?"),
-                    alphanumeric1,
-                    terminated(is_a("-+*"), none_of("=")),
-                    terminated(tag("/"), none_of("/=")),
-                )))),
-            )),
-            |s| *s.fragment(),
+        // This parses anything that could potentially be a key
+        let dumb_key = recognize(many_till(
+            anychar,
+            peek(alt((
+                recognize(preceded(space0, AssignmentOperator::parse)),
+                recognize(Comment::parse),
+                recognize(one_of("{}\n\r")),
+            ))),
         ));
-        let needs = opt(NeedsBlock::parse);
-        let index = opt(Index::parse);
-        let array_index = opt(ArrayIndex::parse);
+
         let assignment_operator = ws(AssignmentOperator::parse);
+
         let value = range_wrap(map(
             ignore_line_ending(recognize(many_till(
                 anychar,
-                peek(alt((tag("//"), is_a("}\r\n"), eof))),
+                peek(alt((
+                    recognize(Comment::parse),
+                    preceded(space0, is_a("}\r\n")),
+                ))),
             ))),
             |s| *s.fragment(),
         ));
-        let comment = opt(ignore_line_ending(ws(Comment::parse)));
-        let key_val = tuple((
-            debug_fn(path, "Got path", true),
-            debug_fn(operator, "Got operator", true),
-            debug_fn(key, "Got key", true),
-            needs,
-            index,
-            array_index,
-            debug_fn(assignment_operator, "Got AOP", true),
-            debug_fn(value, "Got value", true),
-            comment,
-        ));
-        range_wrap(map(key_val, |inner| {
-            let path = inner.0;
-            let operator = inner.1;
-            let key = inner.2;
-            let needs = inner.3;
-            let index = inner.4;
-            let array_index = inner.5;
-            let key_padding = None;
-            let assignment_operator = inner.6;
-            let val = inner.7;
-            let comment = inner.8;
-            // This technically only has to contain the first and last range that is Some, since it's "added up" later
-            // dbg!(&inner);
-            let mut key_val = KeyVal {
-                path,
-                operator,
-                key,
-                needs,
-                index,
-                array_index,
-                key_padding,
-                assignment_operator,
-                val,
-                comment,
-            };
-            if key_val.comment.is_none() {
-                *key_val.val = key_val.val.trim();
+
+        let comment = opt(ignore_line_ending(Comment::parse));
+
+        // TODO: Why does this need to be mut?
+        let mut pseudo_key_val = tuple((dumb_key, assignment_operator, value, comment));
+        range_wrap({
+            move |input| {
+                let (rest, pseudo_kv) = pseudo_key_val(input)?;
+                let (dumb_key, assignment_operator, val, comment) = pseudo_kv;
+
+                let (complete_key, errors) = dumb_key_parser(dumb_key);
+                let key_val = KeyVal {
+                    path: complete_key.0,
+                    operator: complete_key.1,
+                    key: complete_key.2,
+                    needs: complete_key.3,
+                    index: complete_key.4,
+                    array_index: complete_key.5,
+                    key_padding: None,
+                    assignment_operator,
+                    val,
+                    comment,
+                };
+                for err in errors {
+                    rest.extra.report_error(err);
+                }
+                Ok((rest, key_val))
             }
-            key_val
-        }))(input)
+        })(input)
+    }
+}
+
+fn dumb_key_parser(
+    dumb_key: LocatedSpan<'_>,
+) -> (
+    (
+        Option<Ranged<Path>>,
+        Option<Ranged<Operator>>,
+        Ranged<&str>,
+        Option<Ranged<NeedsBlock>>,
+        Option<Ranged<Index>>,
+        Option<Ranged<ArrayIndex>>,
+    ),
+    Vec<super::nom::Error>,
+) {
+    // Clear errors on dumb_key to avoid duplicated errors
+    dumb_key.extra.errors.borrow_mut().clear();
+
+    let path = opt(preceded(tag("*"), Path::parse));
+    let operator = opt(Operator::parse);
+    // keyIdentifier     = ${ keyIdentifierPart ~ (Whitespace* ~ keyIdentifierPart)* }
+    // keyIdentifierPart = _{ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
+    let key = range_wrap(map(
+        recognize(separated_list1(
+            space1::<LocatedSpan, _>,
+            recognize(many1(alt((
+                is_a("#_.?"),
+                alphanumeric1,
+                terminated(is_a("-+*"), none_of("=")),
+                terminated(tag("/"), none_of("/=")),
+            )))),
+        )),
+        |s| *s.fragment(),
+    ));
+    let needs = opt(NeedsBlock::parse);
+    let index = opt(Index::parse);
+    let array_index = opt(ArrayIndex::parse);
+    let proper_key = tuple((path, operator, key, needs, index, array_index));
+    // Everything in the dumb key has to be parsed, otherwise there is an error in the text
+    let res = all_consuming(proper_key)(dumb_key.clone());
+    match res {
+        Ok((rest, proper_key_tuple)) => (proper_key_tuple, rest.extra.errors.borrow_mut().clone()),
+        // If an error is encountered, just stuff the pseudo-key inside the key, and report the error
+        // TODO: Rework to save the successfull parsing until the failed one and place those in the correct place
+        Err(nom::Err::Error(error) | nom::Err::Failure(error)) => (
+            (
+                None,
+                None,
+                Ranged::new(dumb_key.fragment(), Range::from(dumb_key)),
+                None,
+                None,
+                None,
+            ),
+            vec![super::nom::Error {
+                message: format!(
+                    "failed to parse key. Unexpected `{}`",
+                    error.input.fragment()
+                ),
+                // span: error.input,
+                source: error.input.fragment().to_string(),
+                range: Range::from(error.input),
+            }],
+        ),
+        _ => unreachable!(),
     }
 }
 

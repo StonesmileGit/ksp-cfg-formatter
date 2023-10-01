@@ -7,7 +7,7 @@ use super::{document::source_file, Document};
 pub(crate) mod utils;
 
 /// This used in place of `&str` or `&[u8]` in our `nom` parsers.
-pub(crate) type LocatedSpan<'a> = nom_locate::LocatedSpan<&'a str, State<'a>>;
+pub(crate) type LocatedSpan<'a> = nom_locate::LocatedSpan<&'a str, State>;
 /// Convenient type alias for `nom::IResult<I, O>` reduced to `IResult<O>`.
 pub(crate) type IResult<'a, T> = nom::IResult<LocatedSpan<'a>, T>;
 
@@ -25,9 +25,11 @@ impl<'a> ToRange for LocatedSpan<'a> {
 
 /// Error containing a text span and an error message to display.
 #[derive(Debug, Clone)]
-pub struct Error<'a> {
-    /// The LocatedSpan covered by the error
-    pub span: LocatedSpan<'a>,
+pub struct Error {
+    /// The Range covered by the error
+    pub range: super::Range,
+    /// The source string producing the error
+    pub source: String,
     /// The error message
     pub message: String,
 }
@@ -48,15 +50,15 @@ impl Default for ParserState {
 /// Carried around in the `LocatedSpan::extra` field in
 /// between `nom` parsers.
 #[derive(Clone, Debug)]
-pub struct State<'a> {
+pub struct State {
     /// List of accumulated errors while parsing
-    pub errors: RefCell<Vec<Error<'a>>>,
+    pub errors: RefCell<Vec<Error>>,
     /// The current state of the parser
     pub state: ParserState,
 }
 
-impl<'a> Default for State<'a> {
-    fn default() -> State<'a> {
+impl<'a> Default for State {
+    fn default() -> State {
         State {
             errors: RefCell::new(Vec::new()),
             state: Default::default(),
@@ -64,10 +66,10 @@ impl<'a> Default for State<'a> {
     }
 }
 
-impl<'a> State<'a> {
+impl<'a> State {
     /// Pushes an error onto the errors stack from within a `nom`
     /// parser combinator while still allowing parsing to continue.
-    pub fn report_error(&self, error: Error<'a>) {
+    pub fn report_error(&self, error: Error) {
         self.errors.borrow_mut().push(error);
     }
 }

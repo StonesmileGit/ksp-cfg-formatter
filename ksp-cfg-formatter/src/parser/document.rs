@@ -123,8 +123,8 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
                 debug_fn(
                     alt((
                         map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
-                        map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
                         map(utils::empty_line, |_| DocItem::EmptyLine),
+                        map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
                         // If none of the above succeeded, consume the line as an error and try again
                         debug_fn(
                             map(

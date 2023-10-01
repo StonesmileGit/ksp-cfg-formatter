@@ -297,13 +297,12 @@ impl From<pest::error::Error<Rule>> for Error {
     }
 }
 
-impl<'a> From<nom::Error<'a>> for Error {
+impl<'a> From<nom::Error> for Error {
     fn from(value: nom::Error) -> Self {
         Self {
             reason: Reason::Custom(value.message),
-            // TODO: Add location
-            location: None,
-            source_text: value.span.fragment().to_string(),
+            location: Some(value.range),
+            source_text: value.source.to_string(),
         }
     }
 }

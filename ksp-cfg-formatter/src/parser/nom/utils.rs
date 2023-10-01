@@ -43,7 +43,8 @@ where
                 let input = error.input;
                 let length = if input.is_empty() { 0 } else { 1 };
                 let err = Error {
-                    span: input.slice(0..length),
+                    source: input.fragment().to_string(),
+                    range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
                 };
                 input.extra.report_error(err); // Push error onto stack.
@@ -74,7 +75,8 @@ where
                 let input = error.input;
                 let length = if input.is_empty() { 0 } else { 1 };
                 let err = Error {
-                    span: input.slice(0..length),
+                    source: input.fragment().to_string(),
+                    range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
                 };
                 // dbg!(&input);
@@ -109,8 +111,9 @@ where
         Ok((rem, out)) => {
             if out.len() > 0 {
                 rem.extra.report_error(Error {
-                    span: out.clone(),
+                    source: out.fragment().to_string(),
                     message: format!("unexpected `{}`", out.fragment()),
+                    range: Range::from(out),
                 });
                 Ok((rem, ()))
             } else {

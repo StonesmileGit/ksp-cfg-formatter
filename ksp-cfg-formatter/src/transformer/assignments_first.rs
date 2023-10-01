@@ -34,7 +34,7 @@ fn reorder_doc_items(items: Vec<DocItem>) -> Result<Vec<DocItem>, Error> {
         .collect_vec())
 }
 
-fn reorder_node_items<'a>(mut node_items: Vec<NodeItem<'a>>) -> Result<Vec<NodeItem<'a>>, Error> {
+fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Error> {
     let mut key_stuff = vec![];
     let mut node_stuff = vec![];
 

@@ -87,7 +87,8 @@ where
 
 impl<T> Ranged<T> {
     /// Creates a wrapper over the inner item with the range provided
-    pub fn new(inner: T, range: Range) -> Self {
+    #[must_use]
+    pub const fn new(inner: T, range: Range) -> Self {
         Self { inner, range }
     }
 
@@ -134,9 +135,14 @@ impl Position {
         Self { line, col }
     }
 
-    /// Creates a Position from a LocatedSpan
+    /// Creates a Position from a `LocatedSpan`
     pub fn from_located_span(span: &LocatedSpan) -> Self {
-        Self::new(span.location_line(), span.get_utf8_column() as u32)
+        Self::new(
+            span.location_line(),
+            span.get_utf8_column()
+                .try_into()
+                .expect("both usize and u32 should be large enough"),
+        )
     }
 }
 
@@ -151,7 +157,8 @@ pub struct Range {
 
 impl Range {
     /// Creates a range from starting and ending line and column
-    pub fn new(start_line: u32, start_col: u32, end_line: u32, end_col: u32) -> Self {
+    #[must_use]
+    pub const fn new(start_line: u32, start_col: u32, end_line: u32, end_col: u32) -> Self {
         Self {
             start: Position {
                 line: start_line,
@@ -173,7 +180,8 @@ impl Range {
     }
 
     /// Creates a Range with the end set to the same as the start of the current range
-    pub fn to_start(&self) -> Self {
+    #[must_use]
+    pub const fn to_start(&self) -> Self {
         // TODO: Check if this should increment the end char by one
         Self {
             start: self.start,
@@ -213,15 +221,21 @@ impl Display for Range {
 impl<'a> From<LocatedSpan<'a>> for Range {
     fn from(value: LocatedSpan) -> Self {
         let start = Position::from_located_span(&value);
-        let delta_lines = value.fragment().chars().filter(|&c| c == '\n').count();
+        let delta_lines: u32 = value
+            .fragment()
+            .chars()
+            .filter(|&c| c == '\n')
+            .count()
+            .try_into()
+            .expect("usize and u32 should both be large enough");
         let last_line = value.fragment().split('\n').last();
-        let col = last_line.map_or(0, |ll| ll.chars().count());
+        let col: u32 = last_line.map_or(0, |ll| ll.chars().count().try_into().unwrap());
         let end = Position {
-            line: start.line + delta_lines as u32,
+            line: start.line + delta_lines,
             col: if delta_lines > 0 {
-                col as u32
+                col
             } else {
-                start.col + col as u32
+                start.col + col
             },
         };
         Self { start, end }
@@ -251,12 +265,12 @@ impl Display for Error {
     }
 }
 
-impl<'a> From<nom::Error> for Error {
+impl From<nom::Error> for Error {
     fn from(value: nom::Error) -> Self {
         Self {
             reason: Reason::Custom(value.message),
             location: Some(value.range),
-            source_text: value.source.to_string(),
+            source_text: value.source,
         }
     }
 }

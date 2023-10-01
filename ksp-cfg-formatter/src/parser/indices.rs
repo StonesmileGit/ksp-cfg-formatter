@@ -1,5 +1,8 @@
 use super::{
-    nom::{utils::range_wrap, CSTParse, IResult, LocatedSpan},
+    nom::{
+        utils::{expect, range_wrap},
+        CSTParse, IResult, LocatedSpan,
+    },
     Ranged,
 };
 use nom::{
@@ -82,11 +85,17 @@ impl CSTParse<'_, Ranged<ArrayIndex>> for ArrayIndex {
             )),
             opt(preceded(tag(","), anychar)),
         );
-        range_wrap(map(delimited(tag("["), array_index, tag("]")), |inner| {
-            ArrayIndex {
+        range_wrap(map(
+            delimited(
+                tag("["),
+                // TODO: Add "expect" on the index too
+                array_index,
+                expect(tag("]"), "Expected closing `]`"),
+            ),
+            |inner| ArrayIndex {
                 index: inner.0,
                 separator: inner.1,
-            }
-        }))(input)
+            },
+        ))(input)
     }
 }

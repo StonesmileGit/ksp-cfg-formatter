@@ -171,8 +171,8 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
         eprintln!("{error:#?}");
         errors_res.push(parser::Error::from(error));
     }
-    if errors_res.len() > 0 {
-        return Err(errors_res.first().unwrap().clone());
+    if let Some(first) = errors_res.first() {
+        return Err(first.clone());
     }
     // let parsed_document = transformer::assignments_first(parsed_document)?;
     // let parsed_document = transformer::assignment_padding(parsed_document);
@@ -195,8 +195,8 @@ pub fn parse_to_ast(text: &str) -> Result<Document, parser::Error> {
         eprintln!("{error:#?}");
         errors_res.push(parser::Error::from(error));
     }
-    if errors_res.len() > 0 {
-        return Err(errors_res.first().unwrap().clone());
+    if let Some(first) = errors_res.first() {
+        return Err(first.clone());
     }
     Ok(parsed_document)
 }

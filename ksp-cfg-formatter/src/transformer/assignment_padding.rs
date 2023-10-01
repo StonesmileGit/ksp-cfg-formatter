@@ -64,7 +64,7 @@ fn handle_doc_items(items: Vec<DocItem>) -> Vec<DocItem> {
         .collect_vec()
 }
 
-fn handle_node_items<'a>(items: Vec<NodeItem<'a>>) -> Vec<NodeItem<'a>> {
+fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
     let mut accumulator: Vec<Ranged<KeyVal>> = vec![];
     let mut processed: Vec<NodeItem> = vec![];
     for item in items {

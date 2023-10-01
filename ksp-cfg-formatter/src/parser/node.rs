@@ -109,7 +109,7 @@ impl<'a> ASTPrint for Node<'a> {
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
             self.index
                 .as_deref()
-                .map_or(String::new(), |i| i.to_string()),
+                .map_or(String::new(), std::string::ToString::to_string),
         );
         output.push_str(
             match self.block.len() {
@@ -230,7 +230,7 @@ use super::nom::{utils::ignore_line_ending, IResult, LocatedSpan};
 
 impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Node<'a>>> {
-        let top_level = input.extra.state.top_level.clone();
+        let top_level = input.extra.state.top_level;
 
         // TODO: make sure this doesn't match too much
         let dumb_identifier = recognize(tuple((
@@ -279,21 +279,7 @@ impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
 
 fn dumb_identifier_parser(
     dumb_identifier: LocatedSpan,
-) -> (
-    (
-        Option<Ranged<Path>>,
-        Option<Ranged<Operator>>,
-        Ranged<&str>,
-        Option<Ranged<Vec<&str>>>,
-        Option<Ranged<HasBlock>>,
-        Option<Ranged<NeedsBlock>>,
-        Option<Ranged<Pass>>,
-        Option<Ranged<Index>>,
-        Option<Ranged<Comment>>,
-        Vec<Ranged<Comment>>,
-    ),
-    Vec<super::nom::Error>,
-) {
+) -> (ParsedIdentifier, Vec<super::nom::Error>) {
     let path = opt(preceded(tag("#"), Path::parse));
     let operator = opt(Operator::parse);
     // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
@@ -354,8 +340,7 @@ fn dumb_identifier_parser(
                     "failed to parse identifier. Unexpected `{}`",
                     error.input.fragment()
                 ),
-                // span: error.input,
-                source: error.input.fragment().to_string(),
+                source: (*error.input.fragment()).to_string(),
                 range: Range::from(error.input),
             }],
         ),
@@ -363,23 +348,7 @@ fn dumb_identifier_parser(
     }
 }
 
-fn map_correct_identifier<'a>(
-    rest: &LocatedSpan<'a>,
-    input_tuple: (
-        Option<Ranged<Path<'a>>>,
-        Option<Ranged<Operator>>,
-        Ranged<&'a str>,
-        Option<Ranged<Vec<&'a str>>>,
-        Vec<(
-            Option<Ranged<HasBlock<'a>>>,
-            Option<Ranged<Pass<'a>>>,
-            Option<Ranged<NeedsBlock<'a>>>,
-        )>,
-        Option<Ranged<Index>>,
-        Option<Ranged<Comment<'a>>>,
-        Vec<Ranged<Comment<'a>>>,
-    ),
-) -> (
+type ParsedIdentifier<'a> = (
     Option<Ranged<Path<'a>>>,
     Option<Ranged<Operator>>,
     Ranged<&'a str>,
@@ -390,7 +359,27 @@ fn map_correct_identifier<'a>(
     Option<Ranged<Index>>,
     Option<Ranged<Comment<'a>>>,
     Vec<Ranged<Comment<'a>>>,
-) {
+);
+
+type ToBeParsedIdentifier<'a> = (
+    Option<Ranged<Path<'a>>>,
+    Option<Ranged<Operator>>,
+    Ranged<&'a str>,
+    Option<Ranged<Vec<&'a str>>>,
+    Vec<(
+        Option<Ranged<HasBlock<'a>>>,
+        Option<Ranged<Pass<'a>>>,
+        Option<Ranged<NeedsBlock<'a>>>,
+    )>,
+    Option<Ranged<Index>>,
+    Option<Ranged<Comment<'a>>>,
+    Vec<Ranged<Comment<'a>>>,
+);
+
+fn map_correct_identifier<'a>(
+    rest: &LocatedSpan<'a>,
+    input_tuple: ToBeParsedIdentifier<'a>,
+) -> ParsedIdentifier<'a> {
     let has_vec = input_tuple
         .4
         .iter()
@@ -402,7 +391,7 @@ fn map_correct_identifier<'a>(
                 message: "Got extra HAS block".to_owned(),
                 range: has.range,
                 source: has.to_string(),
-            })
+            });
         }
     }
     let has = has_vec.first().cloned();
@@ -418,7 +407,7 @@ fn map_correct_identifier<'a>(
                 message: "Got extra NEEDS block".to_owned(),
                 range: needs.range,
                 source: needs.to_string(),
-            })
+            });
         }
     }
     let needs = needs_vec.first().cloned();
@@ -430,7 +419,7 @@ fn map_correct_identifier<'a>(
                 message: "Got extra PASS block".to_owned(),
                 range: pass.range,
                 source: pass.to_string(),
-            })
+            });
         }
     }
     let pass = pass_vec.first().cloned();
@@ -468,7 +457,7 @@ where
     F: FnMut(LocatedSpan<'a>) -> IResult<T>,
 {
     move |input: LocatedSpan<'a>| {
-        let top_level = input.extra.state.top_level.clone();
+        let top_level = input.extra.state.top_level;
         let mut input = input;
         input.extra.state.top_level = false;
         let res = parser(input);
@@ -486,7 +475,7 @@ where
     }
 }
 
-fn parse_block<'a>(input: LocatedSpan<'a>) -> IResult<Vec<NodeItem>> {
+fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
     let block = delimited(
         char('{'),
         ws_le(many0(ws(alt((
@@ -494,7 +483,7 @@ fn parse_block<'a>(input: LocatedSpan<'a>) -> IResult<Vec<NodeItem>> {
                 NodeItem::Comment(c)
             }),
             map(ws(empty_line), |_| NodeItem::EmptyLine),
-            map(ws(KeyVal::parse), NodeItem::KeyVal),
+            map(ws(KeyVal::parse), |kv| NodeItem::KeyVal(kv)),
             settings_for_inner_block(map(ignore_line_ending(ws(Node::parse)), NodeItem::Node)),
             debug_fn(
                 map(

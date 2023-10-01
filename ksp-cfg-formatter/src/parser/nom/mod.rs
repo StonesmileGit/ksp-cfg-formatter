@@ -57,16 +57,16 @@ pub struct State {
     pub state: ParserState,
 }
 
-impl<'a> Default for State {
+impl Default for State {
     fn default() -> State {
         State {
             errors: RefCell::new(Vec::new()),
-            state: Default::default(),
+            state: ParserState::default(),
         }
     }
 }
 
-impl<'a> State {
+impl State {
     /// Pushes an error onto the errors stack from within a `nom`
     /// parser combinator while still allowing parsing to continue.
     pub fn report_error(&self, error: Error) {
@@ -77,7 +77,8 @@ impl<'a> State {
 /// A trait with a function that implements parsing to the type
 pub trait CSTParse<'c, O> {
     /// Parse `O` from the input
-    #[must_use]
+    /// # Errors
+    /// Returns an error if the parser fails
     fn parse(input: LocatedSpan<'c>) -> IResult<O>;
 }
 

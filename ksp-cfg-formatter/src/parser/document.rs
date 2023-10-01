@@ -109,12 +109,8 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
                     eof,
                 ),
             ),
-            |inner| {
-                let res = Document {
-                    statements: inner.0,
-                };
-                // dbg!(&res);
-                res
+            |inner| Document {
+                statements: inner.0,
             },
         )(input)
     }

@@ -53,10 +53,10 @@ impl<'a> KeyVal<'a> {
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
             self.index
                 .as_deref()
-                .map_or_else(String::new, |i| i.to_string()),
+                .map_or_else(String::new, std::string::ToString::to_string),
             self.array_index
                 .as_deref()
-                .map_or_else(String::new, |i| i.to_string()),
+                .map_or_else(String::new, std::string::ToString::to_string),
         )
     }
     pub(crate) fn set_key_padding(&mut self, n: usize) {
@@ -79,16 +79,16 @@ impl<'a> ASTPrint for KeyVal<'a> {
             self.needs.clone().map_or(String::new(), |n| n.to_string()),
             self.index
                 .as_deref()
-                .map_or_else(String::new, |i| i.to_string()),
+                .map_or_else(String::new, std::string::ToString::to_string),
             self.array_index
                 .as_deref()
-                .map_or_else(String::new, |i| i.to_string()),
+                .map_or_else(String::new, std::string::ToString::to_string),
             self.key_padding.clone().map_or_else(String::new, |p| p),
             self.assignment_operator,
             self.val,
             self.comment
                 .as_ref()
-                .map_or_else(String::new, |c| c.to_string()),
+                .map_or_else(String::new, std::string::ToString::to_string),
             line_ending
         )
     }
@@ -150,19 +150,16 @@ impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
     }
 }
 
-fn dumb_key_parser(
-    dumb_key: LocatedSpan<'_>,
-) -> (
-    (
-        Option<Ranged<Path>>,
-        Option<Ranged<Operator>>,
-        Ranged<&str>,
-        Option<Ranged<NeedsBlock>>,
-        Option<Ranged<Index>>,
-        Option<Ranged<ArrayIndex>>,
-    ),
-    Vec<super::nom::Error>,
-) {
+type ParsedKey<'a> = (
+    Option<Ranged<Path<'a>>>,
+    Option<Ranged<Operator>>,
+    Ranged<&'a str>,
+    Option<Ranged<NeedsBlock<'a>>>,
+    Option<Ranged<Index>>,
+    Option<Ranged<ArrayIndex>>,
+);
+
+fn dumb_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Error>) {
     // Clear errors on dumb_key to avoid duplicated errors
     dumb_key.extra.errors.borrow_mut().clear();
 
@@ -206,8 +203,7 @@ fn dumb_key_parser(
                     "failed to parse key. Unexpected `{}`",
                     error.input.fragment()
                 ),
-                // span: error.input,
-                source: error.input.fragment().to_string(),
+                source: (*error.input.fragment()).to_string(),
                 range: Range::from(error.input),
             }],
         ),

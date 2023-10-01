@@ -41,9 +41,9 @@ where
             Ok((remaining, out)) => Ok((remaining, Some(out))),
             Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
                 let input = error.input;
-                let length = if input.is_empty() { 0 } else { 1 };
+                let length = usize::from(!input.is_empty());
                 let err = Error {
-                    source: input.fragment().to_string(),
+                    source: (*input.fragment()).to_string(),
                     range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
                 };
@@ -73,9 +73,9 @@ where
             Ok((remaining, out)) => Ok((remaining, Some(out))),
             Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
                 let input = error.input;
-                let length = if input.is_empty() { 0 } else { 1 };
+                let length = usize::from(!input.is_empty());
                 let err = Error {
-                    source: input.fragment().to_string(),
+                    source: (*input.fragment()).to_string(),
                     range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
                 };
@@ -111,14 +111,14 @@ where
         Ok((rem, out)) => {
             if out.len() > 0 {
                 rem.extra.report_error(Error {
-                    source: out.fragment().to_string(),
+                    source: (*out.fragment()).to_string(),
                     message: format!("unexpected `{}`", out.fragment()),
                     range: Range::from(out),
                 });
                 Ok((rem, ()))
             } else {
                 Err(nom::Err::Error(nom::error::Error {
-                    input: input,
+                    input,
                     code: ErrorKind::Fail,
                 }))
             }

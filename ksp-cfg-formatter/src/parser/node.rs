@@ -314,7 +314,6 @@ fn dumb_identifier_parser(
         debug_fn(operator, "Got operator", true),
         debug_fn(identifier, "Got node id", true),
         debug_fn(name, "Got name", true),
-        // TODO: Create an Enum to hold the items that can be in any order. This should simplify the handling code further down
         many0(alt((
             map(has, HasPassNeedsIndex::Has),
             map(pass, HasPassNeedsIndex::Pass),

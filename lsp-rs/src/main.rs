@@ -60,7 +60,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Resu
     // Start by getting settings from the client
     notifications::handlers::handle_did_change_configuration(
         &mut state,
-        lsp_types::DidChangeConfigurationParams {
+        &lsp_types::DidChangeConfigurationParams {
             settings: serde_json::Value::Null,
         },
     )?;
@@ -145,7 +145,7 @@ struct DocumentDataBase {
 impl DocumentDataBase {
     fn add_document_to_db(
         &mut self,
-        params: lsp_types::DidOpenTextDocumentParams,
+        params: &lsp_types::DidOpenTextDocumentParams,
     ) -> anyhow::Result<()> {
         let key = params
             .text_document
@@ -153,13 +153,13 @@ impl DocumentDataBase {
             .to_file_path()
             .map_err(|()| anyhow::format_err!("url is not a file"))?;
         self.data_base
-            .insert(key.clone(), params.text_document.text);
+            .insert(key.clone(), params.text_document.text.clone());
         debug!("inserted file {key:?}");
         Ok(())
     }
     fn update_document_in_db(
         &mut self,
-        params: lsp_types::DidChangeTextDocumentParams,
+        params: &lsp_types::DidChangeTextDocumentParams,
     ) -> anyhow::Result<()> {
         let key = params
             .text_document
@@ -179,7 +179,7 @@ impl DocumentDataBase {
     }
     fn remove_document_from_db(
         &mut self,
-        params: lsp_types::DidCloseTextDocumentParams,
+        params: &lsp_types::DidCloseTextDocumentParams,
     ) -> anyhow::Result<()> {
         let key = params
             .text_document

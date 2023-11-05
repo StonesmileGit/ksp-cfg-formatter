@@ -4,6 +4,7 @@ use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
 use std::{fs, io::BufRead, result::Result, thread};
 use walkdir::WalkDir;
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Parser, Debug, Clone)]
 #[command(author, about, long_about = None)]
 struct Args {
@@ -71,10 +72,12 @@ fn main() {
                 };
                 if args.check {
                     match ksp_cfg_formatter::parse_to_ast(&text) {
-                        // Ok(doc) => match ksp_cfg_formatter::transformer::assignments_first(doc) {
-                        //     Ok(_) => (),
-                        //     Err(err) => res.push(format!("{path}\n{err}")),
-                        // },
+                        Ok(doc) => match ksp_cfg_formatter::transformer::assignments_first(doc) {
+                            Ok(_) => (),
+                            Err(_err) => {
+                                // res.push(format!("{path}\n{_err}"))
+                            }
+                        },
                         Err(errs) => {
                             for err in errs {
                                 use ksp_cfg_formatter::parser::nom::Severity as sev;
@@ -86,7 +89,6 @@ fn main() {
                                 }
                             }
                         }
-                        _ => (),
                     };
                 } else {
                     format_file(&args, &text, Some(path.clone()));

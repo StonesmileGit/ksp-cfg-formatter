@@ -33,7 +33,7 @@ impl<'a> NotificationDispatch<'a> {
 
     fn handle_notification<N>(
         mut self,
-        f: fn(&mut State, N::Params) -> anyhow::Result<()>,
+        f: fn(&mut State, &N::Params) -> anyhow::Result<()>,
     ) -> anyhow::Result<Self>
     where
         N: lsp_types::notification::Notification,
@@ -52,7 +52,7 @@ impl<'a> NotificationDispatch<'a> {
                 return Ok(self);
             }
         };
-        f(self.state, params)?;
+        f(self.state, &params)?;
         Ok(self)
     }
 

@@ -184,7 +184,6 @@ impl Range {
     /// Creates a Range with the end set to the same as the start of the current range
     #[must_use]
     pub const fn to_start(&self) -> Self {
-        // TODO: Check if this should increment the end char by one
         Self {
             start: self.start,
             end: self.start,

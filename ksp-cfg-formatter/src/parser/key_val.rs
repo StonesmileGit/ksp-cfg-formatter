@@ -1,6 +1,6 @@
 use super::{
     nom::{
-        utils::{ignore_line_ending, range_wrap, ws},
+        utils::{debug_fn, ignore_line_ending, range_wrap, ws},
         CSTParse, IResult, LocatedSpan,
     },
     ASTPrint, ArrayIndex, AssignmentOperator, Comment, Index, NeedsBlock, Operator, Path, Range,
@@ -9,11 +9,12 @@ use super::{
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag},
-    character::complete::{alphanumeric1, anychar, none_of, one_of, space0, space1},
-    combinator::{all_consuming, map, opt, peek, recognize},
+    character::complete::{anychar, none_of, one_of, space0, space1},
+    combinator::{all_consuming, eof, map, opt, peek, recognize},
     multi::{many1, many_till, separated_list1},
     sequence::{preceded, terminated, tuple},
 };
+use nom_unicode::complete::alphanumeric1;
 
 /// Assignment operation
 #[derive(Debug, Default, Clone)]
@@ -34,7 +35,6 @@ pub struct KeyVal<'a> {
     /// The assignment operator between the variable and the value
     pub assignment_operator: Ranged<AssignmentOperator>,
     /// The value to use in the assignment
-    // FIXME: The value has the trailing whitespace in case of a comment. Split into a separate field
     pub val: Ranged<&'a str>,
     /// Optional trailing comment
     pub comment: Option<Ranged<Comment<'a>>>,
@@ -121,7 +121,6 @@ impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
 
         let comment = opt(ignore_line_ending(Comment::parse));
 
-        // TODO: Why does this need to be mut?
         let mut pseudo_key_val = tuple((dumb_key, assignment_operator, value, comment));
         range_wrap({
             move |input| {
@@ -171,9 +170,16 @@ fn dumb_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Err
         recognize(separated_list1(
             space1::<LocatedSpan, _>,
             recognize(many1(alt((
-                is_a("#_.?"),
-                alphanumeric1,
-                terminated(is_a("-+*"), none_of("=")),
+                debug_fn(is_a("#_.?"), "got1", false),
+                debug_fn(alphanumeric1, "got2", false),
+                debug_fn(
+                    recognize(terminated(
+                        one_of("-+*"),
+                        alt((recognize(none_of("=")), eof)),
+                    )),
+                    "got3",
+                    false,
+                ),
                 terminated(tag("/"), none_of("/=")),
             )))),
         )),
@@ -205,6 +211,8 @@ fn dumb_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Err
                 ),
                 source: (*error.input.fragment()).to_string(),
                 range: Range::from(error.input),
+                severity: super::nom::Severity::Error,
+                context: None,
             }],
         ),
         _ => unreachable!(),

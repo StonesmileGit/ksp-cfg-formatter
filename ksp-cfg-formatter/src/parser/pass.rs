@@ -3,11 +3,11 @@ use std::fmt::Display;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag_no_case},
-    character::complete::alphanumeric1,
     combinator::{map, recognize},
     multi::many1,
     sequence::delimited,
 };
+use nom_unicode::complete::alphanumeric1;
 
 use super::{
     nom::{

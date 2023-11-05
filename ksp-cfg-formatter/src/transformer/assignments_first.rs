@@ -1,40 +1,26 @@
-use itertools::Itertools;
-
-use crate::parser::{DocItem, Document, Error, NodeItem};
+use crate::parser::{DocItem, Document, Error, Node, NodeItem, Ranged};
 
 /// Moves assignments first in the node, and child nodes last
 /// # Errors
 /// Returns an error if an empty line, or a comment is found at the bottom of a node
 // Assume empty line between keys and nodes
 pub fn assignments_first(mut doc: Document) -> Result<Document, Error> {
-    doc.statements = reorder_doc_items(doc.statements)?;
+    let items = doc.statements;
+    let mut new_items = vec![];
+    for item in items {
+        new_items.push(if let DocItem::Node(node) = item {
+            let node = reorder_node_items(node)?;
+            DocItem::Node(node)
+        } else {
+            item
+        });
+    }
+    doc.statements = new_items;
     Ok(doc)
 }
 
-fn reorder_doc_items(items: Vec<DocItem>) -> Result<Vec<DocItem>, Error> {
-    let items = items
-        .into_iter()
-        .map(|e| match e {
-            DocItem::Node(n) => NodeItem::Node(n.clone()),
-            DocItem::Comment(c) => NodeItem::Comment(c),
-            DocItem::EmptyLine => NodeItem::EmptyLine,
-            DocItem::Error(e) => NodeItem::Error(e),
-        })
-        .collect();
-    let items = reorder_node_items(items)?;
-    Ok(items
-        .into_iter()
-        .map(|e| match e {
-            NodeItem::Node(n) => DocItem::Node(n.clone()),
-            NodeItem::Comment(c) => DocItem::Comment(c),
-            NodeItem::EmptyLine => DocItem::EmptyLine,
-            NodeItem::Error(e) => DocItem::Error(e),
-            NodeItem::KeyVal(_) => unreachable!(),
-        })
-        .collect_vec())
-}
-
-fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Error> {
+fn reorder_node_items(mut node: Ranged<Node>) -> Result<Ranged<Node>, Error> {
+    let mut node_items = node.block.clone();
     let mut key_stuff = vec![];
     let mut node_stuff = vec![];
 
@@ -42,10 +28,9 @@ fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Er
     node_items.reverse();
     for item in node_items {
         match item {
-            NodeItem::Node(mut node) => {
+            NodeItem::Node(node) => {
                 processing_key = Some(false);
-                node.block = reorder_node_items(node.block.clone())?;
-                node_stuff.push(NodeItem::Node(node));
+                node_stuff.push(NodeItem::Node(reorder_node_items(node)?));
             }
             NodeItem::Comment(_) => match processing_key {
                 Some(true) => key_stuff.push(item),
@@ -57,6 +42,7 @@ fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Er
                         ),
                         location: None,
                         source_text: String::new(),
+                        severity: crate::parser::nom::Severity::Info,
                     })
                 }
             },
@@ -74,6 +60,7 @@ fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Er
                         ),
                         location: None,
                         source_text: String::new(),
+                        severity: crate::parser::nom::Severity::Info,
                     })
                 }
             },
@@ -85,5 +72,6 @@ fn reorder_node_items(mut node_items: Vec<NodeItem>) -> Result<Vec<NodeItem>, Er
     let mut new_node_items = vec![];
     new_node_items.append(&mut key_stuff);
     new_node_items.append(&mut node_stuff);
-    Ok(new_node_items)
+    node.block = new_node_items;
+    Ok(node)
 }

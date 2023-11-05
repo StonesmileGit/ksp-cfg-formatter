@@ -6,7 +6,8 @@ use super::{
     ASTPrint, Ranged,
 };
 use nom::{
-    bytes::complete::{is_not, tag},
+    branch::alt,
+    bytes::complete::{is_not, tag, take},
     combinator::{map, recognize},
     sequence::pair,
 };
@@ -34,7 +35,7 @@ impl<'a> ASTPrint for Comment<'a> {
 
 impl<'a> CSTParse<'a, Ranged<Comment<'a>>> for Comment<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Comment<'a>>> {
-        let comment = recognize(ws(pair(tag("//"), is_not("\r\n"))));
+        let comment = recognize(ws(pair(tag("//"), alt((is_not("\r\n"), take(0usize))))));
         range_wrap(map(comment, |inner: LocatedSpan| Comment {
             text: inner.fragment(),
         }))(input)

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use strsim::normalized_levenshtein;
 
-use crate::parser::{DocItem, Document, KeyVal, NodeItem, Ranged};
+use crate::parser::{DocItem, Document, KeyVal, Node, NodeItem, Ranged};
 
 /// Returns `None` if the strings are not similair enough, otherwise the max length is returned.
 fn max_len_if_similar(a: &str, b: &str) -> Option<usize> {
@@ -37,43 +37,30 @@ fn max_len_in_vec_if_similar(strs: &[Ranged<KeyVal>]) -> Option<usize> {
 /// pads any assignments where similar keys are found in the immediately adjacent lines, with no empty lines in between
 #[must_use]
 pub fn assignment_padding(mut doc: Document) -> Document {
-    doc.statements = handle_doc_items(doc.statements);
+    doc.statements = {
+        doc.statements
+            .into_iter()
+            .map(|item| {
+                if let DocItem::Node(node) = item {
+                    DocItem::Node(handle_node_items(node))
+                } else {
+                    item
+                }
+            })
+            .collect_vec()
+    };
     doc
 }
 
-fn handle_doc_items(items: Vec<DocItem>) -> Vec<DocItem> {
-    let items = items
-        .into_iter()
-        .map(|e| match e {
-            DocItem::Node(n) => NodeItem::Node(n.clone()),
-            DocItem::Comment(c) => NodeItem::Comment(c),
-            DocItem::EmptyLine => NodeItem::EmptyLine,
-            DocItem::Error(e) => NodeItem::Error(e),
-        })
-        .collect_vec();
-    let items = handle_node_items(items);
-    items
-        .into_iter()
-        .map(|e| match e {
-            NodeItem::Node(n) => DocItem::Node(n.clone()),
-            NodeItem::Comment(c) => DocItem::Comment(c),
-            NodeItem::EmptyLine => DocItem::EmptyLine,
-            NodeItem::Error(e) => DocItem::Error(e),
-            NodeItem::KeyVal(_) => unreachable!(),
-        })
-        .collect_vec()
-}
-
-fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
+fn handle_node_items(mut node: Ranged<Node>) -> Ranged<Node> {
     let mut accumulator: Vec<Ranged<KeyVal>> = vec![];
     let mut processed: Vec<NodeItem> = vec![];
-    for item in items {
+    for item in node.block.clone() {
         match item {
-            NodeItem::Node(mut node) => {
+            NodeItem::Node(node) => {
                 processed = fix_kvs(accumulator, processed);
                 accumulator = Vec::new();
-                node.block = handle_node_items(node.block.clone());
-                processed.push(NodeItem::Node(node));
+                processed.push(NodeItem::Node(handle_node_items(node)));
             }
             NodeItem::Comment(comment) => {
                 processed = fix_kvs(accumulator, processed);
@@ -89,7 +76,9 @@ fn handle_node_items(items: Vec<NodeItem>) -> Vec<NodeItem> {
             NodeItem::Error(_e) => todo!(),
         }
     }
-    fix_kvs(accumulator, processed)
+    let items = fix_kvs(accumulator, processed);
+    node.block = items;
+    node
 }
 
 fn fix_kvs<'a>(

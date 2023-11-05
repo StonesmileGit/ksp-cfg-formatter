@@ -1,3 +1,5 @@
+use log::{debug, error};
+
 use super::State;
 
 pub(crate) fn add_document_to_db(
@@ -30,15 +32,84 @@ pub(crate) fn handle_did_change_configuration(
 }
 
 fn request_workspace_config(state: &mut State) -> anyhow::Result<()> {
-    let a: lsp_types::ConfigurationParams = lsp_types::ConfigurationParams {
-        items: vec![lsp_types::ConfigurationItem {
-            scope_uri: None,
-            section: Some("KspCfgLspServer".to_string()),
-        }],
-    };
-    state.send_request::<lsp_types::request::WorkspaceConfiguration>(a, |_state, response| {
-        eprintln!("got response to config request:\n{response:?}");
-        Ok(())
-    })?;
+    // Fetch editor configs
+    state.send_request::<lsp_types::request::WorkspaceConfiguration>(
+        lsp_types::ConfigurationParams {
+            items: vec![lsp_types::ConfigurationItem {
+                scope_uri: None,
+                section: Some("editor".to_string()),
+            }],
+        },
+        |state, response| {
+            // response.result.map(|result| {
+            //     if let serde_json::Value::Array(arr) = result {
+            //         arr.first().map(|first| {
+            //             if let serde_json::Value::Object(obj) = first {
+            //                 obj.get("tabSize").map(|tabsize| {
+            //                     if let serde_json::Value::Number(number) = tabsize {
+            //                         number.as_u64().map(|n| state.settings.indent_size = n);
+            //                     }
+            //                 });
+            //                 obj.get("insertSpaces").map(|use_spaces| {
+            //                     if let serde_json::Value::Bool(use_spaces) = use_spaces {
+            //                         state.settings.use_tabs = !use_spaces
+            //                     }
+            //                 });
+            //             }
+            //         });
+            //     }
+            // });
+            // debug!("Settings are now: {:?}", state.settings);
+            Ok(())
+        },
+    )?;
+    // Fetch extension settings
+    state.send_request::<lsp_types::request::WorkspaceConfiguration>(
+        lsp_types::ConfigurationParams {
+            items: vec![lsp_types::ConfigurationItem {
+                scope_uri: None,
+                section: Some("KspCfgLspServer".to_string()),
+            }],
+        },
+        |state, response| {
+            debug!("got KspCfgLspServer response:\n{response:?}\n");
+            response.result.clone().map(|result| {
+                if let serde_json::Value::Array(arr) = result {
+                    arr.first().map(|first| {
+                        if let serde_json::Value::Object(obj) = first {
+                            obj.get("logLevel").map(|log_level| {
+                                if let serde_json::Value::String(log_str) = log_level {
+                                    let log_level = match log_str.as_str() {
+                                        "off" => log::LevelFilter::Off,
+                                        "error" => log::LevelFilter::Error,
+                                        "warning" => log::LevelFilter::Warn,
+                                        "info" => log::LevelFilter::Info,
+                                        "debug" => log::LevelFilter::Debug,
+                                        "trace" => log::LevelFilter::Trace,
+                                        _ => {
+                                            error!("Parsing the logLevel setting failed! Defaulting to Info\n");
+                                            log::LevelFilter::Info
+                                        }
+                                    };
+                                    // TODO: Is it needed in the settings?
+                                    state.settings.log_level = log_level;
+                                    log::set_max_level(log_level);
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+            let a = response.result.and_then(|res| {
+                if let serde_json::Value::Array(arr) = res {
+                    Some(arr)
+                } else {
+                    None
+                }
+            });
+            debug!("Settings are now: {:?}\n", state.settings);
+            Ok(())
+        },
+    )?;
     Ok(())
 }

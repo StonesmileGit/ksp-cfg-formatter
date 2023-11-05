@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crossbeam_channel::Sender;
+use log::{debug, info, warn};
 use lsp_types::{
     InitializeParams, OneOf, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
@@ -17,11 +18,13 @@ mod linter;
 use lsp_server::{Connection, Message, Request, Response};
 
 fn main() -> anyhow::Result<()> {
-    // Note that we must have our logging only write out to stderr.
-    eprintln!("starting generic LSP server");
-
-    // Create the transport. Includes the stdio (stdin and stdout) versions but this could
-    // also be implemented to use sockets or HTTP.
+    stderrlog::new()
+        .module(module_path!())
+        .modules(vec!["ksp-cfg-formatter"])
+        .verbosity(log::Level::Info)
+        .init()
+        .unwrap();
+    info!("Starting KSP Language Server\n");
     let (connection, io_threads) = Connection::stdio();
 
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
@@ -47,14 +50,20 @@ fn main() -> anyhow::Result<()> {
     io_threads.join()?;
 
     // Shut down gracefully.
-    eprintln!("shutting down server");
+    info!("shutting down server\n");
     Ok(())
 }
 
 fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Result<()> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut state = State::new(connection.sender.clone());
-    eprintln!("starting example main loop");
+    // Start by getting settings from the client
+    notifications::handlers::handle_did_change_configuration(
+        &mut state,
+        lsp_types::DidChangeConfigurationParams {
+            settings: serde_json::Value::Null,
+        },
+    )?;
     for msg in &connection.receiver {
         match msg {
             Message::Request(req) => {
@@ -63,10 +72,13 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Resu
                 }
                 RequestDispatch::new(&mut state, Some(req)).run()?;
             }
-            Message::Response(resp) => match state.pending_requests.remove(&resp.id) {
-                Some(handler) => handler(&mut state, resp)?,
-                None => eprintln!("got a response that was not in the queue!"),
-            },
+            Message::Response(resp) => {
+                if let Some(handler) = state.pending_requests.remove(&resp.id) {
+                    handler(&mut state, resp)?;
+                } else {
+                    warn!("got a response that was not in the queue!\n");
+                }
+            }
             Message::Notification(not) => {
                 NotificationDispatch::new(&mut state, Some(not)).run()?;
             }
@@ -75,9 +87,27 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Resu
     Ok(())
 }
 
+#[derive(Debug)]
+struct Settings {
+    use_tabs: bool,
+    indent_size: u64,
+    log_level: log::LevelFilter,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            use_tabs: Default::default(),
+            indent_size: Default::default(),
+            log_level: log::max_level(),
+        }
+    }
+}
+
 type HandlerFn = fn(&mut State, Response) -> anyhow::Result<()>;
 struct State {
     data_base: DocumentDataBase,
+    settings: Settings,
     sender: Sender<lsp_server::Message>,
     outgoing: Outgoing,
     pending_requests: HashMap<lsp_server::RequestId, HandlerFn>,
@@ -87,6 +117,7 @@ impl State {
     fn new(sender: Sender<lsp_server::Message>) -> Self {
         Self {
             data_base: DocumentDataBase::default(),
+            settings: Settings::default(),
             sender,
             outgoing: Outgoing::new(),
             pending_requests: HashMap::default(),
@@ -123,7 +154,7 @@ impl DocumentDataBase {
             .map_err(|()| anyhow::format_err!("url is not a file"))?;
         self.data_base
             .insert(key.clone(), params.text_document.text);
-        eprintln!("inserted file {key:?}");
+        debug!("inserted file {key:?}");
         Ok(())
     }
     fn update_document_in_db(
@@ -143,7 +174,7 @@ impl DocumentDataBase {
                 .map(|a| a.text.as_str())
                 .collect(),
         );
-        eprintln!("{:?}", self.data_base.get(&key));
+        debug!("{:?}", self.data_base.get(&key));
         Ok(())
     }
     fn remove_document_from_db(

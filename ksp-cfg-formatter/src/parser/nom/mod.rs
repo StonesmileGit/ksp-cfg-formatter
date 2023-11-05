@@ -2,7 +2,7 @@ use std::{cell::RefCell, ops::Range};
 
 use nom::combinator::all_consuming;
 
-use super::{document::source_file, Document};
+use super::{document::source_file, Document, Ranged};
 
 pub(crate) mod utils;
 
@@ -23,15 +23,32 @@ impl<'a> ToRange for LocatedSpan<'a> {
     }
 }
 
+/// Represents the severity of the error
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Severity {
+    /// This issue will make the cfg not work
+    Error,
+    /// This is probably wrong
+    Warning,
+    /// Something to know about
+    Info,
+    /// Help for other issues
+    Hint,
+}
+
 /// Error containing a text span and an error message to display.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error {
+    /// The severity of the error
+    pub severity: Severity,
     /// The Range covered by the error
     pub range: super::Range,
     /// The source string producing the error
     pub source: String,
     /// The error message
     pub message: String,
+    /// Holds the context for the error, if applicable
+    pub context: Option<Ranged<String>>,
 }
 
 /// Holds the state of the parser, to allow for context aware parsing

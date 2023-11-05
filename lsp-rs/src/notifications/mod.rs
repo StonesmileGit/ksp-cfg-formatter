@@ -1,7 +1,8 @@
+use log::error;
 use lsp_server::ExtractError;
 
 use super::State;
-mod handlers;
+pub(super) mod handlers;
 
 pub(crate) struct NotificationDispatch<'a> {
     state: &'a mut State,
@@ -58,7 +59,7 @@ impl<'a> NotificationDispatch<'a> {
     fn finish(&mut self) {
         if let Some(not) = &self.notification {
             if !not.method.starts_with("$/") {
-                eprintln!("unhandled notification: {not:?}");
+                error!("unhandled notification: {not:?}\n");
             }
         }
     }

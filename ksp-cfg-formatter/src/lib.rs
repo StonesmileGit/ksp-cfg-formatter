@@ -9,6 +9,8 @@ pub mod parser;
 /// Functions to perform transformations on the parsed AST
 pub mod transformer;
 
+use itertools::Itertools;
+use log::warn;
 use parser::{nom::parse, ASTPrint, Document};
 
 /// Defines which End of Line sequence to be used
@@ -168,7 +170,7 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
     let (parsed_document, errors) = parse(text);
     let mut errors_res = vec![];
     for error in errors {
-        eprintln!("{error:#?}");
+        warn!("{error:#?}");
         errors_res.push(parser::Error::from(error));
     }
     if let Some(first) = errors_res.first() {
@@ -188,15 +190,11 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
 /// Parses the text to a `Document` struct
 /// # Errors
 /// If any part of the parser fails, the returned error indicates what caused it, where it occured, and the source text for the error
-pub fn parse_to_ast(text: &str) -> Result<Document, parser::Error> {
+pub fn parse_to_ast(text: &str) -> Result<Document, Vec<parser::Error>> {
     let (parsed_document, errors) = parse(text);
-    let mut errors_res = vec![];
-    for error in errors {
-        eprintln!("{error:#?}");
-        errors_res.push(parser::Error::from(error));
-    }
-    if let Some(first) = errors_res.first() {
-        return Err(first.clone());
+    let errors_res = errors.into_iter().map(parser::Error::from).collect_vec();
+    if !errors_res.is_empty() {
+        return Err(errors_res);
     }
     Ok(parsed_document)
 }

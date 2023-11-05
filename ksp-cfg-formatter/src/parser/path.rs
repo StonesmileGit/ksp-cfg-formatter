@@ -4,11 +4,11 @@ use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, is_not, tag},
-    character::complete::alphanumeric1,
     combinator::{map, opt, recognize, value},
     multi::{many0, many1, separated_list1},
     sequence::{delimited, pair, terminated, tuple},
 };
+use nom_unicode::complete::alphanumeric1;
 
 use super::{
     nom::{
@@ -134,6 +134,7 @@ impl<'a> CSTParse<'a, Ranged<PathSegment<'a>>> for PathSegment<'a> {
         let node_name = map(segment, |inner| PathSegment::NodeName {
             node: inner.0.fragment(),
             name: inner.1.map(|s| *s.fragment()),
+            // TODO: Add index support
             index: None,
         });
         range_wrap(terminated(alt((dot_dot, node_name)), tag("/")))(input)

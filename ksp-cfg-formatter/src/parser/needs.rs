@@ -4,11 +4,12 @@ use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag, tag_no_case},
-    character::complete::{alphanumeric1, one_of},
+    character::complete::one_of,
     combinator::{map, opt, recognize},
     multi::{many1, separated_list1},
     sequence::{delimited, pair},
 };
+use nom_unicode::complete::alphanumeric1;
 
 use super::{
     nom::{

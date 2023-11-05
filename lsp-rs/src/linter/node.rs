@@ -15,6 +15,10 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parse
         if let Some(diag) = or_in_child_node(self, state, &mut result) {
             items.push(diag);
         }
+        // The node has no operator, but uses MM logic in the identifier
+        if let Some(diag) = noop_but_mm(self) {
+            items.push(diag);
+        }
 
         let mut state: LinterState = state.clone();
         // Check for operators in nodes that do not have any operators
@@ -115,4 +119,43 @@ fn op_in_noop(
     } else {
         None
     }
+}
+
+fn range_for_rest_of_id(
+    node: &ksp_cfg_formatter::parser::Node,
+) -> Option<ksp_cfg_formatter::parser::Range> {
+    let mut ranges = vec![];
+    if let Some(ranged) = node.name.as_ref() {
+        ranges.push(ranged.get_pos());
+    }
+    if let Some(ranged) = node.has.as_ref() {
+        ranges.push(ranged.get_pos());
+    }
+    if let Some(ranged) = node.needs.as_ref() {
+        ranges.push(ranged.get_pos());
+    }
+    if let Some(ranged) = node.index.as_ref() {
+        ranges.push(ranged.get_pos());
+    }
+    if let Some(ranged) = node.pass.as_ref() {
+        ranges.push(ranged.get_pos());
+    }
+    ranges.into_iter().reduce(|a, b| a + b)
+}
+
+// TODO: Are there some MM things that are allowed?
+fn noop_but_mm(node: &ksp_cfg_formatter::parser::Node) -> Option<lsp_types::Diagnostic> {
+    if node.operator.is_some() {
+        return None;
+    }
+    if let Some(range) = range_for_rest_of_id(node) {
+        return Some(lsp_types::Diagnostic {
+            range: range_to_range(range),
+            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+            message: "No operator, but MM is used. this is likely not correct".to_string(),
+            // TODO: Add related info at start of ID
+            ..Default::default()
+        });
+    }
+    None
 }

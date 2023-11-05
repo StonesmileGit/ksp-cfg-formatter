@@ -49,6 +49,20 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
+				},
+				"KspCfgLspServer.logLevel": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"off",
+						"error",
+						"warning",
+						"info",
+						"debug",
+						"trace"
+					],
+					"default": "info",
+					"description": "Sets the logging level for the Language Server."
 				}
 			}
 		}

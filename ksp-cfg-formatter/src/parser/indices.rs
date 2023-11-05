@@ -39,8 +39,7 @@ impl CSTParse<'_, Ranged<Index>> for Index {
             tag(","),
             alt((
                 value(Index::All, tag("*")),
-                // TODO: Allow negative numbers
-                map(digit1, |inner: LocatedSpan| {
+                map(preceded(opt(tag("-")), digit1), |inner: LocatedSpan| {
                     Index::Number(
                         inner
                             .fragment()

@@ -46,7 +46,6 @@ impl Display for Operator {
 
 impl CSTParse<'_, Ranged<Operator>> for Operator {
     fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<Ranged<Operator>> {
-        // TODO: Maybe it woud be better to return a Range based on the consumed span?
         let operator = nom::branch::alt((
             value(Operator::Edit, tag("@")),
             value(Operator::EditOrCreate, tag("%")),

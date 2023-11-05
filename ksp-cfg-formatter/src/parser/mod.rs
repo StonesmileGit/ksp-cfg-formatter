@@ -1,4 +1,4 @@
-use self::nom::LocatedSpan;
+use self::nom::{LocatedSpan, Severity};
 use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
@@ -47,8 +47,10 @@ pub trait ASTPrint {
 }
 
 /// Error from the parser, with context
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub struct Error {
+    /// The severity of the error
+    pub severity: Severity,
     /// The reason for the error
     pub reason: Reason,
     /// Optional line/col span indicating the origin of the error
@@ -58,7 +60,7 @@ pub struct Error {
 }
 
 /// Reason for the error that occured
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Reason {
     /// Parsing of an int failed
     ParseInt,
@@ -271,6 +273,7 @@ impl From<nom::Error> for Error {
             reason: Reason::Custom(value.message),
             location: Some(value.range),
             source_text: value.source,
+            severity: value.severity,
         }
     }
 }

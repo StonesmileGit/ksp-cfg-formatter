@@ -1,3 +1,6 @@
+use log::debug;
+use lsp_types::{DiagnosticRelatedInformation, Location};
+
 use super::State;
 
 pub(crate) fn handle_formatting_request(
@@ -5,11 +8,25 @@ pub(crate) fn handle_formatting_request(
     params: lsp_types::DocumentFormattingParams,
 ) -> anyhow::Result<Option<Vec<lsp_types::TextEdit>>> {
     // let (id, params) = cast_request::<Formatting>(req)?;
-    let path = params
-        .text_document
-        .uri
+    let url = params.text_document.uri;
+    let path = url
         .to_file_path()
         .map_err(|()| anyhow::format_err!("url is not a file"))?;
+
+    // state.send_request::<lsp_types::request::WorkspaceConfiguration>(
+    //     lsp_types::ConfigurationParams {
+    //         items: vec![lsp_types::ConfigurationItem {
+    //             // scope_uri: Some(url),
+    //             scope_uri: None,
+    //             section: Some("[ksp-cfg]".to_string()),
+    //         }],
+    //     },
+    //     |state, response| {
+    //         // debug!("got editor cfg with context response:\n{response:?}");
+    //         debug!("Settings are now: {:?}", state.settings);
+    //         Ok(())
+    //     },
+    // )?;
     let tabs = !params.options.insert_spaces;
     let tab_size = params.options.tab_size;
     let text = state
@@ -19,10 +36,14 @@ pub(crate) fn handle_formatting_request(
         .ok_or_else(|| anyhow::format_err!("Document not found"))?;
 
     // This is where the formatting should be done, by passing in settings and the ´text´
-    eprintln!("formatting text `{text}` with settings tabs: `{tabs}`, tab size: `{tab_size}`");
-    eprintln!("other settings: {:?}", params.options.properties);
+    debug!("formatting text:\n{text}\nwith settings tabs: `{tabs}`, tab size: `{tab_size}`\nother settings: {:?}\n", params.options.properties);
+    let indentation = if tabs {
+        ksp_cfg_formatter::Indentation::Tabs
+    } else {
+        ksp_cfg_formatter::Indentation::Spaces(tab_size as usize)
+    };
     let new_text = ksp_cfg_formatter::Formatter::new(
-        ksp_cfg_formatter::Indentation::Tabs,
+        indentation,
         false,
         ksp_cfg_formatter::LineReturn::Identify,
     )
@@ -43,7 +64,6 @@ fn text_edit_entire_document(original: &str, new: String) -> anyhow::Result<lsp_
                 character: 0,
             },
             end: lsp_types::Position {
-                // TODO: Is u32::MAX good enough?
                 line: original.lines().count().try_into()?,
                 character: original
                     .lines()
@@ -62,9 +82,8 @@ pub(crate) fn handle_diagnostics_request(
     state: &mut State,
     params: lsp_types::DocumentDiagnosticParams,
 ) -> anyhow::Result<lsp_types::DocumentDiagnosticReportResult> {
-    let key = params
-        .text_document
-        .uri
+    let uri = params.text_document.uri;
+    let key = uri
         .to_file_path()
         .map_err(|()| anyhow::format_err!("url is not a file"))?;
     let text = state
@@ -75,14 +94,45 @@ pub(crate) fn handle_diagnostics_request(
     let (doc, errors) = ksp_cfg_formatter::parser::nom::parse(text);
     let mut disp_errors = vec![];
     for error in errors {
+        use ksp_cfg_formatter::parser::nom::Severity as ksp_sev;
+        use lsp_types::DiagnosticSeverity as lsp_sev;
         disp_errors.push(lsp_types::Diagnostic {
             range: crate::linter::range_to_range(error.range),
-            severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+            severity: Some(match error.severity {
+                ksp_sev::Error => lsp_sev::ERROR,
+                ksp_sev::Warning => lsp_sev::WARNING,
+                ksp_sev::Info => lsp_sev::INFORMATION,
+                ksp_sev::Hint => lsp_sev::HINT,
+            }),
             message: error.message,
+            related_information: error.context.clone().map(|context| {
+                vec![DiagnosticRelatedInformation {
+                    location: Location {
+                        range: crate::linter::range_to_range(context.get_pos()),
+                        uri: uri.clone(),
+                    },
+                    message: context.to_string(),
+                }]
+            }),
             ..Default::default()
-        })
+        });
+        if let Some(context) = error.context {
+            disp_errors.push(lsp_types::Diagnostic {
+                range: crate::linter::range_to_range(context.get_pos()),
+                severity: Some(lsp_sev::HINT),
+                message: context.to_string(),
+                related_information: Some(vec![DiagnosticRelatedInformation {
+                    location: Location {
+                        range: crate::linter::range_to_range(error.range),
+                        uri: uri.clone(),
+                    },
+                    message: "original diagnostic".to_string(),
+                }]),
+                ..Default::default()
+            });
+        }
     }
-    let mut items = crate::linter::lint_ast(&doc, params.text_document.uri);
+    let mut items = crate::linter::lint_ast(&doc, uri);
     disp_errors.append(&mut items);
     Ok(lsp_types::DocumentDiagnosticReportResult::Report(
         lsp_types::DocumentDiagnosticReport::Full(lsp_types::RelatedFullDocumentDiagnosticReport {

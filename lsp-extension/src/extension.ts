@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import * as path from 'path';
 import { workspace, ExtensionContext } from 'vscode';
+import * as vscode from 'vscode';
 
 import {
 	LanguageClient,
@@ -17,8 +17,10 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
 
+	const ext = process.platform === "win32" ? ".exe" : "";
+	const bundled = vscode.Uri.joinPath(context.extensionUri, "server", `ksp-cfg-lsp${ext}`);
 	const serverOptions: ServerOptions = {
-		command: path.join(__dirname, '../server/lsp-rs.exe'),
+		command: bundled.fsPath,
 	};
 
 	// Options to control the language client
@@ -36,7 +38,6 @@ export function activate(context: ExtensionContext) {
 
 	// Start the client. This will also launch the server
 	client.start();
-	// console.log(__dirname);
 	workspace.onDidChangeConfiguration(
 		async (_) => await client.sendNotification(DidChangeConfigurationNotification.type, { settings: "" })
 	);

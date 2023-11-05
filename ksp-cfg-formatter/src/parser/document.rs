@@ -1,15 +1,15 @@
 use nom::{
     branch::alt,
-    bytes::complete::{is_not, take},
+    bytes::complete::{is_not, tag, take},
     character::complete::{anychar, multispace0},
-    combinator::{eof, map, not, recognize, rest, verify},
+    combinator::{eof, map, not, opt, recognize, rest},
     multi::many_till,
-    sequence::{preceded, terminated},
+    sequence::{preceded, terminated, tuple},
 };
 
 use super::{
     nom::{
-        utils::{self, debug_fn, error_till, expect, ignore_line_ending, ws},
+        utils::{self, debug_fn, error_till, expect, ignore_line_ending, non_empty, ws},
         CSTParse, IResult, LocatedSpan,
     },
     ASTPrint, Comment, Node, Ranged,
@@ -83,7 +83,7 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Document<'a>> {
         map(
             preceded(
-                multispace0,
+                tuple((opt(tag("\u{feff}")), multispace0)),
                 many_till(
                     debug_fn(
                         alt((
@@ -92,19 +92,15 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
                             map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
                             // If none of the above succeeded, consume the line as an error and try again
                             debug_fn(
-                                map(
-                                    recognize(error_till(verify(
-                                        is_not("}\r\n"),
-                                        |s: &LocatedSpan| s.len() > 0,
-                                    ))),
-                                    |a| DocItem::Error(Ranged::new(a.clone().fragment(), a.into())),
-                                ),
+                                map(recognize(error_till(non_empty(is_not("}\r\n")))), |a| {
+                                    DocItem::Error(Ranged::new(a.clone().fragment(), a.into()))
+                                }),
                                 "Got an error while parsing doc. Skipped line",
                                 true,
                             ),
                         )),
                         "Got DocItem",
-                        true,
+                        false,
                     ),
                     eof,
                 ),

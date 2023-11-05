@@ -1,6 +1,6 @@
 use super::{
     nom::{
-        utils::{debug_fn, expect, range_wrap},
+        utils::{debug_fn, expect, expect_warning, non_empty, range_wrap},
         CSTParse, IResult, LocatedSpan,
     },
     Ranged,
@@ -9,11 +9,12 @@ use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag, tag_no_case},
-    character::complete::{alphanumeric1, anychar, line_ending, one_of},
-    combinator::{map, opt, peek, recognize, value, verify},
+    character::complete::{anychar, line_ending, one_of},
+    combinator::{map, opt, peek, recognize, value},
     multi::{many1, many_till, separated_list1},
     sequence::{delimited, tuple},
 };
+use nom_unicode::complete::alphanumeric1;
 use std::fmt::Display;
 
 /// Predicate to filter nodes for which to run an operation
@@ -56,7 +57,7 @@ impl<'a> Display for HasPredicate<'a> {
                 "{}{}{}{}",
                 if *negated { "!" } else { "@" },
                 node_type,
-                name.map_or_else(|| "", |name| name),
+                name.map_or_else(String::new, |name| format!("[{}]", name)),
                 has_block
                     .clone()
                     .map_or_else(String::new, |has_block| has_block.to_string())
@@ -144,20 +145,16 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
         // hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
         let has_value = delimited(
             tag("["),
-            expect(
-                verify(
-                    recognize(many_till(
-                        anychar,
-                        peek(alt((line_ending::<LocatedSpan, _>, tag("]"), tag("//")))),
-                    )),
-                    |s| s.len() > 0,
-                ),
+            expect_warning(
+                non_empty(recognize(many_till(
+                    anychar,
+                    peek(alt((line_ending::<LocatedSpan, _>, tag("]"), tag("//")))),
+                ))),
                 "Expected value",
             ),
             expect(tag("]"), "Expected closing `]`"),
         );
         // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
-        let identifier = recognize(many1(alt((alphanumeric1, is_a("-_.+*?")))));
         // hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
         let has_key = tuple((
             expect(
@@ -174,14 +171,11 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
             match_type: MatchType::Literal,
         });
         // hasNodeName =  { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
-        // TODO: remove ´recognize´ when old parser is removed
-        let has_node_name = recognize(delimited(
+        let has_node_name = delimited(
             tag("["),
             recognize(many1(alt((alphanumeric1, is_a("/_-?*.|"))))),
             expect(tag_no_case("]"), "Expected closing `]`"),
-        ));
-        // FIXME
-        let identifier = recognize(many1(alt((alphanumeric1, is_a("-_.+*?")))));
+        );
         // hasNode     = _{ ("@" | "!" | "-") ~ identifier ~ hasNodeName? ~ hasBlock? }
         let has_node = tuple((
             expect(
@@ -201,6 +195,10 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
         // hasBlockPart = { hasNode | hasKey }
         alt((node_map, key_map))(input)
     }
+}
+
+fn identifier(input: LocatedSpan) -> IResult<LocatedSpan> {
+    recognize(many1(alt((alphanumeric1, is_a("-_.+*?")))))(input)
 }
 
 #[cfg(test)]

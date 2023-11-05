@@ -55,7 +55,6 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Comment<'a> {
         &self,
         _state: &LinterState,
     ) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
-        // TODO
         (vec![], None)
     }
 }

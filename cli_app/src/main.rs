@@ -1,4 +1,5 @@
 use clap::Parser;
+use itertools::Itertools;
 use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
 use std::{fs, io::BufRead, result::Result, thread};
 use walkdir::WalkDir;
@@ -36,9 +37,20 @@ If no path is provided, text is read from stdin."
         help = "Parser only checks the file for errors, without formatting it"
     )]
     check: bool,
+
+    #[arg(
+        long,
+        help = "Allow parsing to be lossy, replacing invalid chars with �"
+    )]
+    lossy: bool,
 }
 
 fn main() {
+    stderrlog::new()
+        // .modules(vec!["ksp-cfg-formatter"])
+        .verbosity(log::Level::Error)
+        .init()
+        .unwrap();
     // Read CLI arguments
     let args = Args::parse();
 
@@ -49,31 +61,45 @@ fn main() {
         for path in paths {
             let args = args.clone();
             let worker = thread::spawn(move || {
-                let text = fs::read_to_string(&path)
-                    .map_or_else(|_| format!("Failed to read text from {path}"), |t| t);
+                let mut res = vec![];
+                let text = if args.lossy {
+                    let raw = fs::read(&path).map_or_else(|err| panic!("{err}"), |t| t);
+                    String::from_utf8_lossy(&raw).to_string()
+                } else {
+                    fs::read_to_string(&path)
+                        .map_or_else(|_| panic!("Failed to read text from {path}"), |t| t)
+                };
                 if args.check {
                     match ksp_cfg_formatter::parse_to_ast(&text) {
-                        Ok(doc) => match ksp_cfg_formatter::transformer::assignments_first(doc) {
-                            Ok(_) => (),
-                            Err(err) => {
-                                println!("{}", path);
-                                println!("{}\n", err);
+                        // Ok(doc) => match ksp_cfg_formatter::transformer::assignments_first(doc) {
+                        //     Ok(_) => (),
+                        //     Err(err) => res.push(format!("{path}\n{err}")),
+                        // },
+                        Err(errs) => {
+                            for err in errs {
+                                use ksp_cfg_formatter::parser::nom::Severity as sev;
+                                if matches!(
+                                    err.severity,
+                                    sev::Error //| sev::Warning
+                                ) {
+                                    res.push(format!("{}\n{}", path, err));
+                                }
                             }
-                        },
-                        Err(err) => {
-                            println!("{}", path);
-                            println!("{}\n", err);
                         }
+                        _ => (),
                     };
                 } else {
                     format_file(&args, &text, Some(path.clone()));
                 }
+                res
             });
             workers.push(worker);
         }
+        let mut res = vec![];
         for worker in workers {
-            worker.join().expect("Thread failed to join");
+            res.append(&mut worker.join().expect("Thread failed to join"));
         }
+        println!("{}", res.iter().format("\n\n\n"));
     } else {
         let mut text: String = String::new();
         // Collect multi-line input from stdin
@@ -103,12 +129,19 @@ fn format_file(args: &Args, text: &str, path: Option<String>) {
     }
 }
 
+/// Generates a Vec of all the paths to ksp cfg files in a `GameData` folder
 fn files_from_path(path: &String) -> Vec<String> {
     let mut paths = Vec::new();
     for path in WalkDir::new(path).into_iter().filter_map(Result::ok) {
         let name = path.path().to_owned();
         if let Some(extension) = name.extension() {
-            if extension == "cfg" {
+            if extension == "cfg"
+                && name
+                    .canonicalize()
+                    .unwrap()
+                    .ancestors()
+                    .any(|n| n.ends_with("GameData"))
+            {
                 if let Some(name) = name.to_str() {
                     paths.push(name.to_owned());
                 };

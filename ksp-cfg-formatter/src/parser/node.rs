@@ -1,19 +1,23 @@
 use itertools::Itertools;
-use nom::branch::{alt, permutation};
+use nom::branch::alt;
 use nom::bytes::complete::{is_a, is_not, tag};
 use nom::character::complete::{
-    alphanumeric1, anychar, char, line_ending, multispace0, one_of, space0,
+    anychar, char, line_ending, multispace0, multispace1, one_of, space0,
 };
-use nom::combinator::{all_consuming, map, opt, peek, recognize, verify};
+use nom::combinator::{all_consuming, map, opt, peek, recognize};
 use nom::multi::{many0, many1, many_till, separated_list1};
 use nom::sequence::{delimited, preceded, tuple};
+use nom_unicode::complete::alphanumeric1;
 
-use super::nom::utils::{debug_fn, empty_line, error_till, expect, range_wrap, ws, ws_le};
-use super::Ranged;
+use super::nom::utils::{
+    debug_fn, empty_line, error_till, expect, expect_context, expect_warning, get_range, non_empty,
+    range_wrap, ws, ws_le,
+};
 use super::{
     nom::CSTParse, ASTPrint, Comment, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator,
     Pass, Path, Range,
 };
+use super::{Position, Ranged};
 
 /// A node in the config file. Both top level node and internal node
 #[derive(Debug, Default, Clone)]
@@ -73,10 +77,6 @@ impl<'a> Node<'a> {
     }
 }
 
-// TODO: Assignments are performed before nodes, so order them that way (move assignments before any nodes)
-// Thoughts:
-//      What about comments and newlines?
-//      This should be in a separate part of the parser, a sort of middle tool that is run after parsing, before printing
 impl<'a> ASTPrint for Node<'a> {
     fn ast_print(
         &self,
@@ -173,6 +173,8 @@ impl<'a> ASTPrint for Node<'a> {
     }
 }
 
+// TODO: replace with just fetching the Range of the node
+// Doesn't work. The node could be multi line before parsing, and the ast_print function isn't available since that is recursion
 fn short_node(arg: &Node) -> bool {
     const MAX_LENGTH: usize = 72;
     if arg.id_comment.is_some() {
@@ -241,7 +243,7 @@ impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
                     recognize(preceded(multispace0, one_of("{}\r\n"))),
                 ))),
             ),
-            many0(Comment::parse),
+            many0(alt((recognize(Comment::parse), recognize(multispace1)))),
         )));
 
         let block = preceded(opt(line_ending), preceded(space0, parse_block));
@@ -277,9 +279,19 @@ impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
     }
 }
 
+enum HasPassNeedsIndex<'a> {
+    Has(Ranged<HasBlock<'a>>),
+    Pass(Ranged<Pass<'a>>),
+    Needs(Ranged<NeedsBlock<'a>>),
+    Index(Ranged<Index>),
+}
+
 fn dumb_identifier_parser(
     dumb_identifier: LocatedSpan,
 ) -> (ParsedIdentifier, Vec<super::nom::Error>) {
+    // Clear errors on dumb_key to avoid duplicated errors
+    dumb_identifier.extra.errors.borrow_mut().clear();
+
     let path = opt(preceded(tag("#"), Path::parse));
     let operator = opt(Operator::parse);
     // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
@@ -291,31 +303,28 @@ fn dumb_identifier_parser(
         |inner| *inner.fragment(),
     ));
     let name = opt(parse_name);
-    let has = opt(HasBlock::parse);
-    let needs = opt(NeedsBlock::parse);
-    let pass = opt(Pass::parse);
-    let index = opt(Index::parse);
+    let has = HasBlock::parse;
+    let needs = NeedsBlock::parse;
+    let pass = Pass::parse;
+    let index = Index::parse;
     let id_comment = opt(Comment::parse);
-    let comments_after_newline = many0(Comment::parse);
+    let comments_after_newline = many0(preceded(opt(line_ending), Comment::parse));
     let complete_identifier = tuple((
         debug_fn(path, "Got path", true),
         debug_fn(operator, "Got operator", true),
         debug_fn(identifier, "Got node id", true),
         debug_fn(name, "Got name", true),
-        // FIXME: Order of has/needs/pass matters at the moment. Rework to take them in any order (one time, or many, for error handling?)
-        many0(verify(
-            permutation((
-                debug_fn(has, "Got has", true),
-                debug_fn(pass, "Got pass", true),
-                debug_fn(needs, "Got needs", true),
-            )),
-            |a| a.0.is_some() | a.1.is_some() | a.2.is_some(),
-        )),
-        debug_fn(index, "Got index", true),
+        // TODO: Create an Enum to hold the items that can be in any order. This should simplify the handling code further down
+        many0(alt((
+            map(has, HasPassNeedsIndex::Has),
+            map(pass, HasPassNeedsIndex::Pass),
+            map(needs, HasPassNeedsIndex::Needs),
+            map(index, HasPassNeedsIndex::Index),
+        ))),
         debug_fn(id_comment, "Got id_comment", true),
         debug_fn(comments_after_newline, "Got comments after newline", true),
     ));
-    let res = all_consuming(complete_identifier)(dumb_identifier.clone());
+    let res = all_consuming(ws_le(complete_identifier))(dumb_identifier.clone());
     match res {
         Ok((rest, proper_identifier_tuple)) => (
             map_correct_identifier(&rest, proper_identifier_tuple),
@@ -342,6 +351,8 @@ fn dumb_identifier_parser(
                 ),
                 source: (*error.input.fragment()).to_string(),
                 range: Range::from(error.input),
+                severity: super::nom::Severity::Error,
+                context: None,
             }],
         ),
         _ => unreachable!(),
@@ -366,63 +377,76 @@ type ToBeParsedIdentifier<'a> = (
     Option<Ranged<Operator>>,
     Ranged<&'a str>,
     Option<Ranged<Vec<&'a str>>>,
-    Vec<(
-        Option<Ranged<HasBlock<'a>>>,
-        Option<Ranged<Pass<'a>>>,
-        Option<Ranged<NeedsBlock<'a>>>,
-    )>,
-    Option<Ranged<Index>>,
+    Vec<HasPassNeedsIndex<'a>>,
     Option<Ranged<Comment<'a>>>,
     Vec<Ranged<Comment<'a>>>,
 );
+
+type ComboTupleFiltered<'a> = (
+    Vec<Ranged<HasBlock<'a>>>,
+    Vec<Ranged<Pass<'a>>>,
+    Vec<Ranged<NeedsBlock<'a>>>,
+    Vec<Ranged<Index>>,
+);
+
+fn split_combo(combo_list: Vec<HasPassNeedsIndex>) -> ComboTupleFiltered {
+    let mut res = (vec![], vec![], vec![], vec![]);
+    for combo in combo_list {
+        match combo {
+            HasPassNeedsIndex::Has(has) => res.0.push(has),
+            HasPassNeedsIndex::Pass(pass) => res.1.push(pass),
+            HasPassNeedsIndex::Needs(needs) => res.2.push(needs),
+            HasPassNeedsIndex::Index(index) => res.3.push(index),
+        }
+    }
+    res
+}
 
 fn map_correct_identifier<'a>(
     rest: &LocatedSpan<'a>,
     input_tuple: ToBeParsedIdentifier<'a>,
 ) -> ParsedIdentifier<'a> {
-    let has_vec = input_tuple
-        .4
-        .iter()
-        .filter_map(|a| a.0.clone())
-        .collect_vec();
+    let (has_vec, pass_vec, needs_vec, index_vec) = split_combo(input_tuple.4);
     if has_vec.len() > 1 {
         for has in &has_vec[1..] {
             rest.extra.report_error(super::nom::Error {
                 message: "Got extra HAS block".to_owned(),
                 range: has.range,
                 source: has.to_string(),
+                severity: super::nom::Severity::Error,
+                context: None,
             });
         }
     }
     let has = has_vec.first().cloned();
 
-    let needs_vec = input_tuple
-        .4
-        .iter()
-        .filter_map(|a| a.2.clone())
-        .collect_vec();
     if needs_vec.len() > 1 {
         for needs in &needs_vec[1..] {
             rest.extra.report_error(super::nom::Error {
                 message: "Got extra NEEDS block".to_owned(),
                 range: needs.range,
                 source: needs.to_string(),
+                severity: super::nom::Severity::Error,
+                context: None,
             });
         }
     }
     let needs = needs_vec.first().cloned();
 
-    let pass_vec = input_tuple.4.into_iter().filter_map(|a| a.1).collect_vec();
     if pass_vec.len() > 1 {
         for pass in &pass_vec[1..] {
             rest.extra.report_error(super::nom::Error {
                 message: "Got extra PASS block".to_owned(),
                 range: pass.range,
                 source: pass.to_string(),
+                severity: super::nom::Severity::Error,
+                context: None,
             });
         }
     }
     let pass = pass_vec.first().cloned();
+
+    let index = index_vec.first().cloned();
     (
         input_tuple.0,
         input_tuple.1,
@@ -431,22 +455,33 @@ fn map_correct_identifier<'a>(
         has,
         needs,
         pass,
+        index,
         input_tuple.5,
         input_tuple.6,
-        input_tuple.7,
     )
 }
 
 fn parse_name(input: LocatedSpan) -> IResult<Ranged<Vec<&str>>> {
-    let list = delimited(
-        tag("["),
-        // TODO: Make no name report an error
-        separated_list1(tag("|"), is_not("|]")),
-        expect(tag("]"), "Expected closing ]"),
-    );
-    range_wrap(map(list, |inner| {
-        inner.iter().map(|e: &LocatedSpan| *e.fragment()).collect()
-    }))(input)
+    let start = Position::from_located_span(&input);
+    let (input, (_, context_range)) = get_range(tag("["))(input)?;
+    // TODO: Tag both brackets as a warning to make it more visible
+    let (input, res) =
+        expect_warning(separated_list1(tag("|"), is_not("|]")), "Expected Name")(input)?;
+    let (input, _) = expect_context(
+        tag("]"),
+        "Expected closing `]`",
+        Ranged {
+            inner: "Expected due to `[` found here".to_string(),
+            range: context_range,
+        },
+    )(input)?;
+    let res = res
+        .unwrap_or_default()
+        .iter()
+        .map(|e: &LocatedSpan| *e.fragment())
+        .collect();
+    let end = Position::from_located_span(&input);
+    Ok((input, Ranged::new(res, Range { start, end })))
 }
 
 /// Takes a parser and sets the settings according to what is needed for parsing an inner block, and then setting them back as needed on the returned settings as needed
@@ -483,15 +518,12 @@ fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
                 NodeItem::Comment(c)
             }),
             map(ws(empty_line), |_| NodeItem::EmptyLine),
-            map(ws(KeyVal::parse), |kv| NodeItem::KeyVal(kv)),
+            map(ws(KeyVal::parse), NodeItem::KeyVal),
             settings_for_inner_block(map(ignore_line_ending(ws(Node::parse)), NodeItem::Node)),
             debug_fn(
-                map(
-                    recognize(error_till(verify(is_not("}\r\n"), |s: &LocatedSpan| {
-                        s.len() > 0
-                    }))),
-                    |s| NodeItem::Error(Ranged::new(s.clone().fragment(), s.into())),
-                ),
+                map(recognize(error_till(non_empty(is_not("}\r\n")))), |s| {
+                    NodeItem::Error(Ranged::new(s.clone().fragment(), s.into()))
+                }),
                 "Got an error while parsing node. Skipped line",
                 true,
             ),

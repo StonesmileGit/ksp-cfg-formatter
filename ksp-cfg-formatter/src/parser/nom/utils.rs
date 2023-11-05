@@ -1,8 +1,10 @@
 use std::fmt::Debug;
 
+use log::{debug, trace};
 use nom::{
+    branch::alt,
     character::complete::{line_ending, multispace0, space0},
-    combinator::{map, opt, recognize},
+    combinator::{eof, map, opt, recognize, verify},
     error::ErrorKind,
     sequence::{delimited, pair, terminated},
     Slice,
@@ -20,8 +22,18 @@ where
 }
 
 pub(crate) fn empty_line(input: LocatedSpan) -> IResult<()> {
-    let empty_line = recognize(pair(space0, line_ending));
+    let empty_line = recognize(pair(space0, alt((line_ending, eof))));
     map(empty_line, |_| ())(input)
+}
+
+/// Make sure the inner parser matched at least one char from the input
+pub(crate) fn non_empty<'a, F>(
+    parser: F,
+) -> impl FnMut(LocatedSpan<'a>) -> IResult<'a, LocatedSpan<'a>>
+where
+    F: FnMut(LocatedSpan<'a>) -> IResult<LocatedSpan<'a>>,
+{
+    verify(parser, |s| !s.is_empty())
 }
 
 /// Evaluate `parser` and wrap the result in a `Some(_)`. Otherwise,
@@ -36,7 +48,6 @@ where
     E: ToString,
 {
     move |input| {
-        // dbg!(&input);
         match parser(input) {
             Ok((remaining, out)) => Ok((remaining, Some(out))),
             Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
@@ -46,6 +57,39 @@ where
                     source: (*input.fragment()).to_string(),
                     range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
+                    severity: super::Severity::Error,
+                    context: None,
+                };
+                input.extra.report_error(err); // Push error onto stack.
+                Ok((input, None)) // Parsing failed, but keep going.
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+/// Evaluate `parser` and wrap the result in a `Some(_)`. Otherwise,
+/// emit the  provided `error_msg` and return a `None` while allowing
+/// parsing to continue.
+pub(crate) fn expect_warning<'a, F, E, T>(
+    mut parser: F,
+    error_msg: E,
+) -> impl FnMut(LocatedSpan<'a>) -> IResult<Option<T>>
+where
+    F: FnMut(LocatedSpan<'a>) -> IResult<T>,
+    E: ToString,
+{
+    move |input| {
+        match parser(input) {
+            Ok((remaining, out)) => Ok((remaining, Some(out))),
+            Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
+                let input = error.input;
+                let length = usize::from(!input.is_empty());
+                let err = Error {
+                    source: (*input.fragment()).to_string(),
+                    range: Range::from(input.slice(0..length)),
+                    message: error_msg.to_string(),
+                    severity: super::Severity::Warning,
+                    context: None,
                 };
                 input.extra.report_error(err); // Push error onto stack.
                 Ok((input, None)) // Parsing failed, but keep going.
@@ -61,7 +105,7 @@ where
 pub(crate) fn expect_context<'a, F, E, T>(
     mut parser: F,
     error_msg: E,
-    context_msg: E,
+    context_msg: Ranged<String>,
 ) -> impl FnMut(LocatedSpan<'a>) -> IResult<Option<T>>
 where
     F: FnMut(LocatedSpan<'a>) -> IResult<T>,
@@ -78,6 +122,8 @@ where
                     source: (*input.fragment()).to_string(),
                     range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
+                    severity: super::Severity::Error,
+                    context: Some(context_msg.clone()),
                 };
                 // dbg!(&input);
                 // dbg!(&err);
@@ -103,6 +149,23 @@ where
     }
 }
 
+pub(crate) fn get_range<'a, F, T>(
+    mut parser: F,
+) -> impl FnMut(LocatedSpan<'a>) -> IResult<(T, Range)>
+where
+    F: FnMut(LocatedSpan<'a>) -> IResult<T>,
+{
+    move |input| {
+        let start = Position::from_located_span(&input);
+        let (rest, out) = match parser(input) {
+            Ok(it) => it,
+            Err(err) => return Err(err),
+        };
+        let end = Position::from_located_span(&rest);
+        Ok((rest, (out, Range { start, end })))
+    }
+}
+
 pub(crate) fn error_till<'a, F>(mut parser: F) -> impl FnMut(LocatedSpan<'a>) -> IResult<'a, ()>
 where
     F: FnMut(LocatedSpan<'a>) -> IResult<LocatedSpan>,
@@ -114,6 +177,8 @@ where
                     source: (*out.fragment()).to_string(),
                     message: format!("unexpected `{}`", out.fragment()),
                     range: Range::from(out),
+                    severity: super::Severity::Error,
+                    context: None,
                 });
                 Ok((rem, ()))
             } else {
@@ -139,12 +204,11 @@ where
     T: Debug,
 {
     move |input| {
-        // dbg!(&input);
-        let print = print & false;
+        trace!("{}", &input);
         match parser(input) {
             Ok((remaining, out)) => {
                 if print {
-                    println!(
+                    debug!(
                         "Ok branch: {}: {:#?}\nRemaining:\n{}\n",
                         debug_msg.to_string(),
                         &out,
@@ -155,7 +219,7 @@ where
             }
             Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
                 if print {
-                    println!(
+                    debug!(
                         "Fail branch: {}: {:#?}\nRemaining:\n{}",
                         debug_msg.to_string(),
                         &error,

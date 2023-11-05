@@ -1,4 +1,5 @@
 use super::State;
+use log::error;
 use lsp_server::{ExtractError, Message, Response};
 
 mod handlers;
@@ -52,7 +53,7 @@ impl<'a> RequestDispatch<'a> {
     fn finish(&mut self) {
         if let Some(req) = &self.request {
             if !req.method.starts_with("$/") {
-                eprintln!("unhandled request: {req:?}");
+                error!("unhandled request: {req:?}\n");
             }
         }
     }

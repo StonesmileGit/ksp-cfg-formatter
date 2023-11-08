@@ -108,7 +108,7 @@ pub(crate) fn handle_diagnostics_request(
             related_information: error.context.clone().map(|context| {
                 vec![DiagnosticRelatedInformation {
                     location: Location {
-                        range: crate::linter::range_to_range(context.get_pos()),
+                        range: crate::linter::range_to_range(context.get_range()),
                         uri: uri.clone(),
                     },
                     message: context.to_string(),
@@ -118,7 +118,7 @@ pub(crate) fn handle_diagnostics_request(
         });
         if let Some(context) = error.context {
             disp_errors.push(lsp_types::Diagnostic {
-                range: crate::linter::range_to_range(context.get_pos()),
+                range: crate::linter::range_to_range(context.get_range()),
                 severity: Some(lsp_sev::HINT),
                 message: context.to_string(),
                 related_information: Some(vec![DiagnosticRelatedInformation {

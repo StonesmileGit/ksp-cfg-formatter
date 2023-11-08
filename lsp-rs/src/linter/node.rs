@@ -25,7 +25,7 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parse
         if self.top_level() && self.operator.is_none() {
             state.top_level_no_op = Some(lsp_types::Location {
                 uri: state.this_url.clone(),
-                range: range_to_range(self.get_pos()),
+                range: range_to_range(self.get_range()),
             });
         }
 
@@ -79,7 +79,7 @@ fn or_in_child_node(
 ) -> Option<lsp_types::Diagnostic> {
     if node.name.clone().map_or(false, |name| name.len() > 1) && !node.top_level() {
         Some(lsp_types::Diagnostic {
-            range: range_to_range(node.name.as_ref().expect("It was just determined that it is Some").get_pos()),
+            range: range_to_range(node.name.as_ref().expect("It was just determined that it is Some").get_range()),
             severity: Some(lsp_types::DiagnosticSeverity::WARNING),
             message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
             ..Default::default()
@@ -101,7 +101,7 @@ fn op_in_noop(
                 node.operator
                     .as_ref()
                     .expect("it was just determined that the operator existed")
-                    .get_pos(),
+                    .get_range(),
             ),
             severity: Some(lsp_types::DiagnosticSeverity::WARNING),
             message: "Node has operator, even though the top level does not!".to_owned(),
@@ -126,19 +126,19 @@ fn range_for_rest_of_id(
 ) -> Option<ksp_cfg_formatter::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = node.name.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     if let Some(ranged) = node.has.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     if let Some(ranged) = node.needs.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     if let Some(ranged) = node.index.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     if let Some(ranged) = node.pass.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     ranges.into_iter().reduce(|a, b| a + b)
 }

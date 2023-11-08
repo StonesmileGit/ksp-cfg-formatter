@@ -33,7 +33,7 @@ fn op_in_noop_node(
                     .operator
                     .as_ref()
                     .expect("it was just determined that the operator existed")
-                    .get_pos(),
+                    .get_range(),
             ),
             severity: Some(lsp_types::DiagnosticSeverity::WARNING),
             code: Some(lsp_types::NumberOrString::Number(1)),
@@ -60,18 +60,18 @@ fn range_for_rest_of_name(
 ) -> Option<ksp_cfg_formatter::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = key_val.array_index.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     if let Some(ranged) = key_val.needs.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     if let Some(ranged) = key_val.index.as_ref() {
-        ranges.push(ranged.get_pos());
+        ranges.push(ranged.get_range());
     }
     match key_val.assignment_operator.as_ref() {
         AssignmentOperator::Assign => (),
         _ => {
-            ranges.push(key_val.assignment_operator.get_pos());
+            ranges.push(key_val.assignment_operator.get_range());
         }
     }
     ranges.into_iter().reduce(|a, b| a + b)

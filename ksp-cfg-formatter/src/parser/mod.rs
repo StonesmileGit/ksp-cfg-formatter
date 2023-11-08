@@ -96,7 +96,7 @@ impl<T> Ranged<T> {
 
     /// Get the range the operator spans
     #[must_use]
-    pub const fn get_pos(&self) -> Range {
+    pub const fn get_range(&self) -> Range {
         self.range
     }
 

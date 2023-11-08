@@ -99,6 +99,18 @@ impl<T> Ranged<T> {
     pub const fn get_pos(&self) -> Range {
         self.range
     }
+
+    /// Map a Ranged<T> to a Ranged<U> using the passed function
+    #[must_use]
+    pub fn map<U, F>(self, f: F) -> Ranged<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Ranged {
+            inner: f(self.inner),
+            range: self.range,
+        }
+    }
 }
 
 impl<T> AsRef<T> for Ranged<T> {

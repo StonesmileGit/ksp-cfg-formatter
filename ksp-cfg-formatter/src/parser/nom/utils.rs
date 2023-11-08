@@ -70,34 +70,34 @@ where
 /// Evaluate `parser` and wrap the result in a `Some(_)`. Otherwise,
 /// emit the  provided `error_msg` and return a `None` while allowing
 /// parsing to continue.
-pub(crate) fn expect_warning<'a, F, E, T>(
-    mut parser: F,
-    error_msg: E,
-) -> impl FnMut(LocatedSpan<'a>) -> IResult<Option<T>>
-where
-    F: FnMut(LocatedSpan<'a>) -> IResult<T>,
-    E: ToString,
-{
-    move |input| {
-        match parser(input) {
-            Ok((remaining, out)) => Ok((remaining, Some(out))),
-            Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
-                let input = error.input;
-                let length = usize::from(!input.is_empty());
-                let err = Error {
-                    source: (*input.fragment()).to_string(),
-                    range: Range::from(input.slice(0..length)),
-                    message: error_msg.to_string(),
-                    severity: super::Severity::Warning,
-                    context: None,
-                };
-                input.extra.report_error(err); // Push error onto stack.
-                Ok((input, None)) // Parsing failed, but keep going.
-            }
-            Err(err) => Err(err),
-        }
-    }
-}
+// pub(crate) fn expect_warning<'a, F, E, T>(
+//     mut parser: F,
+//     error_msg: E,
+// ) -> impl FnMut(LocatedSpan<'a>) -> IResult<Option<T>>
+// where
+//     F: FnMut(LocatedSpan<'a>) -> IResult<T>,
+//     E: ToString,
+// {
+//     move |input| {
+//         match parser(input) {
+//             Ok((remaining, out)) => Ok((remaining, Some(out))),
+//             Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
+//                 let input = error.input;
+//                 let length = usize::from(!input.is_empty());
+//                 let err = Error {
+//                     source: (*input.fragment()).to_string(),
+//                     range: Range::from(input.slice(0..length)),
+//                     message: error_msg.to_string(),
+//                     severity: super::Severity::Warning,
+//                     context: None,
+//                 };
+//                 input.extra.report_error(err); // Push error onto stack.
+//                 Ok((input, None)) // Parsing failed, but keep going.
+//             }
+//             Err(err) => Err(err),
+//         }
+//     }
+// }
 
 /// Evaluate `parser` and wrap the result in a `Some(_)`. Otherwise,
 /// emit the  provided `error_msg` and return a `None` while allowing

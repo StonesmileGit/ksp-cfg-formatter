@@ -1,6 +1,6 @@
 use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
 
-impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parser::Node<'a>> {
+impl<'a> Lintable for crate::parser::Ranged<crate::parser::Node<'a>> {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {
@@ -34,7 +34,7 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parse
             if name.is_empty() {
                 items.push(Diagnostic {
                     range: name.get_range(),
-                    severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
+                    severity: Some(crate::parser::nom::Severity::Warning),
                     message: "Expected Name".to_owned(),
                     ..Default::default()
                 });
@@ -63,7 +63,7 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parse
 }
 
 fn top_level_no_op_hint(
-    node: &ksp_cfg_formatter::parser::Node<'_>,
+    node: &crate::parser::Node<'_>,
     state: &LinterState,
     result: &LinterStateResult,
 ) -> Option<Diagnostic> {
@@ -74,7 +74,7 @@ fn top_level_no_op_hint(
                 .clone()
                 .expect("it was just determined that top_level_no_op was Some")
                 .range,
-            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Hint),
+            severity: Some(crate::parser::nom::Severity::Hint),
             message: "This node has no operator, but contains something that does have an operator"
                 .to_owned(),
             ..Default::default()
@@ -85,14 +85,14 @@ fn top_level_no_op_hint(
 }
 
 fn or_in_child_node(
-    node: &ksp_cfg_formatter::parser::Node<'_>,
+    node: &crate::parser::Node<'_>,
     _state: &LinterState,
     _result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
     if node.name.clone().map_or(false, |name| name.len() > 1) && !node.top_level() {
         Some(Diagnostic {
             range: node.name.as_ref().expect("It was just determined that it is Some").get_range(),
-            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::nom::Severity::Warning),
             message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
             ..Default::default()
         })
@@ -102,7 +102,7 @@ fn or_in_child_node(
 }
 
 fn op_in_noop(
-    node: &ksp_cfg_formatter::parser::Node,
+    node: &crate::parser::Node,
     state: &LinterState,
     result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
@@ -115,7 +115,7 @@ fn op_in_noop(
                 .expect("it was just determined that the operator existed")
                 .get_range(),
 
-            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::nom::Severity::Warning),
             message: "Node has operator, even though the top level does not!".to_owned(),
             related_information: Some(vec![super::RelatedInformation {
                 location: state
@@ -132,9 +132,7 @@ fn op_in_noop(
     }
 }
 
-fn range_for_rest_of_id(
-    node: &ksp_cfg_formatter::parser::Node,
-) -> Option<ksp_cfg_formatter::parser::Range> {
+fn range_for_rest_of_id(node: &crate::parser::Node) -> Option<crate::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = node.name.as_ref() {
         ranges.push(ranged.get_range());
@@ -155,14 +153,14 @@ fn range_for_rest_of_id(
 }
 
 // TODO: Are there some MM things that are allowed?
-fn noop_but_mm(node: &ksp_cfg_formatter::parser::Node) -> Option<Diagnostic> {
+fn noop_but_mm(node: &crate::parser::Node) -> Option<Diagnostic> {
     if node.operator.is_some() {
         return None;
     }
     if let Some(range) = range_for_rest_of_id(node) {
         return Some(Diagnostic {
             range: range,
-            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::nom::Severity::Warning),
             message: "No operator, but MM is used. this is likely not correct".to_string(),
             // TODO: Add related info at start of ID
             ..Default::default()

@@ -13,7 +13,6 @@ use requests::RequestDispatch;
 mod notifications;
 use notifications::NotificationDispatch;
 
-mod linter;
 mod utils;
 
 use lsp_server::{Connection, Message, Request, Response};

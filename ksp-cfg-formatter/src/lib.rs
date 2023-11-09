@@ -9,6 +9,8 @@ pub mod parser;
 /// Functions to perform transformations on the parsed AST
 pub mod transformer;
 
+pub mod linter;
+
 use itertools::Itertools;
 use log::warn;
 use parser::{nom::parse, ASTPrint, Document};

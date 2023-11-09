@@ -126,9 +126,9 @@ pub(crate) fn handle_diagnostics_request(
             });
         }
     }
-    let mut items = crate::linter::lint_ast(&doc, uri)
+    let mut items = ksp_cfg_formatter::linter::lint_ast(&doc, uri)
         .iter()
-        .map(lsp_types::Diagnostic::from)
+        .map(crate::utils::diag_to_diag)
         .collect();
     disp_errors.append(&mut items);
     Ok(lsp_types::DocumentDiagnosticReportResult::Report(

@@ -1,7 +1,7 @@
 use ksp_cfg_formatter::parser::nom::Severity;
 use lsp_types::DiagnosticSeverity;
 
-use crate::linter::{Diagnostic, RelatedInformation};
+use ksp_cfg_formatter::linter::{Diagnostic, RelatedInformation};
 pub fn sev_to_sev(severity: Severity) -> DiagnosticSeverity {
     match severity {
         Severity::Error => DiagnosticSeverity::ERROR,
@@ -19,34 +19,26 @@ pub(crate) fn range_to_range(parser_range: ksp_cfg_formatter::parser::Range) -> 
     )
 }
 
-impl From<&Diagnostic> for lsp_types::Diagnostic {
-    fn from(val: &Diagnostic) -> Self {
-        Self {
-            range: range_to_range(val.range),
-            severity: val.severity.clone().map(crate::utils::sev_to_sev),
-            source: val.source.clone(),
-            message: val.message.clone(),
-            related_information: val.related_information.as_ref().and_then(|v| {
-                Some(
-                    v.clone()
-                        .into_iter()
-                        .map(lsp_types::DiagnosticRelatedInformation::from)
-                        .collect(),
-                )
-            }),
-            ..Default::default()
-        }
+pub fn diag_to_diag(val: &Diagnostic) -> lsp_types::Diagnostic {
+    lsp_types::Diagnostic {
+        range: range_to_range(val.range),
+        severity: val.severity.clone().map(crate::utils::sev_to_sev),
+        source: val.source.clone(),
+        message: val.message.clone(),
+        related_information: val
+            .related_information
+            .as_ref()
+            .and_then(|v| Some(v.clone().into_iter().map(relinfo_to_relinfo).collect())),
+        ..Default::default()
     }
 }
 
-impl From<RelatedInformation> for lsp_types::DiagnosticRelatedInformation {
-    fn from(value: RelatedInformation) -> Self {
-        Self {
-            location: lsp_types::Location {
-                uri: value.location.url,
-                range: crate::utils::range_to_range(value.location.range),
-            },
-            message: value.message,
-        }
+pub fn relinfo_to_relinfo(value: RelatedInformation) -> lsp_types::DiagnosticRelatedInformation {
+    lsp_types::DiagnosticRelatedInformation {
+        location: lsp_types::Location {
+            uri: value.location.url,
+            range: crate::utils::range_to_range(value.location.range),
+        },
+        message: value.message,
     }
 }

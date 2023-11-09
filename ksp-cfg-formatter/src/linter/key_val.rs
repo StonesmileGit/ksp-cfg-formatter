@@ -1,8 +1,8 @@
-use ksp_cfg_formatter::parser::AssignmentOperator;
+use crate::parser::AssignmentOperator;
 
 use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
 
-impl<'a> Lintable for ksp_cfg_formatter::parser::KeyVal<'a> {
+impl<'a> Lintable for crate::parser::KeyVal<'a> {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {
@@ -21,7 +21,7 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::KeyVal<'a> {
 }
 
 fn op_in_noop_node(
-    key_val: &ksp_cfg_formatter::parser::KeyVal<'_>,
+    key_val: &crate::parser::KeyVal<'_>,
     state: &LinterState,
     result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
@@ -34,7 +34,7 @@ fn op_in_noop_node(
                 .expect("it was just determined that the operator existed")
                 .get_range(),
 
-            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::nom::Severity::Warning),
             source: Some("Unexpected_operator".to_owned()),
             message: "Key has operator, even though the top level does not!".to_owned(),
             related_information: Some(vec![super::RelatedInformation {
@@ -51,9 +51,7 @@ fn op_in_noop_node(
     }
 }
 
-fn range_for_rest_of_name(
-    key_val: &ksp_cfg_formatter::parser::KeyVal,
-) -> Option<ksp_cfg_formatter::parser::Range> {
+fn range_for_rest_of_name(key_val: &crate::parser::KeyVal) -> Option<crate::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = key_val.array_index.as_ref() {
         ranges.push(ranged.get_range());
@@ -74,14 +72,14 @@ fn range_for_rest_of_name(
 }
 
 // TODO: Are some MM things allowed?
-fn noop_but_mm(key_val: &ksp_cfg_formatter::parser::KeyVal) -> Option<Diagnostic> {
+fn noop_but_mm(key_val: &crate::parser::KeyVal) -> Option<Diagnostic> {
     if key_val.operator.is_some() {
         return None;
     }
     if let Some(range) = range_for_rest_of_name(key_val) {
         return Some(Diagnostic {
             range: range,
-            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::nom::Severity::Warning),
             message: "No operator, but MM is used. this is likely not correct".to_string(),
             // TODO: Add related info for start of KV
             ..Default::default()

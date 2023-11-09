@@ -1,8 +1,8 @@
-use ksp_cfg_formatter::parser::Ranged;
+use crate::parser::Ranged;
 
 use super::{Diagnostic, Lintable};
 
-impl<'a> Lintable for ksp_cfg_formatter::parser::HasBlock<'a> {
+impl<'a> Lintable for crate::parser::HasBlock<'a> {
     fn lint(
         &self,
         state: &super::LinterState,
@@ -16,12 +16,12 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::HasBlock<'a> {
     }
 }
 
-impl<'a> Lintable for Ranged<ksp_cfg_formatter::parser::HasPredicate<'a>> {
+impl<'a> Lintable for Ranged<crate::parser::HasPredicate<'a>> {
     fn lint(
         &self,
         state: &super::LinterState,
     ) -> (Vec<Diagnostic>, Option<super::LinterStateResult>) {
-        use ksp_cfg_formatter::parser::HasPredicate as HP;
+        use crate::parser::HasPredicate as HP;
         let mut items = vec![];
         match self.as_ref() {
             HP::NodePredicate {
@@ -45,7 +45,7 @@ impl<'a> Lintable for Ranged<ksp_cfg_formatter::parser::HasPredicate<'a>> {
                     if value.is_empty() {
                         items.push(Diagnostic {
                             range: self.get_range(),
-                            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
+                            severity: Some(crate::parser::nom::Severity::Warning),
                             message: "Expected value".to_owned(),
                             ..Default::default()
                         });

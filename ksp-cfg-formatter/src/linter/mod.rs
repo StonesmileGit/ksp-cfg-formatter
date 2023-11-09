@@ -3,10 +3,7 @@ mod has;
 mod key_val;
 mod node;
 
-pub(crate) fn lint_ast(
-    ast: &ksp_cfg_formatter::parser::Document,
-    this_url: url::Url,
-) -> Vec<Diagnostic> {
+pub fn lint_ast(ast: &crate::parser::Document, this_url: url::Url) -> Vec<Diagnostic> {
     // Only return the Diagnostc part, and ignore the result at this point
     ast.lint(&LinterState {
         this_url,
@@ -61,7 +58,7 @@ impl Default for Diagnostic {
     }
 }
 
-use ksp_cfg_formatter::parser::{nom::Severity, NodeItem, Range};
+use crate::parser::{nom::Severity, NodeItem, Range};
 impl<'a> Lintable for NodeItem<'a> {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         match self {
@@ -74,7 +71,7 @@ impl<'a> Lintable for NodeItem<'a> {
     }
 }
 
-impl<'a> Lintable for ksp_cfg_formatter::parser::Comment<'a> {
+impl<'a> Lintable for crate::parser::Comment<'a> {
     fn lint(&self, _state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         (vec![], None)
     }

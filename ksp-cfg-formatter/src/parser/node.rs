@@ -5,19 +5,19 @@ use nom::character::complete::{
     anychar, char, line_ending, multispace0, multispace1, one_of, space0,
 };
 use nom::combinator::{all_consuming, map, opt, peek, recognize};
-use nom::multi::{many0, many1, many_till, separated_list1};
+use nom::multi::{many0, many1, many_till, separated_list0};
 use nom::sequence::{delimited, preceded, tuple};
 use nom_unicode::complete::alphanumeric1;
 
 use super::nom::utils::{
-    debug_fn, empty_line, error_till, expect, expect_context, expect_warning, get_range, non_empty,
-    range_wrap, ws, ws_le,
+    debug_fn, empty_line, error_till, expect, expect_context, get_range, non_empty, range_wrap, ws,
+    ws_le,
 };
+use super::Ranged;
 use super::{
     nom::CSTParse, ASTPrint, Comment, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator,
     Pass, Path, Range,
 };
-use super::{Position, Ranged};
 
 /// A node in the config file. Both top level node and internal node
 #[derive(Debug, Default, Clone)]
@@ -461,26 +461,22 @@ fn map_correct_identifier<'a>(
 }
 
 fn parse_name(input: LocatedSpan) -> IResult<Ranged<Vec<&str>>> {
-    let start = Position::from_located_span(&input);
-    let (input, (_, context_range)) = get_range(tag("["))(input)?;
-    // TODO: Tag both brackets as a warning to make it more visible
-    let (input, res) =
-        expect_warning(separated_list1(tag("|"), is_not("|]")), "Expected Name")(input)?;
-    let (input, _) = expect_context(
-        tag("]"),
-        "Expected closing `]`",
-        Ranged {
-            inner: "Expected due to `[` found here".to_string(),
-            range: context_range,
-        },
-    )(input)?;
-    let res = res
-        .unwrap_or_default()
-        .iter()
-        .map(|e: &LocatedSpan| *e.fragment())
-        .collect();
-    let end = Position::from_located_span(&input);
-    Ok((input, Ranged::new(res, Range { start, end })))
+    let parser = |input| {
+        let (input, (_, context_range)) = get_range(tag("["))(input)?;
+        // TODO: Tag both brackets as a warning to make it more visible
+        let (input, res) = separated_list0(tag("|"), is_not("|]"))(input)?;
+        let (input, _) = expect_context(
+            tag("]"),
+            "Expected closing `]`",
+            Ranged {
+                inner: "Expected due to `[` found here".to_string(),
+                range: context_range,
+            },
+        )(input)?;
+        let names = res.iter().map(|e: &LocatedSpan| *e.fragment()).collect();
+        Ok((input, names))
+    };
+    range_wrap(parser)(input)
 }
 
 /// Takes a parser and sets the settings according to what is needed for parsing an inner block, and then setting them back as needed on the returned settings as needed

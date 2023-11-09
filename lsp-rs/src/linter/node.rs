@@ -1,3 +1,5 @@
+use lsp_types::Diagnostic;
+
 use super::{range_to_range, Lintable, LinterState, LinterStateResult};
 
 impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parser::Node<'a>> {
@@ -27,6 +29,17 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parse
                 uri: state.this_url.clone(),
                 range: range_to_range(self.get_range()),
             });
+        }
+
+        if let Some(name) = &self.name {
+            if name.is_empty() {
+                items.push(Diagnostic {
+                    range: range_to_range(name.get_range()),
+                    severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+                    message: "Expected Name".to_owned(),
+                    ..Default::default()
+                });
+            }
         }
 
         if let Some(has) = &self.has {

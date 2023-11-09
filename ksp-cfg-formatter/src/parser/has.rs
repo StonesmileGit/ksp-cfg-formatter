@@ -1,6 +1,6 @@
 use super::{
     nom::{
-        utils::{debug_fn, expect, expect_warning, non_empty, range_wrap},
+        utils::{debug_fn, expect, non_empty, range_wrap},
         CSTParse, IResult, LocatedSpan,
     },
     Ranged,
@@ -38,7 +38,7 @@ pub enum HasPredicate<'a> {
         /// Variable name to check for
         key: &'a str,
         /// Optional value of the variable to check for
-        value: Option<&'a str>,
+        value: Option<Ranged<&'a str>>,
         /// Match type, `<`, ` `, `>`
         match_type: MatchType,
     },
@@ -72,7 +72,9 @@ impl<'a> Display for HasPredicate<'a> {
                 "{}{}{}",
                 if *negated { "~" } else { "#" },
                 key,
-                value.map_or_else(String::new, |value| format!("[{match_type}{value}]"))
+                value
+                    .as_ref()
+                    .map_or_else(String::new, |value| format!("[{match_type}{value}]"))
             ),
         }
     }
@@ -104,7 +106,7 @@ impl Display for MatchType {
 #[derive(Debug, Clone, Default)]
 pub struct HasBlock<'a> {
     /// The predicates that are combined with logical ANDs
-    pub predicates: Vec<HasPredicate<'a>>,
+    pub predicates: Vec<Ranged<HasPredicate<'a>>>,
 }
 
 impl<'a> Display for HasBlock<'a> {
@@ -124,7 +126,7 @@ impl<'a> CSTParse<'a, Ranged<HasBlock<'a>>> for HasBlock<'a> {
                 tag_no_case(":HAS["),
                 debug_fn(
                     expect(
-                        separated_list1(alt((tag("&"), tag(","))), HasPredicate::parse),
+                        separated_list1(alt((tag("&"), tag(","))), range_wrap(HasPredicate::parse)),
                         "Expected has predicate",
                     ),
                     "Got has predicates",
@@ -145,13 +147,10 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
         // hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
         let has_value = delimited(
             tag("["),
-            expect_warning(
-                non_empty(recognize(many_till(
-                    anychar,
-                    peek(alt((line_ending::<LocatedSpan, _>, tag("]"), tag("//")))),
-                ))),
-                "Expected value",
-            ),
+            range_wrap(opt(non_empty(recognize(many_till(
+                anychar,
+                peek(alt((line_ending::<LocatedSpan, _>, tag("]"), tag("//")))),
+            ))))),
             expect(tag("]"), "Expected closing `]`"),
         );
         // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
@@ -164,12 +163,21 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
             identifier,
             debug_fn(opt(has_value), "Got value", true),
         ));
-        let key_map = map(has_key, |inner| HasPredicate::KeyPredicate {
-            negated: inner.0.unwrap_or_default(),
-            key: inner.1.fragment(),
-            value: inner.2.map(|s| s.map_or("", |s| s.fragment())),
-            match_type: MatchType::Literal,
-        });
+        let key_map = map(
+            has_key,
+            |inner: (
+                Option<bool>,
+                LocatedSpan,
+                Option<Ranged<Option<LocatedSpan>>>,
+            )| {
+                HasPredicate::KeyPredicate {
+                    negated: inner.0.unwrap_or_default(),
+                    key: inner.1.fragment(),
+                    value: inner.2.map(|s| s.map(|s| s.map_or("", |s| s.fragment()))),
+                    match_type: MatchType::Literal,
+                }
+            },
+        );
         // hasNodeName =  { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
         let has_node_name = delimited(
             tag("["),

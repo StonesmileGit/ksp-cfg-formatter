@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use nom::branch::alt;
-use nom::bytes::complete::{is_a, is_not, tag};
+use nom::bytes::complete::{is_a, is_not};
 use nom::character::complete::{
     anychar, char, line_ending, multispace0, multispace1, one_of, space0,
 };
@@ -292,7 +292,7 @@ fn dumb_identifier_parser(
     // Clear errors on dumb_key to avoid duplicated errors
     dumb_identifier.extra.errors.borrow_mut().clear();
 
-    let path = opt(preceded(tag("#"), Path::parse));
+    let path = opt(preceded(char('#'), Path::parse));
     let operator = opt(Operator::parse);
     // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
     let identifier = range_wrap(map(
@@ -462,11 +462,11 @@ fn map_correct_identifier<'a>(
 
 fn parse_name(input: LocatedSpan) -> IResult<Ranged<Vec<&str>>> {
     let parser = |input| {
-        let (input, (_, context_range)) = get_range(tag("["))(input)?;
+        let (input, (_, context_range)) = get_range(char('['))(input)?;
         // TODO: Tag both brackets as a warning to make it more visible
-        let (input, res) = separated_list0(tag("|"), is_not("|]"))(input)?;
+        let (input, res) = separated_list0(char('|'), is_not("|]"))(input)?;
         let (input, _) = expect_context(
-            tag("]"),
+            char(']'),
             "Expected closing `]`",
             Ranged {
                 inner: "Expected due to `[` found here".to_string(),

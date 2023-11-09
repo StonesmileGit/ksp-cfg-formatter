@@ -9,7 +9,7 @@ use super::{
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag},
-    character::complete::{anychar, none_of, one_of, space0, space1},
+    character::complete::{anychar, char, none_of, one_of, space0, space1},
     combinator::{all_consuming, eof, map, opt, peek, recognize},
     multi::{many1, many_till, separated_list1},
     sequence::{preceded, terminated, tuple},
@@ -162,7 +162,7 @@ fn dumb_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Err
     // Clear errors on dumb_key to avoid duplicated errors
     dumb_key.extra.errors.borrow_mut().clear();
 
-    let path = opt(preceded(tag("*"), Path::parse));
+    let path = opt(preceded(char('*'), Path::parse));
     let operator = opt(Operator::parse);
     // keyIdentifier     = ${ keyIdentifierPart ~ (Whitespace* ~ keyIdentifierPart)* }
     // keyIdentifierPart = _{ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }

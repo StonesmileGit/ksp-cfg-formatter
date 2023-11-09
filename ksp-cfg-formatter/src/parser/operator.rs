@@ -1,4 +1,4 @@
-use nom::{bytes::complete::tag, combinator::value};
+use nom::{character::complete::char, combinator::value};
 use std::fmt::Display;
 
 use super::{
@@ -47,13 +47,13 @@ impl Display for Operator {
 impl CSTParse<'_, Ranged<Operator>> for Operator {
     fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<Ranged<Operator>> {
         let operator = nom::branch::alt((
-            value(Operator::Edit, tag("@")),
-            value(Operator::EditOrCreate, tag("%")),
-            value(Operator::Copy, tag("+")),
-            value(Operator::Delete, tag("!")),
-            value(Operator::DeleteAlt, tag("-")),
-            value(Operator::CreateIfNotFound, tag("&")),
-            value(Operator::Rename, tag("|")),
+            value(Operator::Edit, char('@')),
+            value(Operator::EditOrCreate, char('%')),
+            value(Operator::Copy, char('+')),
+            value(Operator::Delete, char('!')),
+            value(Operator::DeleteAlt, char('-')),
+            value(Operator::CreateIfNotFound, char('&')),
+            value(Operator::Rename, char('|')),
             // value(OperatorKind::None, tag("")),
         ));
         range_wrap(operator)(input)

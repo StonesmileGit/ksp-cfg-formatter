@@ -7,8 +7,7 @@ use super::{
 };
 use nom::{
     branch::alt,
-    bytes::complete::tag,
-    character::complete::{anychar, digit1},
+    character::complete::{anychar, char, digit1},
     combinator::{map, opt, value},
     sequence::{delimited, pair, preceded},
 };
@@ -36,10 +35,10 @@ impl CSTParse<'_, Ranged<Index>> for Index {
     fn parse(input: LocatedSpan) -> IResult<Ranged<Index>> {
         // index = { "," ~ ("*" | ("-"? ~ ASCII_DIGIT+)) }
         range_wrap(preceded(
-            tag(","),
+            char(','),
             alt((
-                value(Index::All, tag("*")),
-                map(preceded(opt(tag("-")), digit1), |inner: LocatedSpan| {
+                value(Index::All, char('*')),
+                map(preceded(opt(char('-')), digit1), |inner: LocatedSpan| {
                     Index::Number(
                         inner
                             .fragment()
@@ -79,17 +78,17 @@ impl CSTParse<'_, Ranged<ArrayIndex>> for ArrayIndex {
         // arrayIndex = { "[" ~ ("*" | ASCII_DIGIT+) ~ ("," ~ ANY)? ~ "]" }
         let array_index = pair(
             alt((
-                value(None, tag("*")),
+                value(None, char('*')),
                 map(digit1, |n: LocatedSpan| Some(n.fragment().parse().unwrap())),
             )),
-            opt(preceded(tag(","), anychar)),
+            opt(preceded(char(','), anychar)),
         );
         range_wrap(map(
             delimited(
-                tag("["),
+                char('['),
                 // TODO: Add "expect" on the index too
                 array_index,
-                expect(tag("]"), "Expected closing `]`"),
+                expect(char(']'), "Expected closing `]`"),
             ),
             |inner| ArrayIndex {
                 index: inner.0,

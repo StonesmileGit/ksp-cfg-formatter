@@ -3,8 +3,8 @@ use std::fmt::Display;
 use itertools::Itertools;
 use nom::{
     branch::alt,
-    bytes::complete::{is_a, tag, tag_no_case},
-    character::complete::one_of,
+    bytes::complete::{is_a, tag_no_case},
+    character::complete::{char, one_of},
     combinator::{map, opt, recognize},
     multi::{many1, separated_list1},
     sequence::{delimited, pair},
@@ -103,7 +103,7 @@ impl<'a> CSTParse<'a, Ranged<ModClause<'a>>> for ModClause<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<ModClause<'a>>> {
         // needsMod    = { negation? ~ modName }
         // negation    = { "!" }
-        let negated = opt(tag::<_, LocatedSpan, _>("!"));
+        let negated = opt(char::<LocatedSpan, _>('!'));
         // modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
         let mod_name = recognize(many1(alt((alphanumeric1, is_a("/_-?")))));
         let mod_clause = pair(negated, mod_name);

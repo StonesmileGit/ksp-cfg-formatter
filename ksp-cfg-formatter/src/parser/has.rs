@@ -9,7 +9,7 @@ use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag, tag_no_case},
-    character::complete::{anychar, line_ending, one_of},
+    character::complete::{anychar, char, line_ending, one_of},
     combinator::{map, opt, peek, recognize, value},
     multi::{many1, many_till, separated_list1},
     sequence::{delimited, tuple},
@@ -126,13 +126,16 @@ impl<'a> CSTParse<'a, Ranged<HasBlock<'a>>> for HasBlock<'a> {
                 tag_no_case(":HAS["),
                 debug_fn(
                     expect(
-                        separated_list1(alt((tag("&"), tag(","))), range_wrap(HasPredicate::parse)),
+                        separated_list1(
+                            alt((char('&'), char(','))),
+                            range_wrap(HasPredicate::parse),
+                        ),
                         "Expected has predicate",
                     ),
                     "Got has predicates",
                     true,
                 ),
-                expect(tag("]"), "Expected closing `]`"),
+                expect(char(']'), "Expected closing `]`"),
             ),
             |inner| HasBlock {
                 predicates: inner.unwrap_or_default(),
@@ -146,18 +149,18 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
         // // TODO: Is this correct?
         // hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
         let has_value = delimited(
-            tag("["),
+            char('['),
             range_wrap(opt(non_empty(recognize(many_till(
                 anychar,
                 peek(alt((line_ending::<LocatedSpan, _>, tag("]"), tag("//")))),
             ))))),
-            expect(tag("]"), "Expected closing `]`"),
+            expect(char(']'), "Expected closing `]`"),
         );
         // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
         // hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
         let has_key = tuple((
             expect(
-                alt((value(false, tag("#")), value(true, tag("~")))),
+                alt((value(false, char('#')), value(true, char('~')))),
                 "Expected # or ~",
             ),
             identifier,
@@ -180,14 +183,14 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
         );
         // hasNodeName =  { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
         let has_node_name = delimited(
-            tag("["),
+            char('['),
             recognize(many1(alt((alphanumeric1, is_a("/_-?*.|"))))),
-            expect(tag_no_case("]"), "Expected closing `]`"),
+            expect(char(']'), "Expected closing `]`"),
         );
         // hasNode     = _{ ("@" | "!" | "-") ~ identifier ~ hasNodeName? ~ hasBlock? }
         let has_node = tuple((
             expect(
-                alt((value(false, tag("@")), value(true, one_of("!-")))),
+                alt((value(false, char('@')), value(true, one_of("!-")))),
                 "Expected @ or !",
             ),
             identifier,

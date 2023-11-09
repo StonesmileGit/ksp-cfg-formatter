@@ -4,6 +4,7 @@ use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, is_not, tag},
+    character::complete::char,
     combinator::{map, opt, recognize, value},
     multi::{many0, many1, separated_list1},
     sequence::{delimited, pair, terminated, tuple},
@@ -109,8 +110,8 @@ impl<'a> CSTParse<'a, Ranged<Path<'a>>> for Path<'a> {
 impl CSTParse<'_, Ranged<PathStart>> for PathStart {
     fn parse(input: LocatedSpan<'_>) -> IResult<Ranged<PathStart>> {
         range_wrap(alt((
-            value(PathStart::TopLevel, tag("@")),
-            value(PathStart::CurrentTopLevel, tag("/")),
+            value(PathStart::TopLevel, char('@')),
+            value(PathStart::CurrentTopLevel, char('/')),
         )))(input)
     }
 }
@@ -124,10 +125,10 @@ impl<'a> CSTParse<'a, Ranged<PathSegment<'a>>> for PathSegment<'a> {
             is_a("-_.+*?"),
         ))));
         let name = opt(delimited(
-            tag("["),
+            char('['),
             // TODO: is a list allowed here?
-            recognize(separated_list1(tag("|"), is_not("|]"))),
-            expect(tag("]"), "Expected closing `]`"),
+            recognize(separated_list1(char('|'), is_not("|]"))),
+            expect(char(']'), "Expected closing `]`"),
         ));
         let segment = tuple((node, name));
         let dot_dot = map(tag(".."), |_| PathSegment::DotDot);
@@ -137,7 +138,7 @@ impl<'a> CSTParse<'a, Ranged<PathSegment<'a>>> for PathSegment<'a> {
             // TODO: Add index support
             index: None,
         });
-        range_wrap(terminated(alt((dot_dot, node_name)), tag("/")))(input)
+        range_wrap(terminated(alt((dot_dot, node_name)), char('/')))(input)
     }
 }
 

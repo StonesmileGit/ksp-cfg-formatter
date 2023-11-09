@@ -94,21 +94,15 @@ pub(crate) fn handle_diagnostics_request(
     let (doc, errors) = ksp_cfg_formatter::parser::nom::parse(text);
     let mut disp_errors = vec![];
     for error in errors {
-        use ksp_cfg_formatter::parser::nom::Severity as ksp_sev;
         use lsp_types::DiagnosticSeverity as lsp_sev;
         disp_errors.push(lsp_types::Diagnostic {
-            range: crate::linter::range_to_range(error.range),
-            severity: Some(match error.severity {
-                ksp_sev::Error => lsp_sev::ERROR,
-                ksp_sev::Warning => lsp_sev::WARNING,
-                ksp_sev::Info => lsp_sev::INFORMATION,
-                ksp_sev::Hint => lsp_sev::HINT,
-            }),
+            range: crate::utils::range_to_range(error.range),
+            severity: Some(crate::utils::sev_to_sev(error.severity)),
             message: error.message,
             related_information: error.context.clone().map(|context| {
                 vec![DiagnosticRelatedInformation {
                     location: Location {
-                        range: crate::linter::range_to_range(context.get_range()),
+                        range: crate::utils::range_to_range(context.get_range()),
                         uri: uri.clone(),
                     },
                     message: context.to_string(),
@@ -118,12 +112,12 @@ pub(crate) fn handle_diagnostics_request(
         });
         if let Some(context) = error.context {
             disp_errors.push(lsp_types::Diagnostic {
-                range: crate::linter::range_to_range(context.get_range()),
+                range: crate::utils::range_to_range(context.get_range()),
                 severity: Some(lsp_sev::HINT),
                 message: context.to_string(),
                 related_information: Some(vec![DiagnosticRelatedInformation {
                     location: Location {
-                        range: crate::linter::range_to_range(error.range),
+                        range: crate::utils::range_to_range(error.range),
                         uri: uri.clone(),
                     },
                     message: "original diagnostic".to_string(),
@@ -132,7 +126,10 @@ pub(crate) fn handle_diagnostics_request(
             });
         }
     }
-    let mut items = crate::linter::lint_ast(&doc, uri);
+    let mut items = crate::linter::lint_ast(&doc, uri)
+        .iter()
+        .map(lsp_types::Diagnostic::from)
+        .collect();
     disp_errors.append(&mut items);
     Ok(lsp_types::DocumentDiagnosticReportResult::Report(
         lsp_types::DocumentDiagnosticReport::Full(lsp_types::RelatedFullDocumentDiagnosticReport {

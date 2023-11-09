@@ -1,9 +1,9 @@
 use ksp_cfg_formatter::parser::AssignmentOperator;
 
-use super::{range_to_range, Lintable, LinterState, LinterStateResult};
+use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
 
 impl<'a> Lintable for ksp_cfg_formatter::parser::KeyVal<'a> {
-    fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
+    fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {
             top_level_no_op_result: false,
@@ -24,31 +24,27 @@ fn op_in_noop_node(
     key_val: &ksp_cfg_formatter::parser::KeyVal<'_>,
     state: &LinterState,
     result: &mut LinterStateResult,
-) -> Option<lsp_types::Diagnostic> {
+) -> Option<Diagnostic> {
     if state.top_level_no_op.is_some() && key_val.operator.is_some() {
         result.top_level_no_op_result = true;
-        Some(lsp_types::Diagnostic {
-            range: range_to_range(
-                key_val
-                    .operator
-                    .as_ref()
-                    .expect("it was just determined that the operator existed")
-                    .get_range(),
-            ),
-            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
-            code: Some(lsp_types::NumberOrString::Number(1)),
-            code_description: None,
+        Some(Diagnostic {
+            range: key_val
+                .operator
+                .as_ref()
+                .expect("it was just determined that the operator existed")
+                .get_range(),
+
+            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
             source: Some("Unexpected_operator".to_owned()),
             message: "Key has operator, even though the top level does not!".to_owned(),
-            related_information: Some(vec![lsp_types::DiagnosticRelatedInformation {
+            related_information: Some(vec![super::RelatedInformation {
                 location: state
                     .top_level_no_op
                     .clone()
                     .expect("It was just determined that the top_level_no_op is Some"),
                 message: "This is where it happened".to_owned(),
             }]),
-            tags: None,
-            data: None,
+            ..Default::default()
         })
     } else {
         None
@@ -78,14 +74,14 @@ fn range_for_rest_of_name(
 }
 
 // TODO: Are some MM things allowed?
-fn noop_but_mm(key_val: &ksp_cfg_formatter::parser::KeyVal) -> Option<lsp_types::Diagnostic> {
+fn noop_but_mm(key_val: &ksp_cfg_formatter::parser::KeyVal) -> Option<Diagnostic> {
     if key_val.operator.is_some() {
         return None;
     }
     if let Some(range) = range_for_rest_of_name(key_val) {
-        return Some(lsp_types::Diagnostic {
-            range: range_to_range(range),
-            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+        return Some(Diagnostic {
+            range: range,
+            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
             message: "No operator, but MM is used. this is likely not correct".to_string(),
             // TODO: Add related info for start of KV
             ..Default::default()

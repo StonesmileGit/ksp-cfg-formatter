@@ -5,8 +5,8 @@ mod node;
 
 pub(crate) fn lint_ast(
     ast: &ksp_cfg_formatter::parser::Document,
-    this_url: lsp_types::Url,
-) -> Vec<lsp_types::Diagnostic> {
+    this_url: url::Url,
+) -> Vec<Diagnostic> {
     // Only return the Diagnostc part, and ignore the result at this point
     ast.lint(&LinterState {
         this_url,
@@ -17,8 +17,8 @@ pub(crate) fn lint_ast(
 
 #[derive(Clone)]
 struct LinterState {
-    this_url: lsp_types::Url,
-    top_level_no_op: Option<lsp_types::Location>,
+    this_url: url::Url,
+    top_level_no_op: Option<Location>,
 }
 
 struct LinterStateResult {
@@ -26,20 +26,44 @@ struct LinterStateResult {
 }
 
 trait Lintable {
-    fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>);
+    fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>);
 }
 
-// Notice the ´-1´s to get correct 0-indexed position in VSCode
-pub(crate) fn range_to_range(parser_range: ksp_cfg_formatter::parser::Range) -> lsp_types::Range {
-    lsp_types::Range::new(
-        lsp_types::Position::new(parser_range.start.line - 1, parser_range.start.col - 1),
-        lsp_types::Position::new(parser_range.end.line - 1, parser_range.end.col - 1),
-    )
+pub struct Diagnostic {
+    pub range: Range,
+    pub severity: Option<Severity>,
+    pub message: String,
+    pub source: Option<String>,
+    pub related_information: Option<Vec<RelatedInformation>>,
 }
 
-use ksp_cfg_formatter::parser::NodeItem;
+#[derive(Clone)]
+pub struct RelatedInformation {
+    pub message: String,
+    pub location: Location,
+}
+
+#[derive(Clone)]
+pub struct Location {
+    pub url: url::Url,
+    pub range: Range,
+}
+
+impl Default for Diagnostic {
+    fn default() -> Self {
+        Self {
+            range: Default::default(),
+            severity: Default::default(),
+            message: Default::default(),
+            source: Default::default(),
+            related_information: Default::default(),
+        }
+    }
+}
+
+use ksp_cfg_formatter::parser::{nom::Severity, NodeItem, Range};
 impl<'a> Lintable for NodeItem<'a> {
-    fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
+    fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         match self {
             NodeItem::Node(node) => node.lint(state),
             NodeItem::Comment(comment) => comment.lint(state),
@@ -51,10 +75,7 @@ impl<'a> Lintable for NodeItem<'a> {
 }
 
 impl<'a> Lintable for ksp_cfg_formatter::parser::Comment<'a> {
-    fn lint(
-        &self,
-        _state: &LinterState,
-    ) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
+    fn lint(&self, _state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         (vec![], None)
     }
 }

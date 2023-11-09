@@ -1,9 +1,9 @@
 use ksp_cfg_formatter::parser::DocItem;
 
-use super::{Lintable, LinterState, LinterStateResult};
+use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
 
 impl<'a> Lintable for ksp_cfg_formatter::parser::Document<'a> {
-    fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
+    fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {
             top_level_no_op_result: false,
@@ -19,7 +19,7 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Document<'a> {
 }
 
 impl<'a> Lintable for DocItem<'a> {
-    fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
+    fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         match self {
             DocItem::Node(n) => n.lint(state),
             DocItem::Comment(c) => c.lint(state),

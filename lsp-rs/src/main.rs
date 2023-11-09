@@ -14,6 +14,7 @@ mod notifications;
 use notifications::NotificationDispatch;
 
 mod linter;
+mod utils;
 
 use lsp_server::{Connection, Message, Request, Response};
 
@@ -88,6 +89,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Resu
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct Settings {
     use_tabs: bool,
     indent_size: u64,

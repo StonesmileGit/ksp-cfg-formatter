@@ -1,15 +1,12 @@
 use ksp_cfg_formatter::parser::Ranged;
-use lsp_types::Diagnostic;
 
-use crate::linter::range_to_range;
-
-use super::Lintable;
+use super::{Diagnostic, Lintable};
 
 impl<'a> Lintable for ksp_cfg_formatter::parser::HasBlock<'a> {
     fn lint(
         &self,
         state: &super::LinterState,
-    ) -> (Vec<lsp_types::Diagnostic>, Option<super::LinterStateResult>) {
+    ) -> (Vec<Diagnostic>, Option<super::LinterStateResult>) {
         let mut items = vec![];
         for pred in &self.predicates {
             let (mut diagnostics, _res) = pred.lint(state);
@@ -23,14 +20,14 @@ impl<'a> Lintable for Ranged<ksp_cfg_formatter::parser::HasPredicate<'a>> {
     fn lint(
         &self,
         state: &super::LinterState,
-    ) -> (Vec<lsp_types::Diagnostic>, Option<super::LinterStateResult>) {
+    ) -> (Vec<Diagnostic>, Option<super::LinterStateResult>) {
         use ksp_cfg_formatter::parser::HasPredicate as HP;
         let mut items = vec![];
         match self.as_ref() {
             HP::NodePredicate {
-                negated,
-                node_type,
-                name,
+                negated: _,
+                node_type: _,
+                name: _,
                 has_block,
             } => {
                 if let Some(has_block) = has_block {
@@ -39,16 +36,16 @@ impl<'a> Lintable for Ranged<ksp_cfg_formatter::parser::HasPredicate<'a>> {
                 }
             }
             HP::KeyPredicate {
-                negated,
-                key,
+                negated: _,
+                key: _,
                 value,
-                match_type,
+                match_type: _,
             } => {
                 if let Some(value) = value {
                     if value.is_empty() {
                         items.push(Diagnostic {
-                            range: range_to_range(self.get_range()),
-                            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+                            range: self.get_range(),
+                            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
                             message: "Expected value".to_owned(),
                             ..Default::default()
                         });

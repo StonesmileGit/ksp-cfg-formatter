@@ -1,9 +1,7 @@
-use lsp_types::Diagnostic;
-
-use super::{range_to_range, Lintable, LinterState, LinterStateResult};
+use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
 
 impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parser::Node<'a>> {
-    fn lint(&self, state: &LinterState) -> (Vec<lsp_types::Diagnostic>, Option<LinterStateResult>) {
+    fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {
             top_level_no_op_result: false,
@@ -25,17 +23,18 @@ impl<'a> Lintable for ksp_cfg_formatter::parser::Ranged<ksp_cfg_formatter::parse
         let mut state: LinterState = state.clone();
         // Check for operators in nodes that do not have any operators
         if self.top_level() && self.operator.is_none() {
-            state.top_level_no_op = Some(lsp_types::Location {
-                uri: state.this_url.clone(),
-                range: range_to_range(self.get_range()),
+            state.top_level_no_op = Some(super::Location {
+                url: state.this_url.clone(),
+                range: self.get_range(),
             });
+            // state.top_level_no_op = Some(self.get_range());
         }
 
         if let Some(name) = &self.name {
             if name.is_empty() {
                 items.push(Diagnostic {
-                    range: range_to_range(name.get_range()),
-                    severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+                    range: name.get_range(),
+                    severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
                     message: "Expected Name".to_owned(),
                     ..Default::default()
                 });
@@ -67,15 +66,15 @@ fn top_level_no_op_hint(
     node: &ksp_cfg_formatter::parser::Node<'_>,
     state: &LinterState,
     result: &LinterStateResult,
-) -> Option<lsp_types::Diagnostic> {
+) -> Option<Diagnostic> {
     if node.top_level() && result.top_level_no_op_result {
-        Some(lsp_types::Diagnostic {
+        Some(Diagnostic {
             range: state
                 .top_level_no_op
                 .clone()
                 .expect("it was just determined that top_level_no_op was Some")
                 .range,
-            severity: Some(lsp_types::DiagnosticSeverity::HINT),
+            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Hint),
             message: "This node has no operator, but contains something that does have an operator"
                 .to_owned(),
             ..Default::default()
@@ -89,11 +88,11 @@ fn or_in_child_node(
     node: &ksp_cfg_formatter::parser::Node<'_>,
     _state: &LinterState,
     _result: &mut LinterStateResult,
-) -> Option<lsp_types::Diagnostic> {
+) -> Option<Diagnostic> {
     if node.name.clone().map_or(false, |name| name.len() > 1) && !node.top_level() {
-        Some(lsp_types::Diagnostic {
-            range: range_to_range(node.name.as_ref().expect("It was just determined that it is Some").get_range()),
-            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+        Some(Diagnostic {
+            range: node.name.as_ref().expect("It was just determined that it is Some").get_range(),
+            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
             message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
             ..Default::default()
         })
@@ -106,26 +105,25 @@ fn op_in_noop(
     node: &ksp_cfg_formatter::parser::Node,
     state: &LinterState,
     result: &mut LinterStateResult,
-) -> Option<lsp_types::Diagnostic> {
+) -> Option<Diagnostic> {
     if state.top_level_no_op.is_some() && node.operator.is_some() {
         result.top_level_no_op_result = true;
-        Some(lsp_types::Diagnostic {
-            range: range_to_range(
-                node.operator
-                    .as_ref()
-                    .expect("it was just determined that the operator existed")
-                    .get_range(),
-            ),
-            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+        Some(Diagnostic {
+            range: node
+                .operator
+                .as_ref()
+                .expect("it was just determined that the operator existed")
+                .get_range(),
+
+            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
             message: "Node has operator, even though the top level does not!".to_owned(),
-            related_information: Some(vec![lsp_types::DiagnosticRelatedInformation {
+            related_information: Some(vec![super::RelatedInformation {
                 location: state
                     .top_level_no_op
                     .clone()
                     .expect("It was just determined that the top_level_no_op is Some"),
                 message: "This is where it happened".to_owned(),
             }]),
-            code: Some(lsp_types::NumberOrString::Number(1)),
             source: Some("Unexpected_operator".to_owned()),
             ..Default::default()
         })
@@ -157,14 +155,14 @@ fn range_for_rest_of_id(
 }
 
 // TODO: Are there some MM things that are allowed?
-fn noop_but_mm(node: &ksp_cfg_formatter::parser::Node) -> Option<lsp_types::Diagnostic> {
+fn noop_but_mm(node: &ksp_cfg_formatter::parser::Node) -> Option<Diagnostic> {
     if node.operator.is_some() {
         return None;
     }
     if let Some(range) = range_for_rest_of_id(node) {
-        return Some(lsp_types::Diagnostic {
-            range: range_to_range(range),
-            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+        return Some(Diagnostic {
+            range: range,
+            severity: Some(ksp_cfg_formatter::parser::nom::Severity::Warning),
             message: "No operator, but MM is used. this is likely not correct".to_string(),
             // TODO: Add related info at start of ID
             ..Default::default()

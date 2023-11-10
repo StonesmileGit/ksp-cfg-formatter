@@ -36,7 +36,8 @@ pub fn diag_to_diag(val: &Diagnostic) -> lsp_types::Diagnostic {
 pub fn relinfo_to_relinfo(value: RelatedInformation) -> lsp_types::DiagnosticRelatedInformation {
     lsp_types::DiagnosticRelatedInformation {
         location: lsp_types::Location {
-            uri: value.location.url,
+            // FIXME: This unwrap is super dangerous
+            uri: value.location.url.unwrap(),
             range: crate::utils::range_to_range(value.location.range),
         },
         message: value.message,

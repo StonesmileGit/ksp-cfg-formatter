@@ -3,8 +3,8 @@ mod has;
 mod key_val;
 mod node;
 
-pub fn lint_ast(ast: &crate::parser::Document, this_url: url::Url) -> Vec<Diagnostic> {
-    // Only return the Diagnostc part, and ignore the result at this point
+pub fn lint_ast(ast: &crate::parser::Document, this_url: Option<url::Url>) -> Vec<Diagnostic> {
+    // Only return the Diagnostic part, and ignore the result at this point
     ast.lint(&LinterState {
         this_url,
         top_level_no_op: None,
@@ -14,7 +14,7 @@ pub fn lint_ast(ast: &crate::parser::Document, this_url: url::Url) -> Vec<Diagno
 
 #[derive(Clone)]
 struct LinterState {
-    this_url: url::Url,
+    this_url: Option<url::Url>,
     top_level_no_op: Option<Location>,
 }
 
@@ -42,7 +42,7 @@ pub struct RelatedInformation {
 
 #[derive(Clone)]
 pub struct Location {
-    pub url: url::Url,
+    pub url: Option<url::Url>,
     pub range: Range,
 }
 

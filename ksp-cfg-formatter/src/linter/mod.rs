@@ -26,6 +26,7 @@ trait Lintable {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>);
 }
 
+#[derive(Debug)]
 pub struct Diagnostic {
     pub range: Range,
     pub severity: Option<Severity>,
@@ -34,13 +35,19 @@ pub struct Diagnostic {
     pub related_information: Option<Vec<RelatedInformation>>,
 }
 
-#[derive(Clone)]
+impl Display for Diagnostic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.range, self.message)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct RelatedInformation {
     pub message: String,
     pub location: Location,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Location {
     pub url: Option<url::Url>,
     pub range: Range,
@@ -57,6 +64,8 @@ impl Default for Diagnostic {
         }
     }
 }
+
+use std::fmt::Display;
 
 use crate::parser::{nom::Severity, NodeItem, Range};
 impl<'a> Lintable for NodeItem<'a> {

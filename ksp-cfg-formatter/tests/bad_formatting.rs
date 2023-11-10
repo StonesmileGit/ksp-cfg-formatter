@@ -33,6 +33,7 @@ fn bad_formatting() {
             Ok(_) => (),
             Err(err) => {
                 if err
+                    .0
                     .iter()
                     .filter(|e| {
                         matches!(e.severity, ksp_cfg_formatter::parser::nom::Severity::Error)

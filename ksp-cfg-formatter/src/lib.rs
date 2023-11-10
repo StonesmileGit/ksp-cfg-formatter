@@ -9,9 +9,11 @@ pub mod parser;
 /// Functions to perform transformations on the parsed AST
 pub mod transformer;
 
+/// Contains methods to lint the generated AST
 pub mod linter;
 
 use itertools::Itertools;
+use linter::Diagnostic;
 use log::warn;
 use parser::{nom::parse, ASTPrint, Document};
 
@@ -192,11 +194,12 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
 /// Parses the text to a `Document` struct
 /// # Errors
 /// If any part of the parser fails, the returned error indicates what caused it, where it occured, and the source text for the error
-pub fn parse_to_ast(text: &str) -> Result<Document, Vec<parser::Error>> {
+pub fn parse_to_ast(text: &str) -> Result<Document, (Vec<parser::Error>, Vec<Diagnostic>)> {
     let (parsed_document, errors) = parse(text);
     let errors_res = errors.into_iter().map(parser::Error::from).collect_vec();
-    if !errors_res.is_empty() {
-        return Err(errors_res);
+    let diagnostics = linter::lint_ast(&parsed_document, None);
+    if !errors_res.is_empty() || !diagnostics.is_empty() {
+        return Err((errors_res, diagnostics));
     }
     Ok(parsed_document)
 }

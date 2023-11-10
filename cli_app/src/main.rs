@@ -79,14 +79,22 @@ fn main() {
                             }
                         },
                         Err(errs) => {
-                            for err in errs {
+                            for err in errs.0 {
                                 use ksp_cfg_formatter::parser::nom::Severity as sev;
                                 if matches!(
                                     err.severity,
                                     sev::Error //| sev::Warning
                                 ) {
-                                    res.push(format!("{}\n{}", path, err));
+                                    res.push(format!(
+                                        "{} {}\n{}",
+                                        path,
+                                        err.location.unwrap_or_default(),
+                                        err
+                                    ));
                                 }
+                            }
+                            for diag in errs.1 {
+                                res.push(format!("{} {}\n{}", path, diag.range, diag));
                             }
                         }
                     };

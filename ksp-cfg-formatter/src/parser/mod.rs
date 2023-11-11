@@ -148,7 +148,7 @@ impl Position {
 }
 
 /// Location of an error, as a span between `start` and `end`
-#[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Range {
     /// Position of the start of the error
     pub start: Position,
@@ -196,6 +196,30 @@ impl Range {
             start: self.end,
             end: self.end,
         }
+    }
+
+    /// Combines overlapping ranges into one range, creating a set of non-overlapping ranges as output
+    pub fn combine_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
+        ranges.sort();
+        let mut ret_ranges = vec![];
+        let mut curr_range = None;
+        for range in ranges {
+            if curr_range.is_none() {
+                curr_range = Some(range);
+                continue;
+            }
+            let unw_range = curr_range.unwrap();
+            if range.start <= unw_range.end {
+                curr_range = Some(unw_range + range);
+                continue;
+            }
+            ret_ranges.push(unw_range);
+            curr_range = Some(range);
+        }
+        if let Some(curr_range) = curr_range {
+            ret_ranges.push(curr_range);
+        }
+        ret_ranges
     }
 }
 
@@ -260,5 +284,19 @@ impl Display for nom::Error {
             self.source,
             format!(" at {}", self.range)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::parser::Range;
+
+    #[test]
+    fn test_ranges() {
+        let mut ranges = vec![Range::new(0, 0, 0, 5), Range::new(0, 10, 0, 15)];
+        ranges.sort();
+        let ranges_new = Range::combine_ranges(ranges.clone());
+        assert_eq!(ranges_new, ranges);
     }
 }

@@ -1,4 +1,4 @@
-use crate::parser::AssignmentOperator;
+use crate::parser::{AssignmentOperator, Range};
 
 use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
 
@@ -51,14 +51,14 @@ fn op_in_noop_node(
     }
 }
 
-fn range_for_rest_of_name(key_val: &crate::parser::KeyVal) -> Option<crate::parser::Range> {
+fn range_for_rest_of_name(key_val: &crate::parser::KeyVal) -> Vec<crate::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = key_val.array_index.as_ref() {
         ranges.push(ranged.get_range());
     }
-    if let Some(ranged) = key_val.needs.as_ref() {
-        ranges.push(ranged.get_range());
-    }
+    // if let Some(ranged) = key_val.needs.as_ref() {
+    //     ranges.push(ranged.get_range());
+    // }
     if let Some(ranged) = key_val.index.as_ref() {
         ranges.push(ranged.get_range());
     }
@@ -68,19 +68,23 @@ fn range_for_rest_of_name(key_val: &crate::parser::KeyVal) -> Option<crate::pars
             ranges.push(key_val.assignment_operator.get_range());
         }
     }
-    ranges.into_iter().reduce(|a, b| a + b)
+
+    Range::combine_ranges(ranges)
 }
 
 // TODO: Are some MM things allowed?
 fn noop_but_mm(key_val: &crate::parser::KeyVal) -> Option<Diagnostic> {
-    if key_val.operator.is_some() {
+    if key_val.operator.is_some() || key_val.path.is_some() {
         return None;
     }
-    if let Some(range) = range_for_rest_of_name(key_val) {
-        return Some(Diagnostic {
-            range: range,
+    let ranges = range_for_rest_of_name(key_val);
+    let mut diagnostics = vec![];
+    for range in ranges {
+        diagnostics.push(Diagnostic {
+            range,
             severity: Some(crate::parser::nom::Severity::Warning),
-            message: "No operator, but MM is used. this is likely not correct".to_string(),
+            message: "No operator on KeyVal, but MM is used. this is likely not correct"
+                .to_string(),
             // TODO: Add related info for start of KV
             ..Default::default()
         });

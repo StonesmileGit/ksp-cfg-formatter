@@ -16,8 +16,9 @@ impl<'a> Lintable for crate::parser::Ranged<crate::parser::Node<'a>> {
             items.push(diag);
         }
         // The node has no operator, but uses MM logic in the identifier
-        if let Some(diag) = noop_but_mm(self) {
-            items.push(diag);
+        let mut diagnostics = noop_but_mm(self);
+        if !diagnostics.is_empty() {
+            items.append(&mut diagnostics);
         }
 
         let mut state: LinterState = state.clone();
@@ -132,7 +133,7 @@ fn op_in_noop(
     }
 }
 
-fn range_for_rest_of_id(node: &crate::parser::Node) -> Option<crate::parser::Range> {
+fn range_for_rest_of_id(node: &crate::parser::Node) -> Vec<crate::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = node.name.as_ref() {
         ranges.push(ranged.get_range());
@@ -140,31 +141,36 @@ fn range_for_rest_of_id(node: &crate::parser::Node) -> Option<crate::parser::Ran
     if let Some(ranged) = node.has.as_ref() {
         ranges.push(ranged.get_range());
     }
-    if let Some(ranged) = node.needs.as_ref() {
-        ranges.push(ranged.get_range());
-    }
+    // if let Some(ranged) = node.needs.as_ref() {
+    //     ranges.push(ranged.get_range());
+    // }
     if let Some(ranged) = node.index.as_ref() {
         ranges.push(ranged.get_range());
     }
     if let Some(ranged) = node.pass.as_ref() {
         ranges.push(ranged.get_range());
     }
-    ranges.into_iter().reduce(|a, b| a + b)
+
+    crate::parser::Range::combine_ranges(ranges)
 }
 
 // TODO: Are there some MM things that are allowed?
-fn noop_but_mm(node: &crate::parser::Node) -> Option<Diagnostic> {
-    if node.operator.is_some() {
-        return None;
+fn noop_but_mm(node: &crate::parser::Node) -> Vec<Diagnostic> {
+    if node.operator.is_some() || node.path.is_some() {
+        return vec![];
     }
-    if let Some(range) = range_for_rest_of_id(node) {
-        return Some(Diagnostic {
-            range: range,
+    let ranges = range_for_rest_of_id(node);
+    let mut diagnostics = vec![];
+    for range in ranges {
+        diagnostics.push(Diagnostic {
+            range,
             severity: Some(crate::parser::nom::Severity::Warning),
-            message: "No operator, but MM is used. this is likely not correct".to_string(),
+            message:
+                "No operator on Node, but MM is used in the identifier. this is likely not correct"
+                    .to_string(),
             // TODO: Add related info at start of ID
             ..Default::default()
         });
     }
-    None
+    diagnostics
 }

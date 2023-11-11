@@ -3,6 +3,7 @@ mod has;
 mod key_val;
 mod node;
 
+/// Takes a `Document` and lints the AST
 pub fn lint_ast(ast: &crate::parser::Document, this_url: Option<url::Url>) -> Vec<Diagnostic> {
     // Only return the Diagnostic part, and ignore the result at this point
     ast.lint(&LinterState {
@@ -26,12 +27,18 @@ trait Lintable {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>);
 }
 
+/// Struct for a diagnostic message, like an error or warning
 #[derive(Debug)]
 pub struct Diagnostic {
+    /// The text range the diagnostic covers
     pub range: Range,
+    /// The severity of the diagnostic
     pub severity: Option<Severity>,
+    /// The message provided as an explanation for the diagnostic
     pub message: String,
+    /// The source text causing the diagnostic
     pub source: Option<String>,
+    /// Any related information to the diagnostic, if applicable
     pub related_information: Option<Vec<RelatedInformation>>,
 }
 
@@ -41,15 +48,21 @@ impl Display for Diagnostic {
     }
 }
 
+/// Information relating to another diagnostic
 #[derive(Clone, Debug)]
 pub struct RelatedInformation {
+    /// The message provided for the related info
     pub message: String,
+    /// The location of the related info
     pub location: Location,
 }
 
+/// A location in a (optional) file
 #[derive(Clone, Debug)]
 pub struct Location {
+    /// An optional Url to the file
     pub url: Option<url::Url>,
+    /// The range of the location
     pub range: Range,
 }
 

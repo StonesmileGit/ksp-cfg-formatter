@@ -85,12 +85,7 @@ fn main() {
                                     err.severity,
                                     sev::Error //| sev::Warning
                                 ) {
-                                    res.push(format!(
-                                        "{} {}\n{}",
-                                        path,
-                                        err.location.unwrap_or_default(),
-                                        err
-                                    ));
+                                    res.push(format!("{} {}\n{}", path, err.range, err));
                                 }
                             }
                             for diag in errs.1 {

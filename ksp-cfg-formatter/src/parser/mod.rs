@@ -1,4 +1,4 @@
-use self::nom::{LocatedSpan, Severity};
+use self::nom::LocatedSpan;
 use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
@@ -44,19 +44,6 @@ pub trait ASTPrint {
         line_ending: &str,
         should_collapse: bool,
     ) -> String;
-}
-
-/// Error from the parser, with context
-#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
-pub struct Error {
-    /// The severity of the error
-    pub severity: Severity,
-    /// The reason for the error
-    pub reason: Reason,
-    /// Optional line/col span indicating the origin of the error
-    pub location: Option<Range>,
-    /// Source string from which the error occured
-    pub source_text: String,
 }
 
 /// Reason for the error that occured
@@ -201,6 +188,15 @@ impl Range {
             end: self.start,
         }
     }
+
+    /// Creates a Range with the start set to the same as the end of the current range
+    #[must_use]
+    pub const fn to_end(&self) -> Self {
+        Self {
+            start: self.end,
+            end: self.end,
+        }
+    }
 }
 
 impl std::ops::Add for Range {
@@ -255,36 +251,14 @@ impl<'a> From<LocatedSpan<'a>> for Range {
     }
 }
 
-impl Display for Error {
+impl Display for nom::Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.reason {
-            Reason::ParseInt => todo!(),
-            Reason::Custom(text) => write!(
-                f,
-                "{}, found '{}'{}",
-                text,
-                self.source_text,
-                self.location
-                    .map_or(String::new(), |loc| format!(" at {loc}"))
-            ),
-            Reason::Unknown => write!(
-                f,
-                "UNKNOWN ERROR. source: {}{}",
-                self.source_text,
-                self.location
-                    .map_or(String::new(), |loc| format!(" at {loc}"))
-            ),
-        }
-    }
-}
-
-impl From<nom::Error> for Error {
-    fn from(value: nom::Error) -> Self {
-        Self {
-            reason: Reason::Custom(value.message),
-            location: Some(value.range),
-            source_text: value.source,
-            severity: value.severity,
-        }
+        write!(
+            f,
+            "{}, found '{}'{}",
+            self.message,
+            self.source,
+            format!(" at {}", self.range)
+        )
     }
 }

@@ -12,7 +12,6 @@ pub mod transformer;
 /// Contains methods to lint the generated AST
 pub mod linter;
 
-use itertools::Itertools;
 use linter::Diagnostic;
 use log::warn;
 use parser::{nom::parse, ASTPrint, Document};
@@ -165,7 +164,7 @@ impl Formatter {
     }
 }
 
-fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error> {
+fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::nom::Error> {
     let use_crlf = if matches!(settings.line_return, LineReturn::Identify) {
         text.contains("\r\n")
     } else {
@@ -175,7 +174,7 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
     let mut errors_res = vec![];
     for error in errors {
         warn!("{error:#?}");
-        errors_res.push(parser::Error::from(error));
+        errors_res.push(error);
     }
     if let Some(first) = errors_res.first() {
         return Err(first.clone());
@@ -194,12 +193,11 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error>
 /// Parses the text to a `Document` struct
 /// # Errors
 /// If any part of the parser fails, the returned error indicates what caused it, where it occured, and the source text for the error
-pub fn parse_to_ast(text: &str) -> Result<Document, (Vec<parser::Error>, Vec<Diagnostic>)> {
+pub fn parse_to_ast(text: &str) -> Result<Document, (Vec<parser::nom::Error>, Vec<Diagnostic>)> {
     let (parsed_document, errors) = parse(text);
-    let errors_res = errors.into_iter().map(parser::Error::from).collect_vec();
     let diagnostics = linter::lint_ast(&parsed_document, None);
-    if !errors_res.is_empty() || !diagnostics.is_empty() {
-        return Err((errors_res, diagnostics));
+    if !errors.is_empty() || !diagnostics.is_empty() {
+        return Err((errors, diagnostics));
     }
     Ok(parsed_document)
 }

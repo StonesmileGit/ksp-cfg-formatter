@@ -1,4 +1,4 @@
-use crate::parser::{DocItem, Document, Error, Node, NodeItem, Ranged};
+use crate::parser::{nom::Error, DocItem, Document, Node, NodeItem, Ranged};
 
 /// Moves assignments first in the node, and child nodes last
 /// # Errors
@@ -32,18 +32,17 @@ fn reorder_node_items(mut node: Ranged<Node>) -> Result<Ranged<Node>, Error> {
                 processing_key = Some(false);
                 node_stuff.push(NodeItem::Node(reorder_node_items(node)?));
             }
-            NodeItem::Comment(_) => match processing_key {
+            NodeItem::Comment(ref c) => match processing_key {
                 Some(true) => key_stuff.push(item),
                 Some(false) => node_stuff.push(item),
                 None => {
                     return Err(Error {
-                        reason: crate::parser::Reason::Custom(
-                            "Found Comment at end of node".to_string(),
-                        ),
-                        location: None,
-                        source_text: String::new(),
+                        message: "Found Comment at end of node".to_string(),
+                        range: c.get_range(),
+                        source: String::new(),
                         severity: crate::parser::nom::Severity::Info,
-                    })
+                        context: None,
+                    });
                 }
             },
             NodeItem::KeyVal(_) => {
@@ -55,13 +54,12 @@ fn reorder_node_items(mut node: Ranged<Node>) -> Result<Ranged<Node>, Error> {
                 Some(false) => node_stuff.push(item),
                 None => {
                     return Err(Error {
-                        reason: crate::parser::Reason::Custom(
-                            "Found Empty Line at end of node".to_string(),
-                        ),
-                        location: None,
-                        source_text: String::new(),
+                        message: "Found Empty Line at end of node".to_string(),
+                        range: node.get_range().to_end(),
+                        source: String::new(),
                         severity: crate::parser::nom::Severity::Info,
-                    })
+                        context: None,
+                    });
                 }
             },
             NodeItem::Error(_e) => todo!(),

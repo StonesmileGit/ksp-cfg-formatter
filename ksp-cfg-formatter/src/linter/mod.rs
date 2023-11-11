@@ -1,3 +1,6 @@
+use crate::parser::{nom::Severity, NodeItem, Range};
+use std::fmt::Display;
+
 mod document;
 mod has;
 mod key_val;
@@ -78,9 +81,6 @@ impl Default for Diagnostic {
     }
 }
 
-use std::fmt::Display;
-
-use crate::parser::{nom::Severity, NodeItem, Range};
 impl<'a> Lintable for NodeItem<'a> {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         match self {

@@ -242,11 +242,7 @@ impl Display for Range {
                 self.start.line, self.start.col, self.end.line, self.end.col
             )
         } else {
-            write!(
-                f,
-                "Ln {}, Col {}-{}",
-                self.start.line, self.start.col, self.end.col
-            )
+            write!(f, "{}:{}-{}", self.start.line, self.start.col, self.end.col)
         }
     }
 }

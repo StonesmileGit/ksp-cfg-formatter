@@ -1,7 +1,8 @@
 use clap::Parser;
 use itertools::Itertools;
 use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
-use std::{fs, io::BufRead, result::Result, thread};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::{fs, io::BufRead, result::Result};
 use walkdir::WalkDir;
 
 #[allow(clippy::struct_excessive_bools)]
@@ -58,52 +59,10 @@ fn main() {
     // Read input from either a path or stdin if no path is provided
     if let Some(path) = &args.path {
         let paths = files_from_path(path);
-        let mut workers = vec![];
-        for path in paths {
-            let args = args.clone();
-            let worker = thread::spawn(move || {
-                let mut res = vec![];
-                let text = if args.lossy {
-                    let raw = fs::read(&path).map_or_else(|err| panic!("{err}"), |t| t);
-                    String::from_utf8_lossy(&raw).to_string()
-                } else {
-                    fs::read_to_string(&path)
-                        .map_or_else(|_| panic!("Failed to read text from {path}"), |t| t)
-                };
-                if args.check {
-                    match ksp_cfg_formatter::parse_to_ast(&text) {
-                        Ok(doc) => match ksp_cfg_formatter::transformer::assignments_first(doc) {
-                            Ok(_) => (),
-                            Err(_err) => {
-                                // res.push(format!("{path}\n{_err}"))
-                            }
-                        },
-                        Err(errs) => {
-                            for err in errs.0 {
-                                use ksp_cfg_formatter::parser::nom::Severity as sev;
-                                if matches!(
-                                    err.severity,
-                                    sev::Error //| sev::Warning
-                                ) {
-                                    res.push(format!("{} {}\n{}", path, err.range, err));
-                                }
-                            }
-                            for diag in errs.1 {
-                                res.push(format!("{} {}\n{}", path, diag.range, diag));
-                            }
-                        }
-                    };
-                } else {
-                    format_file(&args, &text, Some(path.clone()));
-                }
-                res
-            });
-            workers.push(worker);
-        }
-        let mut res = vec![];
-        for worker in workers {
-            res.append(&mut worker.join().expect("Thread failed to join"));
-        }
+        let res: Vec<String> = paths
+            .par_iter()
+            .flat_map(|path| worker_task(&args, path))
+            .collect();
         println!("{}", res.iter().format("\n\n\n"));
     } else {
         let mut text: String = String::new();
@@ -115,6 +74,43 @@ fn main() {
         }
         format_file(&args, &text, args.path.clone());
     }
+}
+
+fn worker_task(args: &Args, path: &String) -> Vec<String> {
+    let mut res = vec![];
+    let text = if args.lossy {
+        let raw = fs::read(&path).map_or_else(|err| panic!("{err}"), |t| t);
+        String::from_utf8_lossy(&raw).to_string()
+    } else {
+        fs::read_to_string(&path).map_or_else(|_| panic!("Failed to read text from {path}"), |t| t)
+    };
+    if args.check {
+        match ksp_cfg_formatter::parse_to_ast(&text) {
+            Ok(doc) => match ksp_cfg_formatter::transformer::assignments_first(doc) {
+                Ok(_) => (),
+                Err(_err) => {
+                    // res.push(format!("{path}\n{_err}"))
+                }
+            },
+            Err(errs) => {
+                for err in errs.0 {
+                    use ksp_cfg_formatter::parser::nom::Severity as sev;
+                    if matches!(
+                        err.severity,
+                        sev::Error //| sev::Warning
+                    ) {
+                        res.push(format!("{} {}\n{}", path, err.range, err));
+                    }
+                }
+                for diag in errs.1 {
+                    res.push(format!("{} {}\n{}", path, diag.range, diag));
+                }
+            }
+        };
+    } else {
+        format_file(&args, &text, Some(path.clone()));
+    }
+    res
 }
 
 fn format_file(args: &Args, text: &str, path: Option<String>) {

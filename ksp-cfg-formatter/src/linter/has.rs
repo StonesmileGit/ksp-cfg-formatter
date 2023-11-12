@@ -44,7 +44,7 @@ impl<'a> Lintable for Ranged<crate::parser::HasPredicate<'a>> {
                 if let Some(value) = value {
                     if value.is_empty() {
                         items.push(Diagnostic {
-                            range: self.get_range(),
+                            range: value.get_range(),
                             severity: Some(crate::parser::nom::Severity::Warning),
                             message: "Expected value".to_owned(),
                             ..Default::default()

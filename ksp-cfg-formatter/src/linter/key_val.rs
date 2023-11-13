@@ -12,8 +12,9 @@ impl<'a> Lintable for crate::parser::KeyVal<'a> {
             items.push(diag);
         }
         // The keyval has no operator, but uses MM logic in the key
-        if let Some(diag) = noop_but_mm(self) {
-            items.push(diag);
+        let mut diagnostics = noop_but_mm(self);
+        if !diagnostics.is_empty() {
+            items.append(&mut diagnostics);
         }
 
         (items, Some(result))
@@ -44,7 +45,6 @@ fn op_in_noop_node(
                     .expect("It was just determined that the top_level_no_op is Some"),
                 message: "This is where it happened".to_owned(),
             }]),
-            ..Default::default()
         })
     } else {
         None
@@ -73,9 +73,9 @@ fn range_for_rest_of_name(key_val: &crate::parser::KeyVal) -> Vec<crate::parser:
 }
 
 // TODO: Are some MM things allowed?
-fn noop_but_mm(key_val: &crate::parser::KeyVal) -> Option<Diagnostic> {
+fn noop_but_mm(key_val: &crate::parser::KeyVal) -> Vec<Diagnostic> {
     if key_val.operator.is_some() || key_val.path.is_some() {
-        return None;
+        return vec![];
     }
     let ranges = range_for_rest_of_name(key_val);
     let mut diagnostics = vec![];
@@ -89,5 +89,5 @@ fn noop_but_mm(key_val: &crate::parser::KeyVal) -> Option<Diagnostic> {
             ..Default::default()
         });
     }
-    None
+    diagnostics
 }

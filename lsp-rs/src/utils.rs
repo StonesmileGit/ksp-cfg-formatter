@@ -2,7 +2,7 @@ use ksp_cfg_formatter::parser::nom::Severity;
 use lsp_types::DiagnosticSeverity;
 
 use ksp_cfg_formatter::linter::{Diagnostic, RelatedInformation};
-pub fn sev_to_sev(severity: Severity) -> DiagnosticSeverity {
+pub const fn sev_to_sev(severity: &Severity) -> DiagnosticSeverity {
     match severity {
         Severity::Error => DiagnosticSeverity::ERROR,
         Severity::Warning => DiagnosticSeverity::WARNING,
@@ -22,13 +22,16 @@ pub(crate) fn range_to_range(parser_range: ksp_cfg_formatter::parser::Range) -> 
 pub fn diag_to_diag(val: &Diagnostic) -> lsp_types::Diagnostic {
     lsp_types::Diagnostic {
         range: range_to_range(val.range),
-        severity: val.severity.clone().map(crate::utils::sev_to_sev),
+        severity: val
+            .severity
+            .clone()
+            .map(|sev| crate::utils::sev_to_sev(&sev)),
         source: val.source.clone(),
         message: val.message.clone(),
         related_information: val
             .related_information
             .as_ref()
-            .and_then(|v| Some(v.clone().into_iter().map(relinfo_to_relinfo).collect())),
+            .map(|v| v.clone().into_iter().map(relinfo_to_relinfo).collect()),
         ..Default::default()
     }
 }

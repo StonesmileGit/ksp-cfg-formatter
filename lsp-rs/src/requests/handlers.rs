@@ -97,7 +97,7 @@ pub(crate) fn handle_diagnostics_request(
         use lsp_types::DiagnosticSeverity as lsp_sev;
         disp_errors.push(lsp_types::Diagnostic {
             range: crate::utils::range_to_range(error.range),
-            severity: Some(crate::utils::sev_to_sev(error.severity)),
+            severity: Some(crate::utils::sev_to_sev(&error.severity)),
             message: error.message,
             related_information: error.context.clone().map(|context| {
                 vec![DiagnosticRelatedInformation {

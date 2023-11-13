@@ -7,6 +7,7 @@ mod key_val;
 mod node;
 
 /// Takes a `Document` and lints the AST
+#[must_use]
 pub fn lint_ast(ast: &crate::parser::Document, this_url: Option<url::Url>) -> Vec<Diagnostic> {
     // Only return the Diagnostic part, and ignore the result at this point
     ast.lint(&LinterState {
@@ -31,7 +32,7 @@ trait Lintable {
 }
 
 /// Struct for a diagnostic message, like an error or warning
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Diagnostic {
     /// The text range the diagnostic covers
     pub range: Range,
@@ -67,18 +68,6 @@ pub struct Location {
     pub url: Option<url::Url>,
     /// The range of the location
     pub range: Range,
-}
-
-impl Default for Diagnostic {
-    fn default() -> Self {
-        Self {
-            range: Default::default(),
-            severity: Default::default(),
-            message: Default::default(),
-            source: Default::default(),
-            related_information: Default::default(),
-        }
-    }
 }
 
 impl<'a> Lintable for NodeItem<'a> {

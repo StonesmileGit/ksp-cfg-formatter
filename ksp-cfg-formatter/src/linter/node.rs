@@ -35,7 +35,7 @@ impl<'a> Lintable for crate::parser::Ranged<crate::parser::Node<'a>> {
             if name.is_empty() {
                 items.push(Diagnostic {
                     range: name.get_range(),
-                    severity: Some(crate::parser::nom::Severity::Warning),
+                    severity: Some(crate::parser::nom::Severity::Info),
                     message: "Expected Name".to_owned(),
                     ..Default::default()
                 });
@@ -126,7 +126,6 @@ fn op_in_noop(
                 message: "This is where it happened".to_owned(),
             }]),
             source: Some("Unexpected_operator".to_owned()),
-            ..Default::default()
         })
     } else {
         None

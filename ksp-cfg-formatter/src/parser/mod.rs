@@ -199,6 +199,7 @@ impl Range {
     }
 
     /// Combines overlapping ranges into one range, creating a set of non-overlapping ranges as output
+    #[must_use]
     pub fn combine_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
         ranges.sort();
         let mut ret_ranges = vec![];
@@ -208,7 +209,7 @@ impl Range {
                 curr_range = Some(range);
                 continue;
             }
-            let unw_range = curr_range.unwrap();
+            let unw_range = curr_range.expect("If it was None, we would have continued");
             if range.start <= unw_range.end {
                 curr_range = Some(unw_range + range);
                 continue;

@@ -1,10 +1,9 @@
 use std::fmt::Debug;
 
-use log::{debug, trace};
+use log::debug;
 use nom::{
-    branch::alt,
     character::complete::{line_ending, multispace0, space0},
-    combinator::{eof, map, opt, recognize, verify},
+    combinator::{map, opt, recognize, verify},
     error::ErrorKind,
     sequence::{delimited, pair, terminated},
     Slice,
@@ -204,7 +203,7 @@ where
     T: Debug,
 {
     move |input| {
-        trace!("{}", &input);
+        // log::trace!("Input to debug_fn:\n{}", &input);
         match parser(input) {
             Ok((remaining, out)) => {
                 if print {

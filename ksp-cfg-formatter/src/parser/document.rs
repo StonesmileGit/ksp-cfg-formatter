@@ -1,10 +1,10 @@
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take},
-    character::complete::{anychar, multispace0},
+    character::complete::{anychar, multispace0, space1},
     combinator::{eof, map, not, opt, recognize, rest},
     multi::many_till,
-    sequence::{preceded, terminated, tuple},
+    sequence::{pair, preceded, terminated, tuple},
 };
 
 use super::{
@@ -88,11 +88,14 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
                     debug_fn(
                         alt((
                             map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
-                            map(utils::empty_line, |_| DocItem::EmptyLine),
+                            map(
+                                alt((utils::empty_line, map(pair(space1, eof), |_| ()))),
+                                |_| DocItem::EmptyLine,
+                            ),
                             map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
                             // If none of the above succeeded, consume the line as an error and try again
                             debug_fn(
-                                map(recognize(error_till(non_empty(is_not("}\r\n")))), |a| {
+                                map(recognize(error_till(non_empty(is_not("\r\n")))), |a| {
                                     DocItem::Error(Ranged::new(a.clone().fragment(), a.into()))
                                 }),
                                 "Got an error while parsing doc. Skipped line",

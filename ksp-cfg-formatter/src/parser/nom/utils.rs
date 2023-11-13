@@ -22,7 +22,7 @@ where
 }
 
 pub(crate) fn empty_line(input: LocatedSpan) -> IResult<()> {
-    let empty_line = recognize(pair(space0, alt((line_ending, eof))));
+    let empty_line = recognize(pair(space0, line_ending));
     map(empty_line, |_| ())(input)
 }
 

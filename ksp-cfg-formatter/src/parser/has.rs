@@ -148,14 +148,14 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<HasPredicate<'a>> {
         // // TODO: Is this correct?
         // hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
-        let has_value = delimited(
+        let has_value = range_wrap(delimited(
             char('['),
-            range_wrap(opt(non_empty(recognize(many_till(
+            opt(non_empty(recognize(many_till(
                 anychar,
                 peek(alt((line_ending::<LocatedSpan, _>, tag("]"), tag("//")))),
-            ))))),
+            )))),
             expect(char(']'), "Expected closing `]`"),
-        );
+        ));
         // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
         // hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
         let has_key = tuple((

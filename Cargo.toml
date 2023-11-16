@@ -4,5 +4,5 @@ members = [
 	"cli_app",
 	"ksp-cfg-formatter",
 	"xtask",
-	"lsp-rs"
+	"lsp-extension/lsp-rs"
 ]

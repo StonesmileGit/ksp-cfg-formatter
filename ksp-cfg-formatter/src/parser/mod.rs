@@ -87,7 +87,7 @@ impl<T> Ranged<T> {
         self.range
     }
 
-    /// Map a Ranged<T> to a Ranged<U> using the passed function
+    /// Map a `Ranged<T>` to a `Ranged<U>` using the passed function
     #[must_use]
     pub fn map<U, F>(self, f: F) -> Ranged<U>
     where

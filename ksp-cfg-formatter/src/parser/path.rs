@@ -6,7 +6,7 @@ use nom::{
     bytes::complete::{is_a, is_not, tag},
     character::complete::char,
     combinator::{map, opt, recognize, value},
-    multi::{many0, many1, separated_list1},
+    multi::{many0, many1},
     sequence::{delimited, pair, terminated, tuple},
 };
 use nom_unicode::complete::alphanumeric1;
@@ -45,6 +45,7 @@ pub enum PathSegment<'a> {
     /// Segment is `..`, going up a level
     DotDot,
     /// Name of a node to traverse into
+    // TODO: :HAS[] is allowed
     NodeName {
         /// Node type
         node: &'a str,
@@ -126,8 +127,8 @@ impl<'a> CSTParse<'a, Ranged<PathSegment<'a>>> for PathSegment<'a> {
         ))));
         let name = opt(delimited(
             char('['),
-            // TODO: is a list allowed here?
-            recognize(separated_list1(char('|'), is_not("|]"))),
+            // TODO: Make sure the name search doesn't consume everything in a file
+            recognize(is_not("]")),
             expect(char(']'), "Expected closing `]`"),
         ));
         let segment = tuple((node, name));

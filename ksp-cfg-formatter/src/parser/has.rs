@@ -9,7 +9,7 @@ use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag, tag_no_case},
-    character::complete::{anychar, char, line_ending, one_of},
+    character::complete::{anychar, char, line_ending},
     combinator::{map, opt, peek, recognize, value},
     multi::{many1, many_till, separated_list1},
     sequence::{delimited, tuple},
@@ -120,7 +120,6 @@ impl<'a> Display for HasBlock<'a> {
 
 impl<'a> CSTParse<'a, Ranged<HasBlock<'a>>> for HasBlock<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<HasBlock<'a>>> {
-        // hasBlock     = { ^":HAS[" ~ (hasBlockPart ~ (("&" | ",") ~ hasBlockPart)*) ~ "]" }
         range_wrap(map(
             delimited(
                 tag_no_case(":HAS["),
@@ -146,8 +145,6 @@ impl<'a> CSTParse<'a, Ranged<HasBlock<'a>>> for HasBlock<'a> {
 
 impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<HasPredicate<'a>> {
-        // // TODO: Is this correct?
-        // hasValue = { (!(Newline | "]" | "//") ~ ANY)* }
         let has_value = range_wrap(delimited(
             char('['),
             opt(non_empty(recognize(many_till(
@@ -156,18 +153,16 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
             )))),
             expect(char(']'), "Expected closing `]`"),
         ));
-        // identifier = ${ ("-" | "_" | "." | "+" | "*" | "?" | LETTER | ASCII_DIGIT)+ }
-        // hasKey = _{ ("#" | "~") ~ identifier ~ ("[" ~ hasValue ~ "]")? }
-        let has_key = tuple((
-            expect(
-                alt((value(false, char('#')), value(true, char('~')))),
-                "Expected # or ~",
-            ),
-            identifier,
-            debug_fn(opt(has_value), "Got value", true),
-        ));
-        let key_map = map(
-            has_key,
+        let value_determinative = expect(
+            alt((value(false, char('#')), value(true, char('~')))),
+            "Expected # or ~",
+        );
+        let value_constraint = map(
+            tuple((
+                value_determinative,
+                identifier,
+                debug_fn(opt(has_value), "Got value", true),
+            )),
             |inner: (
                 Option<bool>,
                 LocatedSpan,
@@ -181,30 +176,32 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
                 }
             },
         );
-        // hasNodeName =  { ("[" ~ (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?" | "*" | "." | "|")+ ~ "]") }
-        let has_node_name = delimited(
+
+        let name_constraint = delimited(
             char('['),
             recognize(many1(alt((alphanumeric1, is_a("/_-?*.|"))))),
             expect(char(']'), "Expected closing `]`"),
         );
-        // hasNode     = _{ ("@" | "!" | "-") ~ identifier ~ hasNodeName? ~ hasBlock? }
-        let has_node = tuple((
-            expect(
-                alt((value(false, char('@')), value(true, one_of("!-")))),
-                "Expected @ or !",
-            ),
-            identifier,
-            opt(has_node_name),
-            opt(HasBlock::parse),
-        ));
-        let node_map = map(has_node, |inner| HasPredicate::NodePredicate {
-            negated: inner.0.unwrap_or_default(),
-            node_type: inner.1.fragment(),
-            name: inner.2.map(|s| *s.fragment()),
-            has_block: inner.3,
-        });
-        // hasBlockPart = { hasNode | hasKey }
-        alt((node_map, key_map))(input)
+        let node_determinative = expect(
+            alt((value(false, char('@')), value(true, char('!')))),
+            "Expected @ or !",
+        );
+        let node_constraint = map(
+            tuple((
+                node_determinative,
+                identifier,
+                opt(name_constraint),
+                opt(HasBlock::parse),
+            )),
+            |inner| HasPredicate::NodePredicate {
+                negated: inner.0.unwrap_or_default(),
+                node_type: inner.1.fragment(),
+                name: inner.2.map(|s| *s.fragment()),
+                has_block: inner.3,
+            },
+        );
+
+        alt((node_constraint, value_constraint))(input)
     }
 }
 

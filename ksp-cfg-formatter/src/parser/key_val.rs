@@ -1,6 +1,6 @@
 use super::{
     nom::{
-        utils::{debug_fn, ignore_line_ending, range_wrap, ws},
+        utils::{ignore_line_ending, range_wrap, ws},
         CSTParse, IResult, LocatedSpan,
     },
     ASTPrint, ArrayIndex, AssignmentOperator, Comment, Index, NeedsBlock, Operator, Path, Range,
@@ -96,56 +96,51 @@ impl<'a> ASTPrint for KeyVal<'a> {
 
 impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<KeyVal<'a>>> {
-        // This parses anything that could potentially be a key
-        let dumb_key = recognize(many_till(
-            anychar,
-            peek(alt((
-                recognize(preceded(space0, AssignmentOperator::parse)),
-                recognize(Comment::parse),
-                recognize(one_of("{}\n\r")),
-            ))),
-        ));
-
-        let assignment_operator = ws(AssignmentOperator::parse);
-
-        let value = range_wrap(map(
-            ignore_line_ending(recognize(many_till(
+        let parser = move |input| {
+            // This parses anything that could potentially be a key
+            let (input, dumb_key) = recognize(many_till(
                 anychar,
                 peek(alt((
+                    recognize(preceded(space0, AssignmentOperator::parse)),
                     recognize(Comment::parse),
-                    preceded(space0, is_a("}\r\n")),
+                    recognize(one_of("{}\n\r")),
                 ))),
-            ))),
-            |s| *s.fragment(),
-        ));
+            ))(input)?;
+            let (complete_key, errors) = proper_key_parser(dumb_key);
 
-        let comment = opt(ignore_line_ending(Comment::parse));
+            let (input, assignment_operator) = ws(AssignmentOperator::parse)(input)?;
 
-        let mut pseudo_key_val = tuple((dumb_key, assignment_operator, value, comment));
-        range_wrap({
-            move |input| {
-                let (rest, pseudo_kv) = pseudo_key_val(input)?;
-                let (dumb_key, assignment_operator, val, comment) = pseudo_kv;
+            let (input, value) = range_wrap(map(
+                ignore_line_ending(recognize(many_till(
+                    anychar,
+                    peek(alt((
+                        recognize(Comment::parse),
+                        preceded(space0, is_a("}\r\n")),
+                    ))),
+                ))),
+                |s| *s.fragment(),
+            ))(input)?;
 
-                let (complete_key, errors) = dumb_key_parser(dumb_key);
-                let key_val = KeyVal {
-                    path: complete_key.0,
-                    operator: complete_key.1,
-                    key: complete_key.2,
-                    needs: complete_key.3,
-                    index: complete_key.4,
-                    array_index: complete_key.5,
-                    key_padding: None,
-                    assignment_operator,
-                    val,
-                    comment,
-                };
-                for err in errors {
-                    rest.extra.report_error(err);
-                }
-                Ok((rest, key_val))
+            let (input, comment) = opt(ignore_line_ending(Comment::parse))(input)?;
+
+            let key_val = KeyVal {
+                path: complete_key.0,
+                operator: complete_key.1,
+                key: complete_key.2,
+                needs: complete_key.3,
+                index: complete_key.4,
+                array_index: complete_key.5,
+                key_padding: None,
+                assignment_operator,
+                val: value,
+                comment,
+            };
+            for err in errors {
+                input.extra.report_error(err);
             }
-        })(input)
+            Ok((input, key_val))
+        };
+        range_wrap(parser)(input)
     }
 }
 
@@ -158,7 +153,7 @@ type ParsedKey<'a> = (
     Option<Ranged<ArrayIndex>>,
 );
 
-fn dumb_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Error>) {
+fn proper_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Error>) {
     // Clear errors on dumb_key to avoid duplicated errors
     dumb_key.extra.errors.borrow_mut().clear();
 
@@ -170,16 +165,12 @@ fn dumb_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Err
         recognize(separated_list1(
             space1::<LocatedSpan, _>,
             recognize(many1(alt((
-                debug_fn(is_a("#_.?"), "got1", false),
-                debug_fn(alphanumeric1, "got2", false),
-                debug_fn(
-                    recognize(terminated(
-                        one_of("-+*"),
-                        alt((recognize(none_of("=")), eof)),
-                    )),
-                    "got3",
-                    false,
-                ),
+                alphanumeric1,
+                is_a("#_.?()"),
+                recognize(terminated(
+                    one_of("-+*"),
+                    alt((recognize(none_of("=")), eof)),
+                )),
                 terminated(tag("/"), none_of("/=")),
             )))),
         )),
@@ -188,6 +179,7 @@ fn dumb_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Err
     let needs = opt(NeedsBlock::parse);
     let index = opt(Index::parse);
     let array_index = opt(ArrayIndex::parse);
+    // TODO: Where can Needs be located? Index *HAS* to be before array index
     let proper_key = tuple((path, operator, key, needs, index, array_index));
     // Everything in the dumb key has to be parsed, otherwise there is an error in the text
     let res = all_consuming(proper_key)(dumb_key.clone());

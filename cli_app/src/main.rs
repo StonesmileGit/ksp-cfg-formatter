@@ -2,7 +2,11 @@ use clap::Parser;
 use itertools::Itertools;
 use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::{fs, io::BufRead, result::Result};
+use std::{
+    fs::{self, metadata},
+    io::BufRead,
+    result::Result,
+};
 use walkdir::WalkDir;
 
 #[allow(clippy::struct_excessive_bools)]
@@ -79,10 +83,10 @@ fn main() {
 fn worker_task(args: &Args, path: &String) -> Vec<String> {
     let mut res = vec![];
     let text = if args.lossy {
-        let raw = fs::read(&path).map_or_else(|err| panic!("{err}"), |t| t);
+        let raw = fs::read(path).map_or_else(|err| panic!("{err}"), |t| t);
         String::from_utf8_lossy(&raw).to_string()
     } else {
-        fs::read_to_string(&path).map_or_else(|_| panic!("Failed to read text from {path}"), |t| t)
+        fs::read_to_string(path).map_or_else(|_| panic!("Failed to read text from {path}"), |t| t)
     };
     if args.check {
         match ksp_cfg_formatter::parse_to_ast(&text) {
@@ -93,22 +97,20 @@ fn worker_task(args: &Args, path: &String) -> Vec<String> {
                 }
             },
             Err(errs) => {
+                // res.push(format!("{path}"));
+                use ksp_cfg_formatter::parser::nom::Severity as sev;
                 for err in errs.0 {
-                    use ksp_cfg_formatter::parser::nom::Severity as sev;
-                    if matches!(
-                        err.severity,
-                        sev::Error //| sev::Warning
-                    ) {
-                        res.push(format!("{} {}\n{}", path, err.range, err));
-                    }
+                    res.push(format!("{} {}\n{}", path, err.range, err));
                 }
                 for diag in errs.1 {
-                    res.push(format!("{} {}\n{}", path, diag.range, diag));
+                    if matches!(diag.severity, Some(sev::Error | sev::Warning)) {
+                        res.push(format!("{} {}\n{}", path, diag.range, diag.message));
+                    }
                 }
             }
         };
     } else {
-        format_file(&args, &text, Some(path.clone()));
+        format_file(args, &text, Some(path.clone()));
     }
     res
 }
@@ -133,6 +135,9 @@ fn format_file(args: &Args, text: &str, path: Option<String>) {
 /// Generates a Vec of all the paths to ksp cfg files in a `GameData` folder
 fn files_from_path(path: &String) -> Vec<String> {
     let mut paths = Vec::new();
+    if metadata(path).unwrap().is_file() {
+        paths.push(path.clone());
+    }
     for path in WalkDir::new(path).into_iter().filter_map(Result::ok) {
         let name = path.path().to_owned();
         if let Some(extension) = name.extension() {

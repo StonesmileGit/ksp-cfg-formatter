@@ -22,8 +22,7 @@ pub enum Operator {
     Copy,
     /// Delete a node/variable
     Delete,
-    /// Wanted?
-    //TODO: Wanted?
+    /// Delete a node/variable (Alt 2)
     DeleteAlt,
     /// Rename a node. Not allowed on top level nodes
     Rename,

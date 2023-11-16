@@ -1,9 +1,7 @@
 use itertools::Itertools;
 use nom::branch::alt;
 use nom::bytes::complete::{is_a, is_not};
-use nom::character::complete::{
-    anychar, char, line_ending, multispace0, multispace1, one_of, space0,
-};
+use nom::character::complete::{anychar, char, line_ending, multispace1, one_of, space0};
 use nom::combinator::{all_consuming, map, opt, peek, recognize};
 use nom::multi::{many0, many1, many_till, separated_list0};
 use nom::sequence::{delimited, preceded, tuple};
@@ -232,28 +230,36 @@ use super::nom::{utils::ignore_line_ending, IResult, LocatedSpan};
 
 impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Node<'a>>> {
+        log::trace!("Entered node parser with input:\n{input}");
         let top_level = input.extra.state.top_level;
 
-        // TODO: make sure this doesn't match too much
-        let dumb_identifier = recognize(tuple((
-            many_till(
-                anychar,
-                peek(alt((
-                    recognize(Comment::parse),
-                    recognize(preceded(multispace0, one_of("{}\r\n"))),
-                ))),
-            ),
-            many0(alt((recognize(Comment::parse), recognize(multispace1)))),
-        )));
+        let parser = move |input| {
+            // TODO: make sure this doesn't match too much
+            let (input, dumb_identifier) = recognize(tuple((
+                many_till(
+                    anychar,
+                    peek(alt((
+                        recognize(Comment::parse),
+                        recognize(preceded(space0, one_of("{}\r\n"))),
+                    ))),
+                ),
+                many0(alt((recognize(Comment::parse), recognize(multispace1)))),
+            )))(input)?;
 
-        let block = preceded(opt(line_ending), preceded(space0, parse_block));
+            log::trace!("dumb identifier:\n{dumb_identifier}");
 
-        let trailing_comment = opt(Comment::parse);
+            let (input, block) =
+                match preceded(opt(line_ending), preceded(space0, parse_block))(input) {
+                    Ok(it) => it,
+                    Err(err) => {
+                        log::trace!("block error:\n{err}");
+                        return Err(err);
+                    }
+                };
 
-        let mut node = tuple((dumb_identifier, block, trailing_comment));
-        range_wrap(move |input| {
-            let (rest, pseudo_node) = node(input)?;
-            let (dumb_identifier, block, trailing_comment) = pseudo_node;
+            log::trace!("block:\n{block:?}");
+
+            let (input, trailing_comment) = opt(Comment::parse)(input)?;
 
             let (complete_identifier, errors) = dumb_identifier_parser(dumb_identifier);
             let node = Node {
@@ -268,14 +274,15 @@ impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
                 index: complete_identifier.7,
                 id_comment: complete_identifier.8,
                 comments_after_newline: complete_identifier.9,
-                block,
-                trailing_comment,
+                block: block.clone(),
+                trailing_comment: trailing_comment.clone(),
             };
             for err in errors {
-                rest.extra.report_error(err);
+                input.extra.report_error(err);
             }
-            Ok((rest, node))
-        })(input)
+            Ok((input, node))
+        };
+        range_wrap(parser)(input)
     }
 }
 
@@ -506,24 +513,33 @@ where
 }
 
 fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
+    log::trace!("parsing block:\n{input}");
     let block = delimited(
         char('{'),
-        ws_le(many0(ws(alt((
-            map(ignore_line_ending(ws(Comment::parse)), |c| {
-                NodeItem::Comment(c)
-            }),
-            map(ws(empty_line), |_| NodeItem::EmptyLine),
-            map(ws(KeyVal::parse), NodeItem::KeyVal),
-            settings_for_inner_block(map(ignore_line_ending(ws(Node::parse)), NodeItem::Node)),
-            debug_fn(
-                map(recognize(error_till(non_empty(is_not("}\r\n")))), |s| {
-                    NodeItem::Error(Ranged::new(s.clone().fragment(), s.into()))
+        ws_le(debug_fn(
+            many0(ws(alt((
+                map(ignore_line_ending(ws(Comment::parse)), |c| {
+                    NodeItem::Comment(c)
                 }),
-                "Got an error while parsing node. Skipped line",
-                true,
-            ),
-        ))))),
-        expect(char('}'), "Expected closing }"),
+                map(ws(empty_line), |_| NodeItem::EmptyLine),
+                debug_fn(map(ws(KeyVal::parse), NodeItem::KeyVal), "keyval", false),
+                settings_for_inner_block(map(ignore_line_ending(ws(Node::parse)), NodeItem::Node)),
+                debug_fn(
+                    map(recognize(error_till(non_empty(is_not("}\r\n")))), |s| {
+                        NodeItem::Error(Ranged::new(s.clone().fragment(), s.into()))
+                    }),
+                    "Got an error while parsing node. Skipped line",
+                    true,
+                ),
+            )))),
+            "block",
+            true,
+        )),
+        debug_fn(
+            expect(char('}'), "Expected closing }"),
+            "closing bracket",
+            true,
+        ),
     );
     map(block, |inner: Vec<NodeItem>| inner)(input)
 }

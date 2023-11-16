@@ -1,6 +1,6 @@
 use super::{
     nom::{
-        utils::{ignore_line_ending, range_wrap, ws},
+        utils::{debug_fn, ignore_line_ending, range_wrap, ws},
         CSTParse, IResult, LocatedSpan,
     },
     ASTPrint, ArrayIndex, AssignmentOperator, Comment, Index, NeedsBlock, Operator, Path, Range,
@@ -9,10 +9,10 @@ use super::{
 use nom::{
     branch::alt,
     bytes::complete::{is_a, tag},
-    character::complete::{anychar, char, none_of, one_of, space0, space1},
+    character::complete::{anychar, char, line_ending, none_of, one_of, space0, space1},
     combinator::{all_consuming, eof, map, opt, peek, recognize},
     multi::{many1, many_till, separated_list1},
-    sequence::{preceded, terminated, tuple},
+    sequence::{pair, preceded, terminated, tuple},
 };
 use nom_unicode::complete::alphanumeric1;
 
@@ -110,18 +110,24 @@ impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
 
             let (input, assignment_operator) = ws(AssignmentOperator::parse)(input)?;
 
-            let (input, value) = range_wrap(map(
-                ignore_line_ending(recognize(many_till(
-                    anychar,
-                    peek(alt((
-                        recognize(Comment::parse),
-                        preceded(space0, is_a("}\r\n")),
+            let (input, (value, comment)) = map(
+                ignore_line_ending(pair(
+                    range_wrap(recognize(many_till(
+                        anychar,
+                        peek(alt((
+                            recognize(Comment::parse),
+                            preceded(space0, is_a("}\r\n")),
+                        ))),
                     ))),
-                ))),
-                |s| *s.fragment(),
-            ))(input)?;
+                    terminated(
+                        opt(Comment::parse),
+                        opt(terminated(space0, peek(line_ending))),
+                    ),
+                )),
+                |(s, c)| (s.map(|s| *s.fragment()), c),
+            )(input)?;
 
-            let (input, comment) = opt(ignore_line_ending(Comment::parse))(input)?;
+            // let (input, comment) = opt(ignore_line_ending(Comment::parse))(input)?;
 
             let key_val = KeyVal {
                 path: complete_key.0,
@@ -140,7 +146,7 @@ impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
             }
             Ok((input, key_val))
         };
-        range_wrap(parser)(input)
+        range_wrap(debug_fn(parser, "keyVal", true))(input)
     }
 }
 

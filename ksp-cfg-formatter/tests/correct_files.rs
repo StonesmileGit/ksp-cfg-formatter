@@ -61,3 +61,5 @@ gen_test!(has_needs_for, "tests/has_needs_for.cfg", true);
 gen_test!(nodes_above_keys, "tests/nodes_above_keys.cfg", true);
 
 gen_test!(wildcards, "tests/wildcards.cfg", false);
+
+gen_test!(comment_after_keyval, "tests/comment_after_keyval.cfg", true);

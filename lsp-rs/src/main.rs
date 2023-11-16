@@ -18,6 +18,7 @@ mod utils;
 use lsp_server::{Connection, Message, Request, Response};
 
 fn main() -> anyhow::Result<()> {
+    // FIXME: The log level changing does not get applied. Look for alternatives
     stderrlog::new()
         .module(module_path!())
         .modules(vec!["ksp-cfg-formatter"])

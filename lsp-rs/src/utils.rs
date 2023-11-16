@@ -28,21 +28,26 @@ pub fn diag_to_diag(val: &Diagnostic) -> lsp_types::Diagnostic {
             .map(|sev| crate::utils::sev_to_sev(&sev)),
         source: val.source.clone(),
         message: val.message.clone(),
-        related_information: val
-            .related_information
-            .as_ref()
-            .map(|v| v.clone().into_iter().map(relinfo_to_relinfo).collect()),
+        related_information: val.related_information.as_ref().map(|v| {
+            v.clone()
+                .into_iter()
+                .map(relinfo_to_relinfo)
+                .filter_map(std::result::Result::ok)
+                .collect()
+        }),
         ..Default::default()
     }
 }
 
-pub fn relinfo_to_relinfo(value: RelatedInformation) -> lsp_types::DiagnosticRelatedInformation {
-    lsp_types::DiagnosticRelatedInformation {
+pub fn relinfo_to_relinfo(
+    value: RelatedInformation,
+) -> Result<lsp_types::DiagnosticRelatedInformation, ()> {
+    Ok(lsp_types::DiagnosticRelatedInformation {
         location: lsp_types::Location {
-            // FIXME: This unwrap is super dangerous
-            uri: value.location.url.unwrap(),
+            // TODO: Add error instead of unit
+            uri: value.location.url.ok_or(())?,
             range: crate::utils::range_to_range(value.location.range),
         },
         message: value.message,
-    }
+    })
 }

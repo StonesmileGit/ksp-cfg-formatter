@@ -92,6 +92,18 @@ fn request_workspace_config(state: &mut State) -> anyhow::Result<()> {
                         state.settings.log_level = log_level;
                         log::set_max_level(log_level);
                     }
+                    if let Some(serde_json::Value::String(should_collapse)) = obj.get("shouldCollapse") {
+                        let should_collapse = match should_collapse.as_str() {
+                            "keep" => None,
+                            "collapse" => Some(true),
+                            "expand" => Some(false),
+                            _ => {
+                                error!("Parsing the shouldCollapse setting failed! Defaulting to should collapse\n");
+                                Some(true)
+                            }
+                        };
+                        state.settings.should_collapse = should_collapse;
+                    }
                 };
             };
             // let a = response.result.and_then(|res| {

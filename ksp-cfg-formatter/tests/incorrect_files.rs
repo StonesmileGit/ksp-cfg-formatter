@@ -16,7 +16,7 @@ fn read_local_path(path: &str) -> String {
 fn simple() {
     let input = read_local_path("tests/incorrect_files/simple_input.cfg");
     let output = read_local_path("tests/incorrect_files/simple_output.cfg");
-    let formatter = Formatter::new(Indentation::Tabs, true, LineReturn::Identify);
+    let formatter = Formatter::new(Indentation::Tabs, Some(true), LineReturn::Identify);
     let formatted_text = formatter.format_text(&input);
     assert_eq!(output, formatted_text);
 }
@@ -25,7 +25,7 @@ fn simple() {
 fn trailing_spaces() {
     let input = read_local_path("tests/incorrect_files/trailing_spaces_input.cfg");
     let output = read_local_path("tests/incorrect_files/trailing_spaces_output.cfg");
-    let formatter = Formatter::new(Indentation::Spaces(4), true, LineReturn::Identify);
+    let formatter = Formatter::new(Indentation::Spaces(4), Some(true), LineReturn::Identify);
     let formatted_text = formatter.format_text(&input);
     assert_eq!(output, formatted_text);
 }

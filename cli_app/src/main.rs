@@ -24,7 +24,7 @@ If no path is provided, text is read from stdin."
         long,
         help = "Collapses blocks that only take up one line and are short enough"
     )]
-    inline: bool,
+    inline: Option<bool>,
 
     #[arg(
         long,

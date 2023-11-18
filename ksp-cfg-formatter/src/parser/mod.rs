@@ -42,7 +42,7 @@ pub trait ASTPrint {
         depth: usize,
         indentation: &str,
         line_ending: &str,
-        should_collapse: bool,
+        should_collapse: Option<bool>,
     ) -> String;
 }
 

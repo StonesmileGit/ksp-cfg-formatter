@@ -94,6 +94,7 @@ struct Settings {
     use_tabs: bool,
     indent_size: u64,
     log_level: log::LevelFilter,
+    should_collapse: Option<bool>,
 }
 
 impl Default for Settings {
@@ -102,6 +103,7 @@ impl Default for Settings {
             use_tabs: Default::default(),
             indent_size: Default::default(),
             log_level: log::max_level(),
+            should_collapse: Some(true),
         }
     }
 }

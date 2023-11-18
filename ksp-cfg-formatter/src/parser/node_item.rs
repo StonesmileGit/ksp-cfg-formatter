@@ -20,7 +20,7 @@ impl<'a> ASTPrint for NodeItem<'a> {
         depth: usize,
         indentation: &str,
         line_ending: &str,
-        should_collapse: bool,
+        should_collapse: Option<bool>,
     ) -> String {
         match self {
             Self::Node(node) => node.ast_print(depth, indentation, line_ending, should_collapse),

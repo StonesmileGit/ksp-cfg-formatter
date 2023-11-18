@@ -2,7 +2,7 @@ use itertools::Itertools;
 use nom::branch::alt;
 use nom::bytes::complete::{is_a, is_not};
 use nom::character::complete::{anychar, char, line_ending, multispace1, one_of, space0};
-use nom::combinator::{all_consuming, map, opt, peek, recognize};
+use nom::combinator::{all_consuming, consumed, map, opt, peek, recognize};
 use nom::multi::{many0, many1, many_till, separated_list0};
 use nom::sequence::{delimited, preceded, tuple};
 use nom_unicode::complete::alphanumeric1;
@@ -45,6 +45,7 @@ pub struct Node<'a> {
     pub block: Vec<NodeItem<'a>>,
     /// Optional trailing comment after the closing bracket
     pub trailing_comment: Option<Ranged<Comment<'a>>>,
+    was_collapsed: bool,
 }
 
 impl<'a> Node<'a> {
@@ -81,7 +82,7 @@ impl<'a> ASTPrint for Node<'a> {
         depth: usize,
         indentation: &str,
         line_ending: &str,
-        should_collapse: bool,
+        should_collapse: Option<bool>,
     ) -> String {
         let mut output = String::new();
         for comment in &self.comments_after_newline {
@@ -122,7 +123,7 @@ impl<'a> ASTPrint for Node<'a> {
                         line_ending
                     )
                 }
-                1 if should_collapse && short_node(self) => {
+                1 if should_collapse.map_or(self.was_collapsed, |it| it) && short_node(self) => {
                     format!(
                         "{}{} {{ {} }}{}{}",
                         indentation_str,
@@ -248,7 +249,7 @@ impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
 
             log::trace!("dumb identifier:\n{dumb_identifier}");
 
-            let (input, block) =
+            let (input, (block, was_collapsed)) =
                 match preceded(opt(line_ending), preceded(space0, parse_block))(input) {
                     Ok(it) => it,
                     Err(err) => {
@@ -276,6 +277,7 @@ impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
                 comments_after_newline: complete_identifier.9,
                 block: block.clone(),
                 trailing_comment: trailing_comment.clone(),
+                was_collapsed,
             };
             for err in errors {
                 input.extra.report_error(err);
@@ -512,11 +514,11 @@ where
     }
 }
 
-fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
+fn parse_block(input: LocatedSpan) -> IResult<(Vec<NodeItem>, bool)> {
     log::trace!("parsing block:\n{input}");
     let block = delimited(
         char('{'),
-        ws_le(debug_fn(
+        consumed(ws_le(debug_fn(
             many0(ws(alt((
                 map(ignore_line_ending(ws(Comment::parse)), |c| {
                     NodeItem::Comment(c)
@@ -534,14 +536,16 @@ fn parse_block(input: LocatedSpan) -> IResult<Vec<NodeItem>> {
             )))),
             "block",
             true,
-        )),
+        ))),
         debug_fn(
             expect(char('}'), "Expected closing }"),
             "closing bracket",
             true,
         ),
     );
-    map(block, |inner: Vec<NodeItem>| inner)(input)
+    map(block, |inner: (LocatedSpan, Vec<NodeItem>)| {
+        (inner.1, !inner.0.contains('\n'))
+    })(input)
 }
 
 #[cfg(test)]
@@ -556,7 +560,7 @@ mod tests {
         let res = Node::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
-            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", Some(true))),
             Err(err) => panic!("{}", err),
         }
     }
@@ -566,7 +570,7 @@ mod tests {
         let res = Node::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
-            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", Some(true))),
             Err(err) => panic!("{:#?}", err),
         }
     }

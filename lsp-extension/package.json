@@ -33,12 +33,6 @@
 			"type": "object",
 			"title": "Ksp Config Lsp Server configuration",
 			"properties": {
-				"KspCfgLspServer.maxNumberOfProblems": {
-					"scope": "resource",
-					"type": "number",
-					"default": 100,
-					"description": "Controls the maximum number of problems produced by the server."
-				},
 				"KspCfgLspServer.trace.server": {
 					"scope": "window",
 					"type": "string",
@@ -49,6 +43,17 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
+				},
+				"KspCfgLspServer.shouldCollapse": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"keep",
+						"expand",
+						"collapse"
+					],
+					"default": "collapse",
+					"description": "Controls if the formatter should collapse single line nodes, if they are short enough."
 				},
 				"KspCfgLspServer.logLevel": {
 					"scope": "resource",

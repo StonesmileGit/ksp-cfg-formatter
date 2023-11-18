@@ -44,7 +44,7 @@ pub(crate) fn handle_formatting_request(
     };
     let new_text = ksp_cfg_formatter::Formatter::new(
         indentation,
-        false,
+        state.settings.should_collapse,
         ksp_cfg_formatter::LineReturn::Identify,
     )
     .fail_silent()

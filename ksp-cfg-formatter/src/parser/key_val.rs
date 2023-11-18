@@ -65,7 +65,13 @@ impl<'a> KeyVal<'a> {
 }
 
 impl<'a> ASTPrint for KeyVal<'a> {
-    fn ast_print(&self, depth: usize, indentation: &str, line_ending: &str, _: bool) -> String {
+    fn ast_print(
+        &self,
+        depth: usize,
+        indentation: &str,
+        line_ending: &str,
+        _: Option<bool>,
+    ) -> String {
         let indentation = indentation.repeat(depth);
         format!(
             "{}{}{}{}{}{}{}{}{} {} {}{}{}",
@@ -229,7 +235,7 @@ mod tests {
         let res = KeyVal::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
-            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", false)),
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", None)),
             Err(err) => panic!("{}", err),
         }
     }
@@ -239,7 +245,7 @@ mod tests {
         let res = KeyVal::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
-            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", false)),
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", None)),
             Err(err) => panic!("{}", err),
         }
     }

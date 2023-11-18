@@ -33,7 +33,7 @@ impl<'a> ASTPrint for DocItem<'a> {
         depth: usize,
         indentation: &str,
         line_ending: &str,
-        should_collapse: bool,
+        should_collapse: Option<bool>,
     ) -> String {
         match self {
             Self::Node(node) => node.ast_print(depth, indentation, line_ending, should_collapse),
@@ -59,7 +59,7 @@ impl<'a> ASTPrint for Document<'a> {
         depth: usize,
         indentation: &str,
         line_ending: &str,
-        should_collapse: bool,
+        should_collapse: Option<bool>,
     ) -> String {
         let mut output = String::new();
         for item in &self.statements {
@@ -127,7 +127,7 @@ mod tests {
         let res = Document::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
-            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", Some(true))),
             Err(err) => panic!("{}", err),
         }
     }
@@ -137,7 +137,7 @@ mod tests {
         let res = Document::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
-            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", Some(true))),
             Err(err) => panic!("{}", err),
         }
     }
@@ -147,7 +147,7 @@ mod tests {
         let res = Document::parse(LocatedSpan::new_extra(input, State::default()));
 
         match res {
-            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", true)),
+            Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", Some(true))),
             Err(err) => panic!("{}", err),
         }
     }

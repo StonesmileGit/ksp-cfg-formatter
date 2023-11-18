@@ -29,7 +29,7 @@ use parser::{nom::parse, ASTPrint, Document};
 /// let line_return = LineReturn::LF;
 ///
 /// let indentation = Indentation::Tabs;
-/// let formatter = Formatter::new(indentation, false, line_return);
+/// let formatter = Formatter::new(indentation, Some(false), line_return);
 /// ```
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
@@ -53,7 +53,7 @@ pub enum LineReturn {
 /// let indentation = Indentation::Spaces(4);
 ///
 /// let line_return = LineReturn::Identify;
-/// let formatter = Formatter::new(indentation, false, line_return);
+/// let formatter = Formatter::new(indentation, Some(false), line_return);
 /// ```
 #[derive(Clone, Copy)]
 pub enum Indentation {
@@ -86,7 +86,7 @@ impl From<Option<usize>> for Indentation {
 ///
 /// let indentation = Indentation::Tabs;
 /// let line_return = LineReturn::Identify;
-/// let formatter = Formatter::new(indentation, false, line_return);
+/// let formatter = Formatter::new(indentation, Some(false), line_return);
 /// # // this is needed to test the code, but not important to readers
 /// # let input = String::new();
 /// let output = formatter.format_text(&input);
@@ -95,7 +95,7 @@ impl From<Option<usize>> for Indentation {
 /// See [`Formatter::format_text()`]
 pub struct Formatter {
     indentation: Indentation,
-    inline: bool,
+    inline: Option<bool>,
     line_return: LineReturn,
     fail_silent: bool,
 }
@@ -107,10 +107,14 @@ impl Formatter {
     /// ```
     /// use ksp_cfg_formatter::{Formatter, Indentation, LineReturn};
     ///
-    /// let formatter = Formatter::new(Indentation::Tabs, false, LineReturn::Identify);
+    /// let formatter = Formatter::new(Indentation::Tabs, Some(false), LineReturn::Identify);
     /// ```
     #[must_use]
-    pub const fn new(indentation: Indentation, inline: bool, line_return: LineReturn) -> Self {
+    pub const fn new(
+        indentation: Indentation,
+        inline: Option<bool>,
+        line_return: LineReturn,
+    ) -> Self {
         Self {
             indentation,
             inline,
@@ -140,7 +144,7 @@ impl Formatter {
     ///
     /// let indentation = Indentation::Tabs;
     /// let line_return = LineReturn::Identify;
-    /// let formatter = Formatter::new(indentation, false, line_return);
+    /// let formatter = Formatter::new(indentation, Some(false), line_return);
     /// # // this is needed to test the code, but not important to readers
     /// # let input = String::new();
     /// let output = formatter.format_text(&input);

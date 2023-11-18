@@ -27,7 +27,13 @@ impl<'a> Display for Comment<'a> {
 }
 
 impl<'a> ASTPrint for Comment<'a> {
-    fn ast_print(&self, depth: usize, indentation: &str, line_ending: &str, _: bool) -> String {
+    fn ast_print(
+        &self,
+        depth: usize,
+        indentation: &str,
+        line_ending: &str,
+        _: Option<bool>,
+    ) -> String {
         let indentation = indentation.repeat(depth);
         format!("{}{}{}", indentation, self.text, line_ending)
     }

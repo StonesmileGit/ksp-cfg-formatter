@@ -14,9 +14,9 @@ fn read_local_path(path: &str) -> String {
 #[test]
 fn missing_closing_bracket() {
     let text = read_local_path("tests/expected_errors/missing_closing_bracket.cfg");
-    let res = ksp_cfg_formatter::parser::nom::parse(&text).1;
-    let exp_err = vec![ksp_cfg_formatter::parser::nom::Error {
-        severity: ksp_cfg_formatter::parser::nom::Severity::Error,
+    let res = ksp_cfg_formatter::parser::parse(&text).1;
+    let exp_err = vec![ksp_cfg_formatter::parser::Error {
+        severity: ksp_cfg_formatter::parser::Severity::Error,
         message: "Expected closing `]`".to_string(),
         range: ksp_cfg_formatter::parser::Range {
             start: ksp_cfg_formatter::parser::Position { line: 1, col: 11 },

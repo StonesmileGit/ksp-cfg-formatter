@@ -1,4 +1,4 @@
-use ksp_cfg_formatter::parser::nom::Severity;
+use ksp_cfg_formatter::parser::Severity;
 use lsp_types::DiagnosticSeverity;
 
 use ksp_cfg_formatter::linter::{Diagnostic, RelatedInformation};

@@ -12,11 +12,8 @@ use nom::{
 use nom_unicode::complete::alphanumeric1;
 
 use super::{
-    nom::{
-        utils::{debug_fn, expect, range_wrap},
-        CSTParse, IResult, LocatedSpan,
-    },
-    Ranged,
+    parser_helpers::{debug_fn, expect, range_wrap},
+    Ranged, {CSTParse, IResult, LocatedSpan},
 };
 
 /// Where the path starts from
@@ -146,7 +143,7 @@ impl<'a> CSTParse<'a, Ranged<PathSegment<'a>>> for PathSegment<'a> {
 #[cfg(test)]
 mod tests {
 
-    use crate::parser::nom::{LocatedSpan, State};
+    use crate::parser::{LocatedSpan, State};
 
     use super::*;
     #[test]

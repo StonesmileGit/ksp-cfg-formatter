@@ -98,7 +98,7 @@ fn worker_task(args: &Args, path: &String) -> Vec<String> {
             },
             Err(errs) => {
                 // res.push(format!("{path}"));
-                use ksp_cfg_formatter::parser::nom::Severity as sev;
+                use ksp_cfg_formatter::parser::Severity as sev;
                 for err in errs.0 {
                     res.push(format!("{} {}\n{}", path, err.range, err));
                 }

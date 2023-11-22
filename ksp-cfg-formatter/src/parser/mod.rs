@@ -1,5 +1,5 @@
-use self::nom::LocatedSpan;
 use std::{
+    cell::RefCell,
     fmt::Display,
     ops::{Deref, DerefMut},
 };
@@ -14,11 +14,9 @@ mod needs;
 mod node;
 mod node_item;
 mod operator;
+mod parser_helpers;
 mod pass;
 mod path;
-
-/// Module with the same parser implemented using nom
-pub mod nom;
 
 pub use assignment_operator::AssignmentOperator;
 pub use comment::Comment;
@@ -33,6 +31,11 @@ pub use operator::Operator;
 pub use pass::Pass;
 pub use path::{Path, PathSegment, PathStart};
 
+/// This used in place of `&str` or `&[u8]` in our `nom` parsers.
+pub(crate) type LocatedSpan<'a> = nom_locate::LocatedSpan<&'a str, State>;
+/// Convenient type alias for `nom::IResult<I, O>` reduced to `IResult<O>`.
+pub(crate) type IResult<'a, T> = nom::IResult<LocatedSpan<'a>, T>;
+
 /// Indicates that the type can be pretty-printed as part of the formatter
 pub trait ASTPrint {
     /// Pretty-print the type to a string, ready to be written to file/output
@@ -44,6 +47,92 @@ pub trait ASTPrint {
         line_ending: &str,
         should_collapse: Option<bool>,
     ) -> String;
+}
+
+/// A trait with a function that implements parsing to the type
+pub trait CSTParse<'c, O> {
+    /// Parse `O` from the input
+    /// # Errors
+    /// Returns an error if the parser fails
+    fn parse(input: LocatedSpan<'c>) -> IResult<O>;
+}
+
+/// Parses a string into a document struct, also emmitting errors along the way
+pub fn parse(source: &str) -> (Document, Vec<Error>) {
+    let input = LocatedSpan::new_extra(source, State::default());
+    let (span, doc) =
+        nom::combinator::all_consuming(document::source_file)(input).expect("parsing cannot fail");
+    let (_, state) = span.into_fragment_and_extra();
+    let errors = state.errors.borrow().clone();
+    (doc, errors)
+}
+
+/// Carried around in the `LocatedSpan::extra` field in
+/// between `nom` parsers.
+#[derive(Clone, Debug)]
+pub struct State {
+    /// List of accumulated errors while parsing
+    pub errors: RefCell<Vec<Error>>,
+    /// The current state of the parser
+    pub state: ParserState,
+}
+
+impl Default for State {
+    fn default() -> State {
+        State {
+            errors: RefCell::new(Vec::new()),
+            state: ParserState::default(),
+        }
+    }
+}
+
+impl State {
+    /// Pushes an error onto the errors stack from within a `nom`
+    /// parser combinator while still allowing parsing to continue.
+    pub fn report_error(&self, error: Error) {
+        self.errors.borrow_mut().push(error);
+    }
+}
+
+/// Holds the state of the parser, to allow for context aware parsing
+#[derive(Clone, Debug)]
+pub struct ParserState {
+    /// Indicates if the current node is on the top level
+    pub top_level: bool,
+}
+
+impl Default for ParserState {
+    fn default() -> Self {
+        Self { top_level: true }
+    }
+}
+
+/// Error containing a text span and an error message to display.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error {
+    /// The severity of the error
+    pub severity: Severity,
+    /// The Range covered by the error
+    pub range: Range,
+    /// The source string producing the error
+    pub source: String,
+    /// The error message
+    pub message: String,
+    /// Holds the context for the error, if applicable
+    pub context: Option<Ranged<String>>,
+}
+
+/// Represents the severity of the error
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Severity {
+    /// This issue will make the cfg not work
+    Error,
+    /// This is probably wrong
+    Warning,
+    /// Something to know about
+    Info,
+    /// Help for other issues
+    Hint,
 }
 
 /// Reason for the error that occured
@@ -272,7 +361,7 @@ impl<'a> From<LocatedSpan<'a>> for Range {
     }
 }
 
-impl Display for nom::Error {
+impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

@@ -11,7 +11,7 @@ use nom::{
 
 use crate::parser::{Position, Range, Ranged};
 
-use super::{Error, IResult, LocatedSpan};
+use crate::parser::{Error, IResult, LocatedSpan};
 
 pub(crate) fn ignore_line_ending<'a, F, T>(parser: F) -> impl FnMut(LocatedSpan<'a>) -> IResult<T>
 where
@@ -56,7 +56,7 @@ where
                     source: (*input.fragment()).to_string(),
                     range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
-                    severity: super::Severity::Error,
+                    severity: crate::parser::Severity::Error,
                     context: None,
                 };
                 input.extra.report_error(err); // Push error onto stack.
@@ -121,7 +121,7 @@ where
                     source: (*input.fragment()).to_string(),
                     range: Range::from(input.slice(0..length)),
                     message: error_msg.to_string(),
-                    severity: super::Severity::Error,
+                    severity: crate::parser::Severity::Error,
                     context: Some(context_msg.clone()),
                 };
                 // dbg!(&input);
@@ -176,7 +176,7 @@ where
                     source: (*out.fragment()).to_string(),
                     message: format!("unexpected `{}`", out.fragment()),
                     range: Range::from(out),
-                    severity: super::Severity::Error,
+                    severity: crate::parser::Severity::Error,
                     context: None,
                 });
                 Ok((rem, ()))

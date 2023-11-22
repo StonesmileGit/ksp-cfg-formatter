@@ -91,7 +91,7 @@ pub(crate) fn handle_diagnostics_request(
         .data_base
         .get(&key)
         .ok_or_else(|| anyhow::format_err!("no text provided"))?;
-    let (doc, errors) = ksp_cfg_formatter::parser::nom::parse(text);
+    let (doc, errors) = ksp_cfg_formatter::parser::parse(text);
     let mut disp_errors = vec![];
     for error in errors {
         use lsp_types::DiagnosticSeverity as lsp_sev;

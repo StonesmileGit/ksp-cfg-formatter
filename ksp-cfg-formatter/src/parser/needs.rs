@@ -12,11 +12,8 @@ use nom::{
 use nom_unicode::complete::alphanumeric1;
 
 use super::{
-    nom::{
-        utils::{expect, range_wrap},
-        CSTParse, IResult, LocatedSpan,
-    },
-    Ranged,
+    parser_helpers::{expect, range_wrap},
+    Ranged, {CSTParse, IResult, LocatedSpan},
 };
 
 /// Contains a `Vec` of all the clauses to be combined using logical ANDs. All clauses have to be satisfied for the parent operation to be executed
@@ -117,7 +114,7 @@ impl<'a> CSTParse<'a, Ranged<ModClause<'a>>> for ModClause<'a> {
 #[cfg(test)]
 mod tests {
 
-    use crate::parser::nom::State;
+    use crate::parser::State;
 
     use super::*;
     #[test]

@@ -1,9 +1,6 @@
 use super::{
-    nom::{
-        utils::{debug_fn, expect, non_empty, range_wrap},
-        CSTParse, IResult, LocatedSpan,
-    },
-    Ranged,
+    parser_helpers::{debug_fn, expect, non_empty, range_wrap},
+    Ranged, {CSTParse, IResult, LocatedSpan},
 };
 use itertools::Itertools;
 use nom::{
@@ -211,7 +208,7 @@ fn identifier(input: LocatedSpan) -> IResult<LocatedSpan> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::nom::State;
+    use crate::parser::State;
 
     use super::*;
     #[test]

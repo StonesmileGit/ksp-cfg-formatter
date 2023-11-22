@@ -35,7 +35,7 @@ fn op_in_noop_node(
                 .expect("it was just determined that the operator existed")
                 .get_range(),
 
-            severity: Some(crate::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::Severity::Warning),
             source: Some("Unexpected_operator".to_owned()),
             message: "Key has operator, even though the top level does not!".to_owned(),
             related_information: Some(vec![super::RelatedInformation {
@@ -82,7 +82,7 @@ fn noop_but_mm(key_val: &crate::parser::KeyVal) -> Vec<Diagnostic> {
     for range in ranges {
         diagnostics.push(Diagnostic {
             range,
-            severity: Some(crate::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::Severity::Warning),
             message: "No operator on KeyVal, but MM is used. this is likely not correct"
                 .to_string(),
             // TODO: Add related info for start of KV

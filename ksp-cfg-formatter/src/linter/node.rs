@@ -35,7 +35,7 @@ impl<'a> Lintable for crate::parser::Ranged<crate::parser::Node<'a>> {
             if name.is_empty() {
                 items.push(Diagnostic {
                     range: name.get_range(),
-                    severity: Some(crate::parser::nom::Severity::Info),
+                    severity: Some(crate::parser::Severity::Info),
                     message: "Expected Name".to_owned(),
                     ..Default::default()
                 });
@@ -75,7 +75,7 @@ fn top_level_no_op_hint(
                 .clone()
                 .expect("it was just determined that top_level_no_op was Some")
                 .range,
-            severity: Some(crate::parser::nom::Severity::Hint),
+            severity: Some(crate::parser::Severity::Hint),
             message: "This node has no operator, but contains something that does have an operator"
                 .to_owned(),
             ..Default::default()
@@ -93,7 +93,7 @@ fn or_in_child_node(
     if node.name.clone().map_or(false, |name| name.len() > 1) && !node.top_level() {
         Some(Diagnostic {
             range: node.name.as_ref().expect("It was just determined that it is Some").get_range(),
-            severity: Some(crate::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::Severity::Warning),
             message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
             ..Default::default()
         })
@@ -116,7 +116,7 @@ fn op_in_noop(
                 .expect("it was just determined that the operator existed")
                 .get_range(),
 
-            severity: Some(crate::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::Severity::Warning),
             message: "Node has operator, even though the top level does not!".to_owned(),
             related_information: Some(vec![super::RelatedInformation {
                 location: state
@@ -163,7 +163,7 @@ fn noop_but_mm(node: &crate::parser::Node) -> Vec<Diagnostic> {
     for range in ranges {
         diagnostics.push(Diagnostic {
             range,
-            severity: Some(crate::parser::nom::Severity::Warning),
+            severity: Some(crate::parser::Severity::Warning),
             message:
                 "No operator on Node, but MM is used in the identifier. this is likely not correct"
                     .to_string(),

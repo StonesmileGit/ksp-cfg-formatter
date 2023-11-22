@@ -11,11 +11,8 @@ use nom::{
 use nom_unicode::complete::alphanumeric1;
 
 use super::{
-    nom::{
-        utils::{expect, range_wrap},
-        CSTParse, IResult, LocatedSpan,
-    },
-    Ranged,
+    parser_helpers::{expect, range_wrap},
+    Ranged, {CSTParse, IResult, LocatedSpan},
 };
 
 /// Which pass a patch should run on

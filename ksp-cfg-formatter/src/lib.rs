@@ -14,7 +14,7 @@ pub mod linter;
 
 use linter::Diagnostic;
 use log::warn;
-use parser::{nom::parse, ASTPrint, Document};
+use parser::{parse, ASTPrint, Document};
 
 /// Defines which End of Line sequence to be used
 ///
@@ -168,7 +168,7 @@ impl Formatter {
     }
 }
 
-fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::nom::Error> {
+fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error> {
     let use_crlf = if matches!(settings.line_return, LineReturn::Identify) {
         text.contains("\r\n")
     } else {
@@ -197,7 +197,7 @@ fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::nom::E
 /// Parses the text to a `Document` struct
 /// # Errors
 /// If any part of the parser fails, the returned error indicates what caused it, where it occured, and the source text for the error
-pub fn parse_to_ast(text: &str) -> Result<Document, (Vec<parser::nom::Error>, Vec<Diagnostic>)> {
+pub fn parse_to_ast(text: &str) -> Result<Document, (Vec<parser::Error>, Vec<Diagnostic>)> {
     let (parsed_document, errors) = parse(text);
     let diagnostics = linter::lint_ast(&parsed_document, None);
     if !errors.is_empty() || !diagnostics.is_empty() {

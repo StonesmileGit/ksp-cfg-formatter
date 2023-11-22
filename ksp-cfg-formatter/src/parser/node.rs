@@ -7,14 +7,17 @@ use nom::multi::{many0, many1, many_till, separated_list0};
 use nom::sequence::{delimited, preceded, tuple};
 use nom_unicode::complete::alphanumeric1;
 
-use super::nom::utils::{
+use super::parser_helpers::ignore_line_ending;
+use super::parser_helpers::{
     debug_fn, empty_line, error_till, expect, expect_context, get_range, non_empty, range_wrap, ws,
     ws_le,
 };
+use super::{IResult, LocatedSpan};
+
 use super::Ranged;
 use super::{
-    nom::CSTParse, ASTPrint, Comment, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator,
-    Pass, Path, Range,
+    ASTPrint, CSTParse, Comment, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator, Pass,
+    Path, Range,
 };
 
 /// A node in the config file. Both top level node and internal node
@@ -227,8 +230,6 @@ fn short_node(arg: &Node) -> bool {
     len <= MAX_LENGTH
 }
 
-use super::nom::{utils::ignore_line_ending, IResult, LocatedSpan};
-
 impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Node<'a>>> {
         log::trace!("Entered node parser with input:\n{input}");
@@ -295,9 +296,7 @@ enum HasPassNeedsIndex<'a> {
     Index(Ranged<Index>),
 }
 
-fn dumb_identifier_parser(
-    dumb_identifier: LocatedSpan,
-) -> (ParsedIdentifier, Vec<super::nom::Error>) {
+fn dumb_identifier_parser(dumb_identifier: LocatedSpan) -> (ParsedIdentifier, Vec<super::Error>) {
     // Clear errors on dumb_key to avoid duplicated errors
     dumb_identifier.extra.errors.borrow_mut().clear();
 
@@ -352,14 +351,14 @@ fn dumb_identifier_parser(
                 None,
                 vec![],
             ),
-            vec![super::nom::Error {
+            vec![super::Error {
                 message: format!(
                     "failed to parse identifier. Unexpected `{}`",
                     error.input.fragment()
                 ),
                 source: (*error.input.fragment()).to_string(),
                 range: Range::from(error.input),
-                severity: super::nom::Severity::Error,
+                severity: super::Severity::Error,
                 context: None,
             }],
         ),
@@ -417,11 +416,11 @@ fn map_correct_identifier<'a>(
     let (has_vec, pass_vec, needs_vec, index_vec) = split_combo(input_tuple.4);
     if has_vec.len() > 1 {
         for has in &has_vec[1..] {
-            rest.extra.report_error(super::nom::Error {
+            rest.extra.report_error(super::Error {
                 message: "Got extra HAS block".to_owned(),
                 range: has.range,
                 source: has.to_string(),
-                severity: super::nom::Severity::Error,
+                severity: super::Severity::Error,
                 context: None,
             });
         }
@@ -430,11 +429,11 @@ fn map_correct_identifier<'a>(
 
     if needs_vec.len() > 1 {
         for needs in &needs_vec[1..] {
-            rest.extra.report_error(super::nom::Error {
+            rest.extra.report_error(super::Error {
                 message: "Got extra NEEDS block".to_owned(),
                 range: needs.range,
                 source: needs.to_string(),
-                severity: super::nom::Severity::Error,
+                severity: super::Severity::Error,
                 context: None,
             });
         }
@@ -443,11 +442,11 @@ fn map_correct_identifier<'a>(
 
     if pass_vec.len() > 1 {
         for pass in &pass_vec[1..] {
-            rest.extra.report_error(super::nom::Error {
+            rest.extra.report_error(super::Error {
                 message: "Got extra PASS block".to_owned(),
                 range: pass.range,
                 source: pass.to_string(),
-                severity: super::nom::Severity::Error,
+                severity: super::Severity::Error,
                 context: None,
             });
         }
@@ -551,7 +550,7 @@ fn parse_block(input: LocatedSpan) -> IResult<(Vec<NodeItem>, bool)> {
 #[cfg(test)]
 mod tests {
 
-    use crate::parser::nom::{LocatedSpan, State};
+    use crate::parser::{LocatedSpan, State};
 
     use super::*;
     #[test]

@@ -35,9 +35,7 @@ fn bad_formatting() {
                 if err
                     .0
                     .iter()
-                    .filter(|e| {
-                        matches!(e.severity, ksp_cfg_formatter::parser::nom::Severity::Error)
-                    })
+                    .filter(|e| matches!(e.severity, ksp_cfg_formatter::parser::Severity::Error))
                     .count()
                     > 0
                 {

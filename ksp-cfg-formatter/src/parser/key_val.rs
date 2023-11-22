@@ -1,10 +1,7 @@
 use super::{
-    nom::{
-        utils::{debug_fn, ignore_line_ending, range_wrap, ws},
-        CSTParse, IResult, LocatedSpan,
-    },
+    parser_helpers::{debug_fn, ignore_line_ending, range_wrap, ws},
     ASTPrint, ArrayIndex, AssignmentOperator, Comment, Index, NeedsBlock, Operator, Path, Range,
-    Ranged,
+    Ranged, {CSTParse, IResult, LocatedSpan},
 };
 use nom::{
     branch::alt,
@@ -165,7 +162,7 @@ type ParsedKey<'a> = (
     Option<Ranged<ArrayIndex>>,
 );
 
-fn proper_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::Error>) {
+fn proper_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::Error>) {
     // Clear errors on dumb_key to avoid duplicated errors
     dumb_key.extra.errors.borrow_mut().clear();
 
@@ -208,14 +205,14 @@ fn proper_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::E
                 None,
                 None,
             ),
-            vec![super::nom::Error {
+            vec![super::Error {
                 message: format!(
                     "failed to parse key. Unexpected `{}`",
                     error.input.fragment()
                 ),
                 source: (*error.input.fragment()).to_string(),
                 range: Range::from(error.input),
-                severity: super::nom::Severity::Error,
+                severity: super::Severity::Error,
                 context: None,
             }],
         ),
@@ -226,7 +223,7 @@ fn proper_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::nom::E
 #[cfg(test)]
 mod tests {
 
-    use crate::parser::nom::{LocatedSpan, State};
+    use crate::parser::{LocatedSpan, State};
 
     use super::*;
     #[test]

@@ -1,4 +1,4 @@
-use crate::parser::{nom::Severity, NodeItem, Range};
+use crate::parser::{NodeItem, Range, Severity};
 use std::fmt::Display;
 
 mod document;

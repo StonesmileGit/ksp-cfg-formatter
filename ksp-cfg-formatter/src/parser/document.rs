@@ -8,11 +8,8 @@ use nom::{
 };
 
 use super::{
-    nom::{
-        utils::{self, debug_fn, error_till, expect, ignore_line_ending, non_empty, ws},
-        CSTParse, IResult, LocatedSpan,
-    },
-    ASTPrint, Comment, Node, Ranged,
+    parser_helpers::{debug_fn, empty_line, error_till, expect, ignore_line_ending, non_empty, ws},
+    ASTPrint, Comment, Node, Ranged, {CSTParse, IResult, LocatedSpan},
 };
 
 /// Enum for the different items that can exist in a document/node
@@ -88,10 +85,9 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
                     debug_fn(
                         alt((
                             map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
-                            map(
-                                alt((utils::empty_line, map(pair(space1, eof), |_| ()))),
-                                |_| DocItem::EmptyLine,
-                            ),
+                            map(alt((empty_line, map(pair(space1, eof), |_| ()))), |_| {
+                                DocItem::EmptyLine
+                            }),
                             map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
                             // If none of the above succeeded, consume the line as an error and try again
                             debug_fn(
@@ -118,7 +114,7 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
 #[cfg(test)]
 mod tests {
 
-    use crate::parser::nom::{LocatedSpan, State};
+    use crate::parser::{LocatedSpan, State};
 
     use super::*;
     #[test]

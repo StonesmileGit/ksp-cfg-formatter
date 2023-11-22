@@ -1,5 +1,7 @@
 [alias]
 xtask = "run -p xtask --"
 
+clippy2 = "clippy -- -W clippy::pedantic -W clippy::nursery -A clippy::use_self -A clippy::redundant_pub_crate -A clippy::module_name_repetitions"
+
 [env]
 CARGO_WORKSPACE_DIR = { value = "", relative = true }

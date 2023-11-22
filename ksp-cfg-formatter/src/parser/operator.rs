@@ -1,10 +1,7 @@
 use nom::{character::complete::char, combinator::value};
 use std::fmt::Display;
 
-use super::{
-    nom::{utils::range_wrap, CSTParse},
-    Ranged,
-};
+use super::{parser_helpers::range_wrap, CSTParse, Ranged};
 
 /// The different kinds of operations that can be done
 #[derive(Debug, Clone, Default, Copy)]
@@ -44,7 +41,7 @@ impl Display for Operator {
 }
 
 impl CSTParse<'_, Ranged<Operator>> for Operator {
-    fn parse(input: super::nom::LocatedSpan) -> super::nom::IResult<Ranged<Operator>> {
+    fn parse(input: super::LocatedSpan) -> super::IResult<Ranged<Operator>> {
         let operator = nom::branch::alt((
             value(Operator::Edit, char('@')),
             value(Operator::EditOrCreate, char('%')),

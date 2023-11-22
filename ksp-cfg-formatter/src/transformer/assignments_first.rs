@@ -1,4 +1,4 @@
-use crate::parser::{nom::Error, DocItem, Document, Node, NodeItem, Ranged};
+use crate::parser::{DocItem, Document, Error, Node, NodeItem, Ranged};
 
 /// Moves assignments first in the node, and child nodes last
 /// # Errors
@@ -40,7 +40,7 @@ fn reorder_node_items(mut node: Ranged<Node>) -> Result<Ranged<Node>, Error> {
                         message: "Found Comment at end of node".to_string(),
                         range: c.get_range(),
                         source: String::new(),
-                        severity: crate::parser::nom::Severity::Info,
+                        severity: crate::parser::Severity::Info,
                         context: None,
                     });
                 }
@@ -57,7 +57,7 @@ fn reorder_node_items(mut node: Ranged<Node>) -> Result<Ranged<Node>, Error> {
                         message: "Found Empty Line at end of node".to_string(),
                         range: node.get_range().to_end(),
                         source: String::new(),
-                        severity: crate::parser::nom::Severity::Info,
+                        severity: crate::parser::Severity::Info,
                         context: None,
                     });
                 }

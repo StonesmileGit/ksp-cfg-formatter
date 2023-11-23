@@ -136,16 +136,16 @@ pub enum Severity {
 }
 
 /// Reason for the error that occured
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum Reason {
-    /// Parsing of an int failed
-    ParseInt,
-    /// Custom error with reason provided
-    Custom(String),
-    /// Unknown error
-    #[default]
-    Unknown,
-}
+// #[derive(Debug, Clone, Default, PartialEq, Eq)]
+// pub enum Reason {
+//     /// Parsing of an int failed
+//     ParseInt,
+//     /// Custom error with reason provided
+//     Custom(String),
+//     /// Unknown error
+//     #[default]
+//     Unknown,
+// }
 
 /// Wrapper to hold the range that the inner type spans
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -170,7 +170,7 @@ impl<T> Ranged<T> {
         Self { inner, range }
     }
 
-    /// Get the range the operator spans
+    /// Get the range the `inner` spans
     #[must_use]
     pub const fn get_range(&self) -> Range {
         self.range
@@ -214,7 +214,7 @@ impl<T> DerefMut for Ranged<T> {
 pub struct Position {
     /// The line that the position is pointing at
     pub line: u32,
-    /// The character withing the line that the position is pointing at
+    /// The character in the line that the position is pointing at
     pub col: u32,
 }
 
@@ -231,7 +231,7 @@ impl Position {
             span.location_line(),
             span.get_utf8_column()
                 .try_into()
-                .expect("both usize and u32 should be large enough"),
+                .expect("both usize and u32 should never overflow in this context"),
         )
     }
 }
@@ -287,28 +287,24 @@ impl Range {
         }
     }
 
-    /// Combines overlapping ranges into one range, creating a set of non-overlapping ranges as output
+    /// Combines overlapping ranges into one range, creating a sorted set of non-overlapping ranges as output
     #[must_use]
     pub fn combine_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
+        if ranges.is_empty() {
+            return vec![];
+        }
         ranges.sort();
         let mut ret_ranges = vec![];
-        let mut curr_range = None;
-        for range in ranges {
-            if curr_range.is_none() {
-                curr_range = Some(range);
+        let mut curr_range = ranges[0];
+        for range in ranges.into_iter().skip(1) {
+            if range.start <= curr_range.end {
+                curr_range = curr_range + range;
                 continue;
             }
-            let unw_range = curr_range.expect("If it was None, we would have continued");
-            if range.start <= unw_range.end {
-                curr_range = Some(unw_range + range);
-                continue;
-            }
-            ret_ranges.push(unw_range);
-            curr_range = Some(range);
-        }
-        if let Some(curr_range) = curr_range {
             ret_ranges.push(curr_range);
+            curr_range = range;
         }
+        ret_ranges.push(curr_range);
         ret_ranges
     }
 }

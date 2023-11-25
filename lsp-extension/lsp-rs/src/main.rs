@@ -3,6 +3,12 @@ use std::path::PathBuf;
 
 use crossbeam_channel::Sender;
 use log::{debug, info, warn};
+use log4rs::{
+    append::console::{ConsoleAppender, Target},
+    config::{Appender, Root},
+    encode::pattern::PatternEncoder,
+    Config,
+};
 use lsp_types::{
     InitializeParams, OneOf, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
@@ -18,13 +24,19 @@ mod utils;
 use lsp_server::{Connection, Message, Request, Response};
 
 fn main() -> anyhow::Result<()> {
-    // FIXME: The log level changing does not get applied. Look for alternatives
-    stderrlog::new()
-        .module(module_path!())
-        .modules(vec!["ksp-cfg-formatter"])
-        .verbosity(log::Level::Info)
-        .init()
+    let stderr = ConsoleAppender::builder()
+        .target(Target::Stderr)
+        .encoder(Box::new(PatternEncoder::new("{l} - {m}{n}")))
+        .build();
+    let config = Config::builder()
+        .appender(Appender::builder().build("stderr", Box::new(stderr)))
+        .build(
+            Root::builder()
+                .appender("stderr")
+                .build(log::LevelFilter::Trace), // Log4rs doesn't filter anything
+        )
         .unwrap();
+    log4rs::init_config(config).unwrap();
     info!("Starting KSP Language Server\n");
     let (connection, io_threads) = Connection::stdio();
 

@@ -16,3 +16,4 @@ ksp-cfg-formatter = { path = "../../ksp-cfg-formatter" }
 log = "0.4.20"
 stderrlog = "0.5.4"
 url = "2.4.1"
+log4rs = "1.2.0"

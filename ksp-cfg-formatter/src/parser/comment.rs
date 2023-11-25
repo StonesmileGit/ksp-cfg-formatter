@@ -3,24 +3,16 @@ use super::{
     ASTPrint, Ranged, {CSTParse, IResult, LocatedSpan},
 };
 use nom::{
-    branch::alt,
-    bytes::complete::{is_not, tag, take},
-    combinator::{map, recognize},
+    bytes::complete::{is_not, tag},
+    combinator::{map, opt, recognize},
     sequence::pair,
 };
-use std::fmt::Display;
 
-/// A comment in the file. Includes the leading `//`
+/// A comment in the file. Includes the leading whitespace and `//`
 #[derive(Debug, Clone, Copy)]
 pub struct Comment<'a> {
-    /// Text of the comment, including the leading `//`
+    /// Text of the comment, including leading whitespace and `//`
     pub text: &'a str,
-}
-
-impl<'a> Display for Comment<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.text)
-    }
 }
 
 impl<'a> ASTPrint for Comment<'a> {
@@ -38,7 +30,7 @@ impl<'a> ASTPrint for Comment<'a> {
 
 impl<'a> CSTParse<'a, Ranged<Comment<'a>>> for Comment<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Comment<'a>>> {
-        let comment = recognize(ws(pair(tag("//"), alt((is_not("\r\n"), take(0usize))))));
+        let comment = recognize(ws(pair(tag("//"), opt(is_not("\r\n")))));
         range_wrap(map(comment, |inner: LocatedSpan| Comment {
             text: inner.fragment(),
         }))(input)

@@ -89,9 +89,7 @@ impl<'a> ASTPrint for KeyVal<'a> {
             self.key_padding.clone().map_or_else(String::new, |p| p),
             self.assignment_operator,
             self.val,
-            self.comment
-                .as_ref()
-                .map_or_else(String::new, std::string::ToString::to_string),
+            self.comment.as_ref().map_or("", |c| c.text),
             line_ending
         )
     }

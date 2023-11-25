@@ -526,9 +526,10 @@ fn parse_block(input: LocatedSpan) -> IResult<(Vec<NodeItem>, bool)> {
                 debug_fn(map(ws(KeyVal::parse), NodeItem::KeyVal), "keyval", false),
                 settings_for_inner_block(map(ignore_line_ending(ws(Node::parse)), NodeItem::Node)),
                 debug_fn(
-                    map(recognize(error_till(non_empty(is_not("}\r\n")))), |s| {
-                        NodeItem::Error(Ranged::new(s.clone().fragment(), s.into()))
-                    }),
+                    map(
+                        range_wrap(recognize(error_till(non_empty(is_not("}\r\n"))))),
+                        |s| NodeItem::Error(s.map(|s| *s.fragment())),
+                    ),
                     "Got an error while parsing node. Skipped line",
                     true,
                 ),

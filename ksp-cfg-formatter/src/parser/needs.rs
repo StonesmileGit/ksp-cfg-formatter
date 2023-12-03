@@ -13,7 +13,7 @@ use nom_unicode::complete::alphanumeric1;
 
 use super::{
     parser_helpers::{expect, range_wrap},
-    Ranged, {CSTParse, IResult, LocatedSpan},
+    Ranged, {ASTParse, IResult, LocatedSpan},
 };
 
 /// Contains a `Vec` of all the clauses to be combined using logical ANDs. All clauses have to be satisfied for the parent operation to be executed
@@ -57,7 +57,7 @@ impl<'a> Display for ModClause<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<NeedsBlock<'a>>> for NeedsBlock<'a> {
+impl<'a> ASTParse<'a> for NeedsBlock<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<NeedsBlock<'a>>> {
         // needsBlock = { ^":NEEDS[" ~ modOrClause ~ (("&" | ",") ~ modOrClause)* ~ "]" }
         range_wrap(map(
@@ -76,7 +76,7 @@ impl<'a> CSTParse<'a, Ranged<NeedsBlock<'a>>> for NeedsBlock<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<OrClause<'a>>> for OrClause<'a> {
+impl<'a> ASTParse<'a> for OrClause<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<OrClause<'a>>> {
         // modOrClause = { needsMod ~ ("|" ~ needsMod)* }
         range_wrap(map(
@@ -96,7 +96,7 @@ impl<'a> CSTParse<'a, Ranged<OrClause<'a>>> for OrClause<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<ModClause<'a>>> for ModClause<'a> {
+impl<'a> ASTParse<'a> for ModClause<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<ModClause<'a>>> {
         // needsMod    = { negation? ~ modName }
         // negation    = { "!" }

@@ -16,7 +16,7 @@ use super::{IResult, LocatedSpan};
 
 use super::Ranged;
 use super::{
-    ASTPrint, CSTParse, Comment, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator, Pass,
+    ASTParse, ASTPrint, Comment, HasBlock, Index, KeyVal, NeedsBlock, NodeItem, Operator, Pass,
     Path, Range,
 };
 
@@ -126,7 +126,7 @@ impl<'a> ASTPrint for Node<'a> {
                         line_ending
                     )
                 }
-                1 if should_collapse.map_or(self.was_collapsed, |it| it) && short_node(self) => {
+                1 if should_collapse.unwrap_or(self.was_collapsed) && short_node(self) => {
                     format!(
                         "{}{} {{ {} }}{}{}",
                         indentation_str,
@@ -230,13 +230,12 @@ fn short_node(arg: &Node) -> bool {
     len <= MAX_LENGTH
 }
 
-impl<'a> CSTParse<'a, Ranged<Node<'a>>> for Node<'a> {
+impl<'a> ASTParse<'a> for Node<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Node<'a>>> {
         log::trace!("Entered node parser with input:\n{input}");
         let top_level = input.extra.state.top_level;
 
         let parser = move |input| {
-            // TODO: make sure this doesn't match too much
             let (input, dumb_identifier) = recognize(tuple((
                 many_till(
                     anychar,
@@ -471,7 +470,6 @@ fn map_correct_identifier<'a>(
 fn parse_name(input: LocatedSpan) -> IResult<Ranged<Vec<&str>>> {
     let parser = |input| {
         let (input, (_, context_range)) = get_range(char('['))(input)?;
-        // TODO: Tag both brackets as a warning to make it more visible
         let (input, res) = separated_list0(char('|'), is_not("|]"))(input)?;
         let (input, _) = expect_context(
             char(']'),

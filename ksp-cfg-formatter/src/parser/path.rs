@@ -13,7 +13,7 @@ use nom_unicode::complete::alphanumeric1;
 
 use super::{
     parser_helpers::{debug_fn, expect, range_wrap},
-    Ranged, {CSTParse, IResult, LocatedSpan},
+    Ranged, {ASTParse, IResult, LocatedSpan},
 };
 
 /// Where the path starts from
@@ -90,7 +90,7 @@ impl<'a> Display for Path<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<Path<'a>>> for Path<'a> {
+impl<'a> ASTParse<'a> for Path<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Path<'a>>> {
         let start = opt(PathStart::parse);
         let segments = many0(PathSegment::parse);
@@ -105,7 +105,7 @@ impl<'a> CSTParse<'a, Ranged<Path<'a>>> for Path<'a> {
     }
 }
 
-impl CSTParse<'_, Ranged<PathStart>> for PathStart {
+impl ASTParse<'_> for PathStart {
     fn parse(input: LocatedSpan<'_>) -> IResult<Ranged<PathStart>> {
         range_wrap(alt((
             value(PathStart::TopLevel, char('@')),
@@ -114,18 +114,15 @@ impl CSTParse<'_, Ranged<PathStart>> for PathStart {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<PathSegment<'a>>> for PathSegment<'a> {
+impl<'a> ASTParse<'a> for PathSegment<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<PathSegment<'a>>> {
-        // path         = ${ ("@" | "/")? ~ (path_segment ~ "/")* }
-        // path_segment =  { ".." | identifier ~ ("[" ~ nameBlock ~ "]")? }
         let node = recognize(many1(alt((
             alphanumeric1::<LocatedSpan, _>,
             is_a("-_.+*?"),
         ))));
         let name = opt(delimited(
             char('['),
-            // TODO: Make sure the name search doesn't consume everything in a file
-            recognize(is_not("]")),
+            recognize(is_not("]\r\n")),
             expect(char(']'), "Expected closing `]`"),
         ));
         let segment = tuple((node, name));

@@ -1,6 +1,6 @@
 use super::{
     parser_helpers::{range_wrap, ws},
-    ASTPrint, Ranged, {CSTParse, IResult, LocatedSpan},
+    ASTPrint, Ranged, {ASTParse, IResult, LocatedSpan},
 };
 use nom::{
     bytes::complete::{is_not, tag},
@@ -28,7 +28,7 @@ impl<'a> ASTPrint for Comment<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<Comment<'a>>> for Comment<'a> {
+impl<'a> ASTParse<'a> for Comment<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Comment<'a>>> {
         let comment = recognize(ws(pair(tag("//"), opt(is_not("\r\n")))));
         range_wrap(map(comment, |inner: LocatedSpan| Comment {

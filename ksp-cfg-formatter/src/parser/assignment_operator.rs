@@ -1,6 +1,6 @@
 use super::{
     parser_helpers::range_wrap,
-    Ranged, {CSTParse, IResult, LocatedSpan},
+    Ranged, {ASTParse, IResult, LocatedSpan},
 };
 use nom::{branch::alt, bytes::complete::tag, combinator::value};
 use std::fmt::Display;
@@ -38,7 +38,7 @@ impl Display for AssignmentOperator {
         }
     }
 }
-impl CSTParse<'_, Ranged<AssignmentOperator>> for AssignmentOperator {
+impl ASTParse<'_> for AssignmentOperator {
     fn parse(input: LocatedSpan) -> IResult<Ranged<AssignmentOperator>> {
         range_wrap(alt((
             value(AssignmentOperator::Add, tag("+=")),

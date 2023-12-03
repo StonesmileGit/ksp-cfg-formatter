@@ -8,8 +8,10 @@ use nom::{
 };
 
 use super::{
-    parser_helpers::{debug_fn, empty_line, error_till, expect, ignore_line_ending, non_empty, ws},
-    ASTPrint, Comment, Node, Ranged, {CSTParse, IResult, LocatedSpan},
+    parser_helpers::{
+        debug_fn, empty_line, error_till, expect, ignore_line_ending, non_empty, range_wrap, ws,
+    },
+    ASTPrint, Comment, Node, Ranged, {ASTParse, IResult, LocatedSpan},
 };
 
 /// Enum for the different items that can exist in a document/node
@@ -66,19 +68,24 @@ impl<'a> ASTPrint for Document<'a> {
     }
 }
 
-pub fn source_file(input: LocatedSpan) -> IResult<Document> {
+pub fn source_file(input: LocatedSpan) -> IResult<Ranged<Document>> {
     // parse the document, or nothing if that fails
     let doc = alt((
         Document::parse,
-        map(take(0usize), |_| Document { statements: vec![] }),
+        map(take(0usize), |_| {
+            Ranged::new(
+                Document { statements: vec![] },
+                super::Range::new(0, 0, 0, 0),
+            )
+        }),
     ));
     // Emitt an error if the whole input is not consumed
     terminated(doc, preceded(expect(not(anychar), "expected EOF"), rest))(input)
 }
 
-impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<Document<'a>> {
-        map(
+impl<'a> ASTParse<'a> for Document<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Document<'a>>> {
+        range_wrap(map(
             preceded(
                 tuple((opt(tag("\u{feff}")), multispace0)),
                 many_till(
@@ -107,7 +114,7 @@ impl<'a> CSTParse<'a, Document<'a>> for Document<'a> {
             |inner| Document {
                 statements: inner.0,
             },
-        )(input)
+        ))(input)
     }
 }
 

@@ -1,13 +1,13 @@
 use super::{ASTPrint, Comment, KeyVal, Node, Ranged};
 
-/// Enum for the different items that can exist in a document/node
+/// Enum for the different items that can exist in a node
 #[derive(Debug, Clone)]
 pub enum NodeItem<'a> {
     /// A node
     Node(Ranged<Node<'a>>),
     /// A Comment
     Comment(Ranged<Comment<'a>>),
-    /// An assignment, Not allowed in top level, checked for in `Document` code
+    /// A key-value pair
     KeyVal(Ranged<KeyVal<'a>>),
     /// An empty line
     EmptyLine,

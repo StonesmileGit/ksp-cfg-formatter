@@ -50,11 +50,13 @@ pub trait ASTPrint {
 }
 
 /// A trait with a function that implements parsing to the type
-pub trait CSTParse<'c, O> {
-    /// Parse `O` from the input
+pub trait ASTParse<'c> {
+    /// Parse the type the trait is implemented for, from the input
     /// # Errors
     /// Returns an error if the parser fails
-    fn parse(input: LocatedSpan<'c>) -> IResult<O>;
+    fn parse(input: LocatedSpan<'c>) -> IResult<Ranged<Self>>
+    where
+        Self: Sized;
 }
 
 /// Parses a string into a document struct, also emmitting errors along the way
@@ -64,7 +66,7 @@ pub fn parse(source: &str) -> (Document, Vec<Error>) {
         nom::combinator::all_consuming(document::source_file)(input).expect("parsing cannot fail");
     let (_, state) = span.into_fragment_and_extra();
     let errors = state.errors.borrow().clone();
-    (doc, errors)
+    (doc.inner, errors)
 }
 
 /// Carried around in the `LocatedSpan::extra` field in
@@ -206,6 +208,12 @@ impl<T> Deref for Ranged<T> {
 impl<T> DerefMut for Ranged<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
+    }
+}
+
+impl<'a> From<LocatedSpan<'a>> for Ranged<&'a str> {
+    fn from(value: LocatedSpan<'a>) -> Self {
+        Ranged::new(value.fragment(), Range::from(value))
     }
 }
 

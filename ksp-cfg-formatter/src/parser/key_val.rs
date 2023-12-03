@@ -1,7 +1,7 @@
 use super::{
     parser_helpers::{debug_fn, ignore_line_ending, range_wrap, ws},
     ASTPrint, ArrayIndex, AssignmentOperator, Comment, Index, NeedsBlock, Operator, Path, Range,
-    Ranged, {CSTParse, IResult, LocatedSpan},
+    Ranged, {ASTParse, IResult, LocatedSpan},
 };
 use nom::{
     branch::alt,
@@ -28,7 +28,7 @@ pub struct KeyVal<'a> {
     pub index: Option<Ranged<Index>>,
     /// Optional array-index
     pub array_index: Option<Ranged<ArrayIndex>>,
-    key_padding: Option<String>,
+    key_padding: Option<usize>,
     /// The assignment operator between the variable and the value
     pub assignment_operator: Ranged<AssignmentOperator>,
     /// The value to use in the assignment
@@ -57,7 +57,7 @@ impl<'a> KeyVal<'a> {
         )
     }
     pub(crate) fn set_key_padding(&mut self, n: usize) {
-        self.key_padding = Some(" ".repeat(n - self.left_side().len()));
+        self.key_padding = Some(n - self.left_side().len());
     }
 }
 
@@ -86,7 +86,7 @@ impl<'a> ASTPrint for KeyVal<'a> {
             self.array_index
                 .as_deref()
                 .map_or_else(String::new, std::string::ToString::to_string),
-            self.key_padding.clone().map_or_else(String::new, |p| p),
+            self.key_padding.map_or_else(String::new, |p| " ".repeat(p)),
             self.assignment_operator,
             self.val,
             self.comment.as_ref().map_or("", |c| c.text),
@@ -95,7 +95,7 @@ impl<'a> ASTPrint for KeyVal<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<KeyVal<'a>>> for KeyVal<'a> {
+impl<'a> ASTParse<'a> for KeyVal<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<KeyVal<'a>>> {
         let parser = move |input| {
             // This parses anything that could potentially be a key
@@ -160,14 +160,24 @@ type ParsedKey<'a> = (
     Option<Ranged<ArrayIndex>>,
 );
 
-fn proper_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::Error>) {
+fn proper_key_parser(input: LocatedSpan<'_>) -> (ParsedKey, Vec<super::Error>) {
     // Clear errors on dumb_key to avoid duplicated errors
-    dumb_key.extra.errors.borrow_mut().clear();
+    input.extra.errors.borrow_mut().clear();
 
-    let path = opt(preceded(char('*'), Path::parse));
-    let operator = opt(Operator::parse);
-    // keyIdentifier     = ${ keyIdentifierPart ~ (Whitespace* ~ keyIdentifierPart)* }
-    // keyIdentifierPart = _{ ("#" | "_" | "." | (("-" | "+" | "*") ~ !"=") | ("/" ~ !("/" | "=")) | "?" | LETTER | ASCII_DIGIT)+ }
+    let mut res_tuple = (
+        None,
+        None,
+        Ranged::new("", Range::new(0, 0, 0, 0)),
+        None,
+        None,
+        None,
+    );
+
+    let (input, path) = opt(preceded(char('*'), Path::parse))(input).expect("opt should not fail?");
+    res_tuple.0 = path;
+    let (input, operator) = opt(Operator::parse)(input).expect("opt should not fail?");
+    res_tuple.1 = operator;
+
     let key = range_wrap(map(
         recognize(separated_list1(
             space1::<LocatedSpan, _>,
@@ -186,34 +196,36 @@ fn proper_key_parser(dumb_key: LocatedSpan<'_>) -> (ParsedKey, Vec<super::Error>
     let needs = opt(NeedsBlock::parse);
     let index = opt(Index::parse);
     let array_index = opt(ArrayIndex::parse);
+
     // TODO: Where can Needs be located? Index *HAS* to be before array index
-    let proper_key = tuple((path, operator, key, needs, index, array_index));
+    let proper_key = tuple((key, needs, index, array_index));
     // Everything in the dumb key has to be parsed, otherwise there is an error in the text
-    let res = all_consuming(proper_key)(dumb_key.clone());
+    let res = all_consuming(proper_key)(input.clone());
     match res {
-        Ok((rest, proper_key_tuple)) => (proper_key_tuple, rest.extra.errors.borrow_mut().clone()),
+        Ok((rest, proper_key_tuple)) => {
+            res_tuple.2 = proper_key_tuple.0;
+            res_tuple.3 = proper_key_tuple.1;
+            res_tuple.4 = proper_key_tuple.2;
+            res_tuple.5 = proper_key_tuple.3;
+            (res_tuple, rest.extra.errors.borrow_mut().clone())
+        }
         // If an error is encountered, just stuff the pseudo-key inside the key, and report the error
-        // TODO: Rework to save the successfull parsing until the failed one and place those in the correct place
-        Err(nom::Err::Error(error) | nom::Err::Failure(error)) => (
+        Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
+            res_tuple.2 = Ranged::from(input);
             (
-                None,
-                None,
-                Ranged::new(dumb_key.fragment(), Range::from(dumb_key)),
-                None,
-                None,
-                None,
-            ),
-            vec![super::Error {
-                message: format!(
-                    "failed to parse key. Unexpected `{}`",
-                    error.input.fragment()
-                ),
-                source: (*error.input.fragment()).to_string(),
-                range: Range::from(error.input),
-                severity: super::Severity::Error,
-                context: None,
-            }],
-        ),
+                res_tuple,
+                vec![super::Error {
+                    message: format!(
+                        "failed to parse key. Unexpected `{}`",
+                        error.input.fragment()
+                    ),
+                    source: (*error.input.fragment()).to_string(),
+                    range: Range::from(error.input),
+                    severity: super::Severity::Error,
+                    context: None,
+                }],
+            )
+        }
         _ => unreachable!(),
     }
 }
@@ -241,6 +253,23 @@ mod tests {
 
         match res {
             Ok(it) => assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", None)),
+            Err(err) => panic!("{}", err),
+        }
+    }
+
+    #[test]
+    fn test_key_val_error() {
+        let input = "deleteMe[-1] = true\r\n";
+        let res = KeyVal::parse(LocatedSpan::new_extra(input, State::default()));
+
+        match res {
+            Ok(it) => {
+                assert_eq!(
+                    it.0.extra.errors.into_inner()[0].message,
+                    "failed to parse key. Unexpected `-1]`"
+                );
+                assert_eq!(input, it.1.ast_print(0, "\t", "\r\n", None))
+            }
             Err(err) => panic!("{}", err),
         }
     }

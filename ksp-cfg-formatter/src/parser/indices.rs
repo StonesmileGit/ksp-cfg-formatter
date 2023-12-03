@@ -1,10 +1,10 @@
 use super::{
     parser_helpers::{expect, range_wrap},
-    Ranged, {CSTParse, IResult, LocatedSpan},
+    Ranged, {ASTParse, IResult, LocatedSpan},
 };
 use nom::{
     branch::alt,
-    character::complete::{anychar, char, digit1},
+    character::complete::{char, digit1, none_of},
     combinator::{map, opt, value},
     sequence::{delimited, pair, preceded},
 };
@@ -28,7 +28,7 @@ impl Display for Index {
     }
 }
 
-impl CSTParse<'_, Ranged<Index>> for Index {
+impl ASTParse<'_> for Index {
     fn parse(input: LocatedSpan) -> IResult<Ranged<Index>> {
         // index = { "," ~ ("*" | ("-"? ~ ASCII_DIGIT+)) }
         range_wrap(preceded(
@@ -70,26 +70,30 @@ impl Display for ArrayIndex {
     }
 }
 
-impl CSTParse<'_, Ranged<ArrayIndex>> for ArrayIndex {
+impl ASTParse<'_> for ArrayIndex {
     fn parse(input: LocatedSpan) -> IResult<Ranged<ArrayIndex>> {
-        // arrayIndex = { "[" ~ ("*" | ASCII_DIGIT+) ~ ("," ~ ANY)? ~ "]" }
         let array_index = pair(
-            alt((
-                value(None, char('*')),
-                map(digit1, |n: LocatedSpan| Some(n.fragment().parse().unwrap())),
+            expect(
+                alt((
+                    value(None, char('*')),
+                    map(digit1, |n: LocatedSpan| Some(n.fragment().parse().unwrap())),
+                )),
+                "Expected index, or *",
+            ),
+            opt(preceded(
+                char(','),
+                expect(none_of("]"), "Expected char between `,` and closing `]`"),
             )),
-            opt(preceded(char(','), anychar)),
         );
         range_wrap(map(
             delimited(
                 char('['),
-                // TODO: Add "expect" on the index too
                 array_index,
                 expect(char(']'), "Expected closing `]`"),
             ),
             |inner| ArrayIndex {
-                index: inner.0,
-                separator: inner.1,
+                index: inner.0.unwrap_or_default(),
+                separator: inner.1.unwrap_or_default(),
             },
         ))(input)
     }

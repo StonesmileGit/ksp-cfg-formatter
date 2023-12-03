@@ -1,12 +1,12 @@
-use nom::{character::complete::char, combinator::value};
+use nom::{branch::alt, character::complete::char, combinator::value};
 use std::fmt::Display;
 
-use super::{parser_helpers::range_wrap, CSTParse, Ranged};
+use super::{parser_helpers::range_wrap, ASTParse, Ranged};
 
 /// The different kinds of operations that can be done
 #[derive(Debug, Clone, Default, Copy)]
 pub enum Operator {
-    /// No operator
+    /// No operator. This is never parsed, only used as a default fallback for printing
     #[default]
     None,
     /// Edit an existing node/variable
@@ -40,9 +40,9 @@ impl Display for Operator {
     }
 }
 
-impl CSTParse<'_, Ranged<Operator>> for Operator {
+impl ASTParse<'_> for Operator {
     fn parse(input: super::LocatedSpan) -> super::IResult<Ranged<Operator>> {
-        let operator = nom::branch::alt((
+        let operator = alt((
             value(Operator::Edit, char('@')),
             value(Operator::EditOrCreate, char('%')),
             value(Operator::Copy, char('+')),
@@ -50,7 +50,6 @@ impl CSTParse<'_, Ranged<Operator>> for Operator {
             value(Operator::DeleteAlt, char('-')),
             value(Operator::CreateIfNotFound, char('&')),
             value(Operator::Rename, char('|')),
-            // value(OperatorKind::None, tag("")),
         ));
         range_wrap(operator)(input)
     }

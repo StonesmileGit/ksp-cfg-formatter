@@ -1,6 +1,8 @@
-use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
+use crate::parser::{Node, Ranged};
 
-impl<'a> Lintable for crate::parser::Ranged<crate::parser::Node<'a>> {
+use super::{Diagnostic, Lintable, LinterState, LinterStateResult, Location, RelatedInformation};
+
+impl<'a> Lintable for crate::parser::Ranged<Node<'a>> {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {
@@ -16,10 +18,7 @@ impl<'a> Lintable for crate::parser::Ranged<crate::parser::Node<'a>> {
             items.push(diag);
         }
         // The node has no operator, but uses MM logic in the identifier
-        let mut diagnostics = noop_but_mm(self);
-        if !diagnostics.is_empty() {
-            items.append(&mut diagnostics);
-        }
+        items.append(&mut noop_but_mm(self, state));
 
         let mut state: LinterState = state.clone();
         // Check for operators in nodes that do not have any operators
@@ -64,7 +63,7 @@ impl<'a> Lintable for crate::parser::Ranged<crate::parser::Node<'a>> {
 }
 
 fn top_level_no_op_hint(
-    node: &crate::parser::Node<'_>,
+    node: &Node<'_>,
     state: &LinterState,
     result: &LinterStateResult,
 ) -> Option<Diagnostic> {
@@ -86,7 +85,7 @@ fn top_level_no_op_hint(
 }
 
 fn or_in_child_node(
-    node: &crate::parser::Node<'_>,
+    node: &Node<'_>,
     _state: &LinterState,
     _result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
@@ -103,7 +102,7 @@ fn or_in_child_node(
 }
 
 fn op_in_noop(
-    node: &crate::parser::Node,
+    node: &Node,
     state: &LinterState,
     result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
@@ -132,7 +131,8 @@ fn op_in_noop(
     }
 }
 
-fn range_for_rest_of_id(node: &crate::parser::Node) -> Vec<crate::parser::Range> {
+// TODO: Are there some MM things that are allowed?
+fn range_for_rest_of_id(node: &Node) -> Vec<crate::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = node.name.as_ref() {
         ranges.push(ranged.get_range());
@@ -153,8 +153,7 @@ fn range_for_rest_of_id(node: &crate::parser::Node) -> Vec<crate::parser::Range>
     crate::parser::Range::combine_ranges(ranges)
 }
 
-// TODO: Are there some MM things that are allowed?
-fn noop_but_mm(node: &crate::parser::Node) -> Vec<Diagnostic> {
+fn noop_but_mm(node: &Ranged<Node>, state: &LinterState) -> Vec<Diagnostic> {
     if node.operator.is_some() || node.path.is_some() {
         return vec![];
     }
@@ -167,7 +166,21 @@ fn noop_but_mm(node: &crate::parser::Node) -> Vec<Diagnostic> {
             message:
                 "No operator on Node, but MM is used in the identifier. this is likely not correct"
                     .to_string(),
-            // TODO: Add related info at start of ID
+            related_information: Some(vec![RelatedInformation {
+                location: Location {
+                    range: node.get_range(),
+                    url: state.this_url.clone(),
+                },
+                message: "Expected operator here".to_owned(),
+            }]),
+            ..Default::default()
+        });
+    }
+    if !diagnostics.is_empty() {
+        diagnostics.push(Diagnostic {
+            range: node.get_range().to_start(),
+            severity: Some(crate::parser::Severity::Hint),
+            message: "This node identifier contains MM, but has no operator".to_owned(),
             ..Default::default()
         });
     }

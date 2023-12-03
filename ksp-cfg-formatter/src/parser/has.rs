@@ -1,6 +1,6 @@
 use super::{
     parser_helpers::{debug_fn, expect, non_empty, range_wrap},
-    Ranged, {CSTParse, IResult, LocatedSpan},
+    Ranged, {ASTParse, IResult, LocatedSpan},
 };
 use itertools::Itertools;
 use nom::{
@@ -115,17 +115,14 @@ impl<'a> Display for HasBlock<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<HasBlock<'a>>> for HasBlock<'a> {
+impl<'a> ASTParse<'a> for HasBlock<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<HasBlock<'a>>> {
         range_wrap(map(
             delimited(
                 tag_no_case(":HAS["),
                 debug_fn(
                     expect(
-                        separated_list1(
-                            alt((char('&'), char(','))),
-                            range_wrap(HasPredicate::parse),
-                        ),
+                        separated_list1(alt((char('&'), char(','))), HasPredicate::parse),
                         "Expected has predicate",
                     ),
                     "Got has predicates",
@@ -140,8 +137,8 @@ impl<'a> CSTParse<'a, Ranged<HasBlock<'a>>> for HasBlock<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
-    fn parse(input: LocatedSpan<'a>) -> IResult<HasPredicate<'a>> {
+impl<'a> ASTParse<'a> for HasPredicate<'a> {
+    fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<HasPredicate<'a>>> {
         let has_value = range_wrap(delimited(
             char('['),
             opt(non_empty(recognize(many_till(
@@ -198,7 +195,7 @@ impl<'a> CSTParse<'a, HasPredicate<'a>> for HasPredicate<'a> {
             },
         );
 
-        alt((node_constraint, value_constraint))(input)
+        range_wrap(alt((node_constraint, value_constraint)))(input)
     }
 }
 

@@ -12,7 +12,7 @@ use nom_unicode::complete::alphanumeric1;
 
 use super::{
     parser_helpers::{expect, range_wrap},
-    Ranged, {CSTParse, IResult, LocatedSpan},
+    Ranged, {ASTParse, IResult, LocatedSpan},
 };
 
 /// Which pass a patch should run on
@@ -49,26 +49,14 @@ impl<'a> Display for Pass<'a> {
     }
 }
 
-impl<'a> CSTParse<'a, Ranged<Pass<'a>>> for Pass<'a> {
+impl<'a> ASTParse<'a> for Pass<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Pass<'a>>> {
-        // firstPassBlock = { ^":FIRST" }
-        // beforePass     = { ^":BEFORE[" ~ modName ~ "]" }
-        // forPass        = { ^":FOR[" ~ modName ~ "]" }
-        // afterPass      = { ^":AFTER[" ~ modName ~ "]" }
-        // lastPass       = { ^":LAST[" ~ modName ~ "]" }
-        // finalPassBlock = { ^":FINAL" }
-
-        // modName = { (LETTER | ASCII_DIGIT | "/" | "_" | "-" | "?")+ }
-        // passBlock      = { firstPassBlock | beforePass | forPass | afterPass | lastPass | finalPassBlock }
         range_wrap(alt((
             map(tag_no_case(":FIRST"), |_| Pass::First),
             map(
                 delimited(
                     tag_no_case(":BEFORE["),
-                    expect(
-                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                        "Expected pass identifier",
-                    ),
+                    expect(pass_name, "Expected pass identifier"),
                     expect(char(']'), "Expected closing `]`"),
                 ),
                 |inner| Pass::Before(inner.map_or("", |s| s.fragment())),
@@ -76,10 +64,7 @@ impl<'a> CSTParse<'a, Ranged<Pass<'a>>> for Pass<'a> {
             map(
                 delimited(
                     tag_no_case(":FOR["),
-                    expect(
-                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                        "Expected pass identifier",
-                    ),
+                    expect(pass_name, "Expected pass identifier"),
                     expect(char(']'), "Expected closing `]`"),
                 ),
                 |inner| Pass::For(inner.map_or("", |s| s.fragment())),
@@ -87,10 +72,7 @@ impl<'a> CSTParse<'a, Ranged<Pass<'a>>> for Pass<'a> {
             map(
                 delimited(
                     tag_no_case(":AFTER["),
-                    expect(
-                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                        "Expected pass identifier",
-                    ),
+                    expect(pass_name, "Expected pass identifier"),
                     expect(char(']'), "Expected closing `]`"),
                 ),
                 |inner| Pass::After(inner.map_or("", |s| s.fragment())),
@@ -98,10 +80,7 @@ impl<'a> CSTParse<'a, Ranged<Pass<'a>>> for Pass<'a> {
             map(
                 delimited(
                     tag_no_case(":LAST["),
-                    expect(
-                        recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?"))))),
-                        "Expected pass identifier",
-                    ),
+                    expect(pass_name, "Expected pass identifier"),
                     expect(char(']'), "Expected closing `]`"),
                 ),
                 |inner| Pass::Last(inner.map_or("", |s| s.fragment())),
@@ -109,4 +88,8 @@ impl<'a> CSTParse<'a, Ranged<Pass<'a>>> for Pass<'a> {
             map(tag_no_case(":FINAL"), |_| Pass::Final),
         )))(input)
     }
+}
+
+fn pass_name(input: LocatedSpan) -> IResult<LocatedSpan> {
+    recognize(many1(alt((alphanumeric1::<LocatedSpan, _>, is_a("/_-?")))))(input)
 }

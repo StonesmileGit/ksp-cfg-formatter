@@ -1,5 +1,7 @@
 use std::{
     env,
+    error::Error,
+    fmt::Display,
     path::{Path, PathBuf},
 };
 
@@ -15,6 +17,8 @@ struct Args {
     install: bool,
     #[arg(long, help = "which platform to compile against")]
     platform: Platform,
+    #[arg(long, help = "SemVer version", value_parser = Version::parse)]
+    version: Version,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -24,6 +28,74 @@ enum Platform {
     Unix,
 }
 
+#[derive(Clone)]
+struct Version {
+    major: usize,
+    minor: usize,
+    patch: usize,
+}
+
+impl Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+#[derive(Debug)]
+enum ParseError {
+    Major,
+    Minor,
+    Patch,
+    TooMany,
+}
+
+impl Error for ParseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        "description() is deprecated; use Display"
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Failed to parse version at {}",
+            match self {
+                ParseError::Major => "MAJOR",
+                ParseError::Minor => "MINOR",
+                ParseError::Patch => "PATCH",
+                ParseError::TooMany => "TOO MANY ARGS",
+            }
+        )
+    }
+}
+
+impl Version {
+    fn parse(s: &str) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+        let mut splits = s.split('.');
+        match splits.clone().count() {
+            0 => return Err(Box::new(ParseError::Major)),
+            1 => return Err(Box::new(ParseError::Minor)),
+            2 => return Err(Box::new(ParseError::Patch)),
+            3 => (),
+            _ => return Err(Box::new(ParseError::TooMany)),
+        }
+        Ok(Version {
+            major: splits.next().unwrap().parse()?,
+            minor: splits.next().unwrap().parse()?,
+            patch: splits.next().unwrap().parse()?,
+        })
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let sh = &Shell::new()?;
@@ -31,38 +103,34 @@ fn main() -> anyhow::Result<()> {
     sh.change_dir(dir);
 
     let targets = get_targets(&args);
-    sh.create_dir("./lsp-extension/server")?;
+    sh.change_dir("./lsp-extension");
+    let ver = args.version.to_string();
+    common_cmd(sh, format!("npm version {ver} --allow-same-version"))?;
+    common_cmd(sh, format!("cargo set-version -p lsp-rs {ver}"))?;
+    sh.create_dir("./server")?;
     for target in targets {
         cmd!(sh, "cargo build -p lsp-rs --release --target {target}").run()?;
         if target.contains("windows") {
             sh.copy_file(
-                format!("./target/{target}/release/lsp-rs.exe"),
-                "./lsp-extension/server/ksp-cfg-lsp.exe",
+                format!("../target/{target}/release/lsp-rs.exe"),
+                "./server/ksp-cfg-lsp.exe",
             )?;
         } else {
             sh.copy_file(
-                format!("./target/{target}/release/lsp-rs"),
-                "./lsp-extension/server/ksp-cfg-lsp",
+                format!("../target/{target}/release/lsp-rs"),
+                "./server/ksp-cfg-lsp",
             )?;
         }
     }
-    sh.change_dir("./lsp-extension");
-    if cfg!(target_family = "unix") {
-        if args.ci {
-            cmd!(sh, "npm ci").run()?;
-        }
-        cmd!(sh, "npm run package").run()?;
-        if args.install {
-            cmd!(sh, "code --install-extension ksp-cfg-lsp.vsix").run()?;
-        }
-    } else {
-        if args.ci {
-            cmd!(sh, "cmd.exe /c npm ci").run()?;
-        }
-        cmd!(sh, "cmd.exe /c npm run package").run()?;
-        if args.install {
-            cmd!(sh, "cmd.exe /c code --install-extension ksp-cfg-lsp.vsix").run()?;
-        }
+    if args.ci {
+        common_cmd(sh, "npm ci".to_owned())?;
+    }
+    common_cmd(sh, "npm run package".to_owned())?;
+    if args.install {
+        common_cmd(
+            sh,
+            format!("code --install-extension ksp-cfg-lsp-{ver}.vsix"),
+        )?;
     }
     Ok(())
 }
@@ -90,4 +158,13 @@ fn project_root() -> PathBuf {
     .nth(1)
     .unwrap()
     .to_path_buf()
+}
+
+fn common_cmd(sh: &Shell, str: String) -> Result<(), xshell::Error> {
+    if cfg!(target_family = "unix") {
+        cmd!(sh, "{str}").run()?;
+    } else {
+        cmd!(sh, "cmd.exe /c {str}").run()?;
+    }
+    Ok(())
 }

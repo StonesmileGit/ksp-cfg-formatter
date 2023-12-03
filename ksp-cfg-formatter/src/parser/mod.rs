@@ -369,10 +369,8 @@ impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}, found '{}'{}",
-            self.message,
-            self.source,
-            format!(" at {}", self.range)
+            "{}, found '{}' at {}",
+            self.message, self.source, self.range
         )
     }
 }

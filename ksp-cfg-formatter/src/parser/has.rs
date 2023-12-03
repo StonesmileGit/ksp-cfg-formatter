@@ -54,7 +54,7 @@ impl<'a> Display for HasPredicate<'a> {
                 "{}{}{}{}",
                 if *negated { "!" } else { "@" },
                 node_type,
-                name.map_or_else(String::new, |name| format!("[{}]", name)),
+                name.map_or_else(String::new, |name| format!("[{name}]")),
                 has_block
                     .clone()
                     .map_or_else(String::new, |has_block| has_block.to_string())

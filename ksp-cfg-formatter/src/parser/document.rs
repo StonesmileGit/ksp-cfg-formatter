@@ -92,7 +92,7 @@ impl<'a> ASTParse<'a> for Document<'a> {
                     debug_fn(
                         alt((
                             map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
-                            map(alt((empty_line, map(pair(space1, eof), |_| ()))), |_| {
+                            map(alt((empty_line, map(pair(space1, eof), |_| ()))), |()| {
                                 DocItem::EmptyLine
                             }),
                             map(ignore_line_ending(ws(Node::parse)), DocItem::Node),

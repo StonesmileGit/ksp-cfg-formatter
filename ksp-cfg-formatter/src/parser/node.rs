@@ -520,7 +520,7 @@ fn parse_block(input: LocatedSpan) -> IResult<(Vec<NodeItem>, bool)> {
                 map(ignore_line_ending(ws(Comment::parse)), |c| {
                     NodeItem::Comment(c)
                 }),
-                map(ws(empty_line), |_| NodeItem::EmptyLine),
+                map(ws(empty_line), |()| NodeItem::EmptyLine),
                 debug_fn(map(ws(KeyVal::parse), NodeItem::KeyVal), "keyval", false),
                 settings_for_inner_block(map(ignore_line_ending(ws(Node::parse)), NodeItem::Node)),
                 debug_fn(

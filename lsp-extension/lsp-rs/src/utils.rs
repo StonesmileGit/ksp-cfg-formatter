@@ -44,7 +44,6 @@ pub fn relinfo_to_relinfo(
 ) -> Result<lsp_types::DiagnosticRelatedInformation, ()> {
     Ok(lsp_types::DiagnosticRelatedInformation {
         location: lsp_types::Location {
-            // TODO: Add error instead of unit
             uri: value.location.url.ok_or(())?,
             range: crate::utils::range_to_range(value.location.range),
         },

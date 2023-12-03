@@ -1,8 +1,8 @@
-use crate::parser::DocItem;
+use crate::parser::{DocItem, Document};
 
 use super::{Diagnostic, Lintable, LinterState, LinterStateResult};
 
-impl<'a> Lintable for crate::parser::Document<'a> {
+impl<'a> Lintable for Document<'a> {
     fn lint(&self, state: &LinterState) -> (Vec<Diagnostic>, Option<LinterStateResult>) {
         let mut items = vec![];
         let mut result = LinterStateResult {

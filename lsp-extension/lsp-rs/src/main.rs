@@ -105,7 +105,6 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Resu
 struct Settings {
     use_tabs: bool,
     indent_size: u64,
-    log_level: log::LevelFilter,
     should_collapse: Option<bool>,
 }
 
@@ -114,7 +113,6 @@ impl Default for Settings {
         Self {
             use_tabs: Default::default(),
             indent_size: Default::default(),
-            log_level: log::max_level(),
             should_collapse: Some(true),
         }
     }

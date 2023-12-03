@@ -88,8 +88,6 @@ fn request_workspace_config(state: &mut State) -> anyhow::Result<()> {
                                 log::LevelFilter::Info
                             }
                         };
-                        // TODO: Is it needed in the settings?
-                        state.settings.log_level = log_level;
                         log::set_max_level(log_level);
                     }
                     if let Some(serde_json::Value::String(should_collapse)) = obj.get("shouldCollapse") {

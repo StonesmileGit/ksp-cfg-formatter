@@ -85,7 +85,6 @@ fn fix_kvs<'a>(
     accumulator: Vec<Ranged<KeyVal<'a>>>,
     mut processed: Vec<NodeItem<'a>>,
 ) -> Vec<NodeItem<'a>> {
-    // TODO: If accumulator is almost empty, is it worth aligning then?
     let padded_len = max_len_in_vec_if_similar(&accumulator);
     if let Some(padded_len) = padded_len {
         for mut kv in accumulator {

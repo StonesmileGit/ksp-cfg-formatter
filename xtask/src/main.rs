@@ -105,8 +105,16 @@ fn main() -> anyhow::Result<()> {
     let targets = get_targets(&args);
     sh.change_dir("./lsp-extension");
     let ver = args.version.to_string();
-    common_cmd(sh, format!("npm version {ver} --allow-same-version"))?;
-    common_cmd(sh, format!("cargo set-version -p lsp-rs {ver}"))?;
+    if cfg!(target_family = "unix") {
+        cmd!(sh, "npm version {ver} --allow-same-version").run()?;
+    } else {
+        cmd!(sh, "cmd.exe /c npm version {ver} --allow-same-version").run()?;
+    }
+    if cfg!(target_family = "unix") {
+        cmd!(sh, "cargo set-version -p lsp-rs {ver}").run()?;
+    } else {
+        cmd!(sh, "cmd.exe /c cargo set-version -p lsp-rs {ver}").run()?;
+    }
     sh.create_dir("./server")?;
     for target in targets {
         cmd!(sh, "cargo build -p lsp-rs --release --target {target}").run()?;
@@ -123,14 +131,27 @@ fn main() -> anyhow::Result<()> {
         }
     }
     if args.ci {
-        common_cmd(sh, "npm ci".to_owned())?;
+        if cfg!(target_family = "unix") {
+            cmd!(sh, "npm ci").run()?;
+        } else {
+            cmd!(sh, "cmd.exe /c npm ci").run()?;
+        }
     }
-    common_cmd(sh, "npm run package".to_owned())?;
+    if cfg!(target_family = "unix") {
+        cmd!(sh, "npm run package").run()?;
+    } else {
+        cmd!(sh, "cmd.exe /c npm run package").run()?;
+    }
     if args.install {
-        common_cmd(
-            sh,
-            format!("code --install-extension ksp-cfg-lsp-{ver}.vsix"),
-        )?;
+        if cfg!(target_family = "unix") {
+            cmd!(sh, "code --install-extension ksp-cfg-lsp-{ver}.vsix").run()?;
+        } else {
+            cmd!(
+                sh,
+                "cmd.exe /c code --install-extension ksp-cfg-lsp-{ver}.vsix"
+            )
+            .run()?;
+        }
     }
     Ok(())
 }
@@ -158,13 +179,4 @@ fn project_root() -> PathBuf {
     .nth(1)
     .unwrap()
     .to_path_buf()
-}
-
-fn common_cmd(sh: &Shell, str: String) -> Result<(), xshell::Error> {
-    if cfg!(target_family = "unix") {
-        cmd!(sh, "{str}").run()?;
-    } else {
-        cmd!(sh, "cmd.exe /c {str}").run()?;
-    }
-    Ok(())
 }

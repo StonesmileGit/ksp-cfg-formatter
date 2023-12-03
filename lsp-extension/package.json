@@ -8,7 +8,11 @@
 		"type": "git",
 		"url": "https://github.com/StonesmileGit/ksp-cfg-formatter"
 	},
-	"categories": ["Programming Languages", "Linters", "Formatters"],
+	"categories": [
+		"Programming Languages",
+		"Linters",
+		"Formatters"
+	],
 	"keywords": [
 		"Kerbal Space Program",
 		"KSP",
@@ -19,14 +23,16 @@
 		"sfs",
 		"craft",
 		"modulemanager"
-	  ],
+	],
 	"engines": {
 		"vscode": "^1.75.0"
 	},
 	"activationEvents": [
 		"onLanguage:ksp-cfg"
 	],
-	"extensionDependencies": ["al2me6.ksp-cfg-support"],
+	"extensionDependencies": [
+		"al2me6.ksp-cfg-support"
+	],
 	"main": "./out/extension",
 	"contributes": {
 		"configuration": {
@@ -74,7 +80,7 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run build-base -- --minify",
-		"package": "vsce package -o ksp-cfg-lsp.vsix",
+		"package": "vsce package",
 		"build-base": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --target=node16",
 		"build": "npm run build-base -- --sourcemap",
 		"watch": "npm run build-base -- --sourcemap --watch",

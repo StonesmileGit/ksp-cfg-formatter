@@ -382,9 +382,12 @@ mod tests {
 
     #[test]
     fn test_ranges() {
-        let mut ranges = vec![Range::new(0, 0, 0, 5), Range::new(0, 10, 0, 15)];
-        ranges.sort();
+        let ranges = vec![Range::new(0, 0, 0, 5), Range::new(0, 10, 0, 15)];
         let ranges_new = Range::combine_ranges(ranges.clone());
         assert_eq!(ranges_new, ranges);
+        let ranges = vec![Range::new(0, 0, 0, 5), Range::new(0, 5, 0, 15)];
+        let ranges_res = vec![Range::new(0, 0, 0, 15)];
+        let ranges_new = Range::combine_ranges(ranges.clone());
+        assert_eq!(ranges_new, ranges_res);
     }
 }

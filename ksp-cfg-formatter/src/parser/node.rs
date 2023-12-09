@@ -341,7 +341,7 @@ fn dumb_identifier_parser(dumb_identifier: LocatedSpan) -> (ParsedIdentifier, Ve
             (
                 None,
                 None,
-                Ranged::new(dumb_identifier.fragment(), Range::from(dumb_identifier)),
+                dumb_identifier.into(),
                 None,
                 None,
                 None,

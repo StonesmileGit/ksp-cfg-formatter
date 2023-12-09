@@ -73,10 +73,7 @@ pub fn source_file(input: LocatedSpan) -> IResult<Ranged<Document>> {
     let doc = alt((
         Document::parse,
         map(take(0usize), |_| {
-            Ranged::new(
-                Document { statements: vec![] },
-                super::Range::new(0, 0, 0, 0),
-            )
+            Ranged::new(Document { statements: vec![] }, super::Range::default())
         }),
     ));
     // Emitt an error if the whole input is not consumed
@@ -89,25 +86,21 @@ impl<'a> ASTParse<'a> for Document<'a> {
             preceded(
                 tuple((opt(tag("\u{feff}")), multispace0)),
                 many_till(
-                    debug_fn(
-                        alt((
-                            map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
-                            map(alt((empty_line, map(pair(space1, eof), |_| ()))), |()| {
-                                DocItem::EmptyLine
+                    alt((
+                        map(ignore_line_ending(ws(Comment::parse)), DocItem::Comment),
+                        map(alt((empty_line, map(pair(space1, eof), |_| ()))), |()| {
+                            DocItem::EmptyLine
+                        }),
+                        map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
+                        // If none of the above succeeded, consume the line as an error and try again
+                        debug_fn(
+                            map(recognize(error_till(non_empty(is_not("\r\n")))), |error| {
+                                DocItem::Error(error.into())
                             }),
-                            map(ignore_line_ending(ws(Node::parse)), DocItem::Node),
-                            // If none of the above succeeded, consume the line as an error and try again
-                            debug_fn(
-                                map(recognize(error_till(non_empty(is_not("\r\n")))), |a| {
-                                    DocItem::Error(Ranged::new(a.clone().fragment(), a.into()))
-                                }),
-                                "Got an error while parsing doc. Skipped line",
-                                true,
-                            ),
-                        )),
-                        "Got DocItem",
-                        false,
-                    ),
+                            "Got an error while parsing doc. Skipped line",
+                            true,
+                        ),
+                    )),
                     eof,
                 ),
             ),

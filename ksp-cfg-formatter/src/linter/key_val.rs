@@ -50,7 +50,7 @@ fn op_in_noop_node(
     }
 }
 
-fn check_regex_not_edit(key_val: &KeyVal, _state: &LinterState) -> Vec<Diagnostic> {
+fn check_regex_not_edit(key_val: &Ranged<KeyVal>, state: &LinterState) -> Vec<Diagnostic> {
     if matches!(
         key_val.assignment_operator.as_ref(),
         AssignmentOperator::RegexReplace
@@ -62,10 +62,15 @@ fn check_regex_not_edit(key_val: &KeyVal, _state: &LinterState) -> Vec<Diagnosti
         }
         // This is where the error is returned
         return vec![Diagnostic {
-            message: "Regex replace  assignment operation was used without the key-val operator being Edit".to_string(),
+            message: "Regex-replace assignment operation was used without the key-val operator being Edit".to_string(),
             range: key_val.assignment_operator.get_range(),
-            // TODO: Add info about the start of the KV
-            related_information: None,
+            related_information: Some(vec![RelatedInformation {
+                location: Location {
+                    range: key_val.get_range(),
+                    url: state.this_url.clone()
+                },
+                message: "Expected Edit operator here".to_owned()
+            }]),
             severity: Some(crate::parser::Severity::Warning),
             ..Default::default()
         }];
@@ -73,15 +78,12 @@ fn check_regex_not_edit(key_val: &KeyVal, _state: &LinterState) -> Vec<Diagnosti
     vec![]
 }
 
-// TODO: Are some MM things allowed?
+// :NEEDS is allowed
 fn range_for_rest_of_name(key_val: &KeyVal) -> Vec<crate::parser::Range> {
     let mut ranges = vec![];
     if let Some(ranged) = key_val.array_index.as_ref() {
         ranges.push(ranged.get_range());
     }
-    // if let Some(ranged) = key_val.needs.as_ref() {
-    //     ranges.push(ranged.get_range());
-    // }
     if let Some(ranged) = key_val.index.as_ref() {
         ranges.push(ranged.get_range());
     }

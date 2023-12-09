@@ -167,7 +167,7 @@ fn proper_key_parser(input: LocatedSpan<'_>) -> (ParsedKey, Vec<super::Error>) {
     let mut res_tuple = (
         None,
         None,
-        Ranged::new("", Range::new(0, 0, 0, 0)),
+        Ranged::new("", Range::default()),
         None,
         None,
         None,

@@ -5,7 +5,7 @@ use super::{
 use nom::{
     branch::alt,
     character::complete::{char, digit1, none_of},
-    combinator::{map, opt, value},
+    combinator::{map, map_res, opt, value},
     sequence::{delimited, pair, preceded},
 };
 use std::fmt::Display;
@@ -76,7 +76,7 @@ impl ASTParse<'_> for ArrayIndex {
             expect(
                 alt((
                     value(None, char('*')),
-                    map(digit1, |n: LocatedSpan| Some(n.fragment().parse().unwrap())),
+                    map_res(digit1, |n: LocatedSpan| n.fragment().parse().map(Some)),
                 )),
                 "Expected index, or *",
             ),

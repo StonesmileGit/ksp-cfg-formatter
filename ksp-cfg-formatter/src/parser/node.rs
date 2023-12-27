@@ -131,10 +131,7 @@ impl<'a> ASTPrint for Node<'a> {
                         "{}{} {{ {} }}{}{}",
                         indentation_str,
                         complete_node_name,
-                        self.block
-                            .first()
-                            .unwrap()
-                            .ast_print(0, indentation, "", should_collapse),
+                        self.block[0].ast_print(0, indentation, "", should_collapse),
                         self.trailing_comment
                             .as_ref()
                             .map_or_else(|| "", |c| c.text),
@@ -213,7 +210,7 @@ fn short_node(arg: &Node) -> bool {
         .as_deref()
         .map_or(0, |id| id.to_string().chars().count());
 
-    match arg.block.first().unwrap() {
+    match &arg.block[0] {
         NodeItem::KeyVal(kv) => {
             if kv.operator.is_some() {
                 len += 1;

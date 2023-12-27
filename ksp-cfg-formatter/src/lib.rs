@@ -1,3 +1,4 @@
+#![feature(let_chains)]
 //! Parser and formatter for Kerbal Space Program config files, including Module Manager syntax
 #![warn(missing_docs)]
 /// Contains code to interface with TypeScript
@@ -149,9 +150,8 @@ impl Formatter {
     /// # let input = String::new();
     /// let output = formatter.format_text(&input);
     /// ```
-    /// # Panics
-    /// If formatter isn't set to fail silently, then an error that occurs causes the function to panic, displaying the error
-    #[must_use]
+    /// # Errors
+    /// If formatter is set to fail silently, the original text is returned. Otherwise the errors are returned
     pub fn format_text(&self, text: &str) -> Result<String, Vec<parser::Error>> {
         match ast_format(text, self) {
             Ok(res) => Ok(res),

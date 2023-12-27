@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::parser::Ranged;
 
 use super::{Diagnostic, Lintable};
@@ -7,12 +9,13 @@ impl<'a> Lintable for crate::parser::HasBlock<'a> {
         &self,
         state: &super::LinterState,
     ) -> (Vec<Diagnostic>, Option<super::LinterStateResult>) {
-        let mut items = vec![];
-        for pred in &self.predicates {
-            let (mut diagnostics, _res) = pred.lint(state);
-            items.append(&mut diagnostics);
-        }
-        (items, None)
+        (
+            self.predicates
+                .iter()
+                .flat_map(|pred| pred.lint(state).0)
+                .collect_vec(),
+            None,
+        )
     }
 }
 
@@ -41,15 +44,13 @@ impl<'a> Lintable for Ranged<crate::parser::HasPredicate<'a>> {
                 value,
                 match_type: _,
             } => {
-                if let Some(value) = value {
-                    if value.is_empty() {
-                        items.push(Diagnostic {
-                            range: value.get_range(),
-                            severity: Some(crate::parser::Severity::Info),
-                            message: "Expected value".to_owned(),
-                            ..Default::default()
-                        });
-                    }
+                if let Some(value) = value && value.is_empty() {
+                    items.push(Diagnostic {
+                        range: value.get_range(),
+                        severity: Some(crate::parser::Severity::Info),
+                        message: "Expected value".to_owned(),
+                        ..Default::default()
+                    });
                 }
             }
         }

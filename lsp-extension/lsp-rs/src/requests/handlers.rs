@@ -55,15 +55,15 @@ pub(crate) fn handle_formatting_request(
             let edit = vec![text_edit];
             Ok(Some(edit))
         }
-        Err(errs) => {
+        Err(_errs) => {
             // TODO: Improve message about formatting failing due to errors
-            let a = state.send_request::<lsp_types::request::ShowMessageRequest>(
+            let _message_res = state.send_request::<lsp_types::request::ShowMessageRequest>(
                 ShowMessageRequestParams {
                     message: "Formatting of KSP Cfg failed!".to_owned(),
                     typ: MessageType::ERROR,
                     actions: None,
                 },
-                |a, b| Ok(()),
+                |_state, _response| Ok(()),
             );
             Ok(None)
         }

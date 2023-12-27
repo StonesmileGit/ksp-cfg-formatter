@@ -89,9 +89,9 @@ fn or_in_child_node(
     _state: &LinterState,
     _result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
-    if node.name.clone().map_or(false, |name| name.len() > 1) && !node.top_level() {
+    if let Some(name) = &node.name && name.len() > 1 && !node.top_level() {
         Some(Diagnostic {
-            range: node.name.as_ref().expect("It was just determined that it is Some").get_range(),
+            range: name.get_range(),
             severity: Some(crate::parser::Severity::Warning),
             message: "names separated by '|' is only interpreted as OR in a top level node. Here, it's interpreted literally.".to_owned(),
             ..Default::default()
@@ -106,22 +106,16 @@ fn op_in_noop(
     state: &LinterState,
     result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
-    if state.top_level_no_op.is_some() && node.operator.is_some() {
+    if let Some(top_level_no_op) = &state.top_level_no_op
+    && let Some(operator) = &node.operator {
         result.top_level_no_op_result = true;
         Some(Diagnostic {
-            range: node
-                .operator
-                .as_ref()
-                .expect("it was just determined that the operator existed")
-                .get_range(),
-
+            range: operator.get_range(),
             severity: Some(crate::parser::Severity::Warning),
-            message: "Node has operator, even though the top level does not!".to_owned(),
+            message: "Node has operator, but top level does not!".to_owned(),
             related_information: Some(vec![super::RelatedInformation {
-                location: state
-                    .top_level_no_op
-                    .clone()
-                    .expect("It was just determined that the top_level_no_op is Some"),
+                location: top_level_no_op
+                    .clone(),
                 message: "This is where it happened".to_owned(),
             }]),
             source: Some("Unexpected_operator".to_owned()),

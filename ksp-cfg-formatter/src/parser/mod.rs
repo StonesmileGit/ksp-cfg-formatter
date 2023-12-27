@@ -235,12 +235,7 @@ impl Position {
 
     /// Creates a Position from a `LocatedSpan`
     pub fn from_located_span(span: &LocatedSpan) -> Self {
-        Self::new(
-            span.location_line(),
-            span.get_utf8_column()
-                .try_into()
-                .expect("both usize and u32 should never overflow in this context"),
-        )
+        Self::new(span.location_line(), span.get_utf8_column() as u32)
     }
 }
 
@@ -344,15 +339,9 @@ impl Display for Range {
 impl<'a> From<LocatedSpan<'a>> for Range {
     fn from(value: LocatedSpan) -> Self {
         let start = Position::from_located_span(&value);
-        let delta_lines: u32 = value
-            .fragment()
-            .chars()
-            .filter(|&c| c == '\n')
-            .count()
-            .try_into()
-            .expect("usize and u32 should both be large enough");
+        let delta_lines: u32 = value.fragment().chars().filter(|&c| c == '\n').count() as u32;
         let last_line = value.fragment().split('\n').last();
-        let col: u32 = last_line.map_or(0, |ll| ll.chars().count().try_into().unwrap());
+        let col: u32 = last_line.map_or(0, |ll| ll.chars().count() as u32);
         let end = Position {
             line: start.line + delta_lines,
             col: if delta_lines > 0 {

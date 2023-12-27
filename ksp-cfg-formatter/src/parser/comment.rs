@@ -23,14 +23,14 @@ impl<'a> ASTPrint for Comment<'a> {
         line_ending: &str,
         _: Option<bool>,
     ) -> String {
-        let indentation = indentation.repeat(depth);
-        format!("{}{}{}", indentation, self.text, line_ending)
+        format!("{}{}{}", indentation.repeat(depth), self.text, line_ending)
     }
 }
 
 impl<'a> ASTParse<'a> for Comment<'a> {
     fn parse(input: LocatedSpan<'a>) -> IResult<Ranged<Comment<'a>>> {
         let comment = recognize(ws(pair(tag("//"), opt(is_not("\r\n")))));
+
         range_wrap(map(comment, |inner: LocatedSpan| Comment {
             text: inner.fragment(),
         }))(input)

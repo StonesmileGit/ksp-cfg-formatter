@@ -25,23 +25,17 @@ fn op_in_noop_node(
     state: &LinterState,
     result: &mut LinterStateResult,
 ) -> Option<Diagnostic> {
-    if state.top_level_no_op.is_some() && key_val.operator.is_some() {
+    if let Some(top_level_no_op) = &state.top_level_no_op
+    && let Some(operator) = &key_val.operator {
         result.top_level_no_op_result = true;
         Some(Diagnostic {
-            range: key_val
-                .operator
-                .as_ref()
-                .expect("it was just determined that the operator existed")
-                .get_range(),
+            range: operator.get_range(),
 
             severity: Some(crate::parser::Severity::Warning),
             source: Some("Unexpected_operator".to_owned()),
             message: "Key has operator, even though the top level does not!".to_owned(),
             related_information: Some(vec![super::RelatedInformation {
-                location: state
-                    .top_level_no_op
-                    .clone()
-                    .expect("It was just determined that the top_level_no_op is Some"),
+                location: top_level_no_op.clone(),
                 message: "This is where it happened".to_owned(),
             }]),
         })

@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 //! Parser and formatter for Kerbal Space Program config files, including Module Manager syntax
 #![warn(missing_docs)]
 /// Contains code to interface with TypeScript

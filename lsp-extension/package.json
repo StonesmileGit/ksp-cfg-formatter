@@ -2,7 +2,7 @@
 	"name": "ksp-cfg-lsp",
 	"displayName": "KSP CFG Language Server",
 	"description": "A language server for KSP cfg files with support for Module Manager syntax",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"publisher": "Stonesmile",
 	"repository": {
 		"type": "git",

@@ -119,7 +119,7 @@ fn format_file(args: &Args, text: &str, path: Option<String>) {
     // Set up formatter and use it to format the text
     let indentaion = Indentation::from(args.indentation);
     let formatter = Formatter::new(indentaion, args.inline, LineReturn::Identify);
-    let output = formatter.format_text(text);
+    let output = formatter.fail_silent().format_text(text).unwrap();
 
     // write output to path or stdout
     match (args.stdout, path) {

@@ -18,7 +18,7 @@ macro_rules! gen_test {
         fn $func_name() {
             let text = read_local_path($file);
             let formatter = Formatter::new(Indentation::Tabs, Some($inline), LineReturn::Identify);
-            let formatted_text = formatter.format_text(&text);
+            let formatted_text = formatter.format_text(&text).unwrap();
             assert_eq!(text, formatted_text);
         }
     };

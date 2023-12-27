@@ -17,7 +17,7 @@ fn simple() {
     let input = read_local_path("tests/incorrect_files/simple_input.cfg");
     let output = read_local_path("tests/incorrect_files/simple_output.cfg");
     let formatter = Formatter::new(Indentation::Tabs, Some(true), LineReturn::Identify);
-    let formatted_text = formatter.format_text(&input);
+    let formatted_text = formatter.format_text(&input).unwrap();
     assert_eq!(output, formatted_text);
 }
 
@@ -26,6 +26,6 @@ fn trailing_spaces() {
     let input = read_local_path("tests/incorrect_files/trailing_spaces_input.cfg");
     let output = read_local_path("tests/incorrect_files/trailing_spaces_output.cfg");
     let formatter = Formatter::new(Indentation::Spaces(4), Some(true), LineReturn::Identify);
-    let formatted_text = formatter.format_text(&input);
+    let formatted_text = formatter.format_text(&input).unwrap();
     assert_eq!(output, formatted_text);
 }

@@ -89,7 +89,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Resu
                 if let Some(handler) = state.pending_requests.remove(&resp.id) {
                     handler(&mut state, resp)?;
                 } else {
-                    warn!("got a response that was not in the queue!\n");
+                    warn!("got a response that was not in the queue!\n{:?}\n", resp);
                 }
             }
             Message::Notification(not) => {

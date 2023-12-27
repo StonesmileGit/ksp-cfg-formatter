@@ -1,5 +1,5 @@
 use log::debug;
-use lsp_types::{DiagnosticRelatedInformation, Location};
+use lsp_types::{DiagnosticRelatedInformation, Location, MessageType, ShowMessageRequestParams};
 
 use super::State;
 
@@ -42,17 +42,32 @@ pub(crate) fn handle_formatting_request(
     } else {
         ksp_cfg_formatter::Indentation::Spaces(tab_size as usize)
     };
-    let new_text = ksp_cfg_formatter::Formatter::new(
+    let new_text_res = ksp_cfg_formatter::Formatter::new(
         indentation,
         state.settings.should_collapse,
         ksp_cfg_formatter::LineReturn::Identify,
     )
-    .fail_silent()
     .format_text(text);
 
-    let text_edit = text_edit_entire_document(text, new_text)?;
-    let edit = vec![text_edit];
-    Ok(Some(edit))
+    match new_text_res {
+        Ok(new_text) => {
+            let text_edit = text_edit_entire_document(text, new_text)?;
+            let edit = vec![text_edit];
+            Ok(Some(edit))
+        }
+        Err(errs) => {
+            // TODO: Improve message about formatting failing due to errors
+            let a = state.send_request::<lsp_types::request::ShowMessageRequest>(
+                ShowMessageRequestParams {
+                    message: "Formatting of KSP Cfg failed!".to_owned(),
+                    typ: MessageType::ERROR,
+                    actions: None,
+                },
+                |a, b| Ok(()),
+            );
+            Ok(None)
+        }
+    }
 }
 
 /// Takes the orignal text and the new text and creates a single edit replacing the entire document

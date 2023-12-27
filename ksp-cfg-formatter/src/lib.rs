@@ -152,36 +152,32 @@ impl Formatter {
     /// # Panics
     /// If formatter isn't set to fail silently, then an error that occurs causes the function to panic, displaying the error
     #[must_use]
-    pub fn format_text(&self, text: &str) -> String {
+    pub fn format_text(&self, text: &str) -> Result<String, Vec<parser::Error>> {
         match ast_format(text, self) {
-            Ok(res) => res,
+            Ok(res) => Ok(res),
             Err(err) => {
                 if self.fail_silent {
-                    text.to_string()
+                    Ok(text.to_string())
                 } else {
-                    dbg!("{}", &err);
-                    dbg!("{}", err.to_string());
-                    panic!()
+                    Err(err)
                 }
             }
         }
     }
 }
 
-fn ast_format(text: &str, settings: &Formatter) -> Result<String, parser::Error> {
+fn ast_format(text: &str, settings: &Formatter) -> Result<String, Vec<parser::Error>> {
     let use_crlf = if matches!(settings.line_return, LineReturn::Identify) {
         text.contains("\r\n")
     } else {
         matches!(settings.line_return, LineReturn::CRLF)
     };
     let (parsed_document, errors) = parse(text);
-    let mut errors_res = vec![];
-    for error in errors {
+    for error in &errors {
         warn!("{error:#?}");
-        errors_res.push(error);
     }
-    if let Some(first) = errors_res.first() {
-        return Err(first.clone());
+    if !errors.is_empty() {
+        return Err(errors);
     }
     // let parsed_document = transformer::assignments_first(parsed_document)?;
     // let parsed_document = transformer::assignment_padding(parsed_document);

@@ -25,7 +25,8 @@ export function activate(context: ExtensionContext) {
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ language: 'ksp-cfg' }]
+		documentSelector: [{ language: 'ksp-cfg' }],
+		diagnosticPullOptions: {onSave: true},
 	};
 
 	// Create the language client and start the client.

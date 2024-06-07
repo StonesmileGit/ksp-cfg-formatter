@@ -30,6 +30,7 @@ impl<'a> Lintable for crate::parser::Ranged<Node<'a>> {
             // state.top_level_no_op = Some(self.get_range());
         }
 
+        // Check for an empty name filter "node[]"
         if let Some(name) = &self.name {
             if name.is_empty() {
                 items.push(Diagnostic {

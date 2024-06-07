@@ -49,6 +49,9 @@ If no path is provided, text is read from stdin."
         help = "Allow parsing to be lossy, replacing invalid chars with �"
     )]
     lossy: bool,
+
+    #[arg(long, help = "Only check files inside a GameData folder")]
+    only_in_gamedata: bool,
 }
 
 fn main() {
@@ -62,7 +65,7 @@ fn main() {
 
     // Read input from either a path or stdin if no path is provided
     if let Some(path) = &args.path {
-        let paths = files_from_path(path);
+        let paths = files_from_path(path, args.only_in_gamedata);
         let res: Vec<String> = paths
             .par_iter()
             .flat_map(|path| worker_task(&args, path))
@@ -71,7 +74,7 @@ fn main() {
     } else {
         let mut text: String = String::new();
         // Collect multi-line input from stdin
-        let input = std::io::stdin().lock().lines().flatten();
+        let input = std::io::stdin().lock().lines().map_while(Result::ok);
         for line in input {
             text.push_str(&line);
             text.push('\n');
@@ -132,8 +135,8 @@ fn format_file(args: &Args, text: &str, path: Option<String>) {
     }
 }
 
-/// Generates a Vec of all the paths to ksp cfg files in a `GameData` folder
-fn files_from_path(path: &String) -> Vec<String> {
+/// Generates a Vec of all the paths to ksp cfg files. if bool is set, only return files in a `GameData` folder
+fn files_from_path(path: &String, only_in_gamedata: bool) -> Vec<String> {
     let mut paths = Vec::new();
     if metadata(path).unwrap().is_file() {
         paths.push(path.clone());
@@ -142,11 +145,12 @@ fn files_from_path(path: &String) -> Vec<String> {
         let name = path.path().to_owned();
         if let Some(extension) = name.extension() {
             if extension == "cfg"
-                && name
-                    .canonicalize()
-                    .unwrap()
-                    .ancestors()
-                    .any(|n| n.ends_with("GameData"))
+                && (!only_in_gamedata
+                    || name
+                        .canonicalize()
+                        .unwrap()
+                        .ancestors()
+                        .any(|n| n.ends_with("GameData")))
             {
                 if let Some(name) = name.to_str() {
                     paths.push(name.to_owned());

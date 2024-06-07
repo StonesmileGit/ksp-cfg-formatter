@@ -60,10 +60,13 @@ pub trait ASTParse<'c> {
 }
 
 /// Parses a string into a document struct, also emmitting errors along the way
+/// # Panics
+/// The parser is designed to never fail. If it panics, there is a bug in the parser
 pub fn parse(source: &str) -> (Document, Vec<Error>) {
     let input = LocatedSpan::new_extra(source, State::default());
-    let (span, doc) =
-        nom::combinator::all_consuming(document::source_file)(input).expect("parsing cannot fail");
+    let Ok((span, doc)) = nom::combinator::all_consuming(document::source_file)(input) else {
+        panic!("The parser is designed to not be able to fail, but it did. Please report this as a bug!");
+    };
     let (_, state) = span.into_fragment_and_extra();
     let errors = state.errors.borrow().clone();
     (doc.inner, errors)
@@ -136,18 +139,6 @@ pub enum Severity {
     /// Help for other issues
     Hint,
 }
-
-/// Reason for the error that occured
-// #[derive(Debug, Clone, Default, PartialEq, Eq)]
-// pub enum Reason {
-//     /// Parsing of an int failed
-//     ParseInt,
-//     /// Custom error with reason provided
-//     Custom(String),
-//     /// Unknown error
-//     #[default]
-//     Unknown,
-// }
 
 /// Wrapper to hold the range that the inner type spans
 #[derive(Debug, Default, Clone, PartialEq, Eq)]

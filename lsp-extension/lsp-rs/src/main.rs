@@ -3,12 +3,12 @@ use std::path::PathBuf;
 
 use crossbeam_channel::Sender;
 use log::{debug, info, warn};
-use log4rs::{
-    append::console::{ConsoleAppender, Target},
-    config::{Appender, Root},
-    encode::pattern::PatternEncoder,
-    Config,
-};
+// use log4rs::{
+//     append::console::{ConsoleAppender, Target},
+//     config::{Appender, Root},
+//     encode::pattern::PatternEncoder,
+//     Config,
+// };
 use lsp_types::{
     InitializeParams, OneOf, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
@@ -24,21 +24,23 @@ mod utils;
 use lsp_server::{Connection, Message, Request, Response};
 
 fn main() -> anyhow::Result<()> {
-    let stderr = ConsoleAppender::builder()
-        .target(Target::Stderr)
-        .encoder(Box::new(PatternEncoder::new("{l} - {m}{n}")))
-        .build();
-    let config = Config::builder()
-        .appender(Appender::builder().build("stderr", Box::new(stderr)))
-        .build(
-            Root::builder()
-                .appender("stderr")
-                .build(log::LevelFilter::Trace), // Log4rs doesn't filter anything
-        )
-        .unwrap();
-    log4rs::init_config(config).unwrap();
+    // let stderr = ConsoleAppender::builder()
+    //     .target(Target::Stderr)
+    //     .encoder(Box::new(PatternEncoder::new("{l} - {m}{n}")))
+    //     .build();
+    // let config = Config::builder()
+    //     .appender(Appender::builder().build("stderr", Box::new(stderr)))
+    //     .build(
+    //         Root::builder()
+    //             .appender("stderr")
+    //             .build(log::LevelFilter::Trace), // Log4rs doesn't filter anything
+    //     )
+    //     .unwrap();
+    // log4rs::init_config(config).unwrap();
     info!("Starting KSP Language Server\n");
+    eprintln!("Starting WASM server");
     let (connection, io_threads) = Connection::stdio();
+    eprintln!("stdio established");
 
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
     let server_capabilities = serde_json::to_value(ServerCapabilities {
@@ -59,6 +61,7 @@ fn main() -> anyhow::Result<()> {
     })
     .unwrap();
     let initialization_params = connection.initialize(server_capabilities)?;
+    eprintln!("Starting main loop...");
     main_loop(&connection, initialization_params)?;
     io_threads.join()?;
 
@@ -77,7 +80,9 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> anyhow::Resu
             settings: serde_json::Value::Null,
         },
     )?;
+    eprintln!("Going into loop:");
     for msg in &connection.receiver {
+        eprintln!("Handling message");
         match msg {
             Message::Request(req) => {
                 if connection.handle_shutdown(&req)? {

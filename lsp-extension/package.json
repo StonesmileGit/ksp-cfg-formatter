@@ -2,7 +2,7 @@
 	"name": "ksp-cfg-lsp",
 	"displayName": "KSP CFG Language Server",
 	"description": "A language server for KSP cfg files with support for Module Manager syntax",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"publisher": "Stonesmile",
 	"repository": {
 		"type": "git",
@@ -25,13 +25,14 @@
 		"modulemanager"
 	],
 	"engines": {
-		"vscode": "^1.75.0"
+		"vscode": "^1.88.0"
 	},
 	"activationEvents": [
 		"onLanguage:ksp-cfg"
 	],
 	"extensionDependencies": [
-		"al2me6.ksp-cfg-support"
+		"al2me6.ksp-cfg-support",
+		"ms-vscode.wasm-wasi-core"
 	],
 	"main": "./out/extension",
 	"contributes": {
@@ -79,19 +80,22 @@
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run build-base -- --minify",
+		"vscode:prepublish": "npm run build-base",
 		"package": "vsce package",
 		"build-base": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --target=node16",
+		"compile": "node ./node_modules/typescript/lib/tsc.js -b tsconfig.json",
 		"build": "npm run build-base -- --sourcemap",
 		"watch": "npm run build-base -- --sourcemap --watch",
 		"lint": "eslint ./client/src --ext .ts,.tsx",
 		"test": "sh ./scripts/e2e.sh"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^8.1.0"
+		"vscode-languageclient": "^10.0.0-next.5",
+		"@vscode/wasm-wasi": "^0.13.0-next.1",
+		"@vscode/wasm-wasi-lsp": "0.1.0-pre.3"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.75.1",
+		"@types/vscode": "^1.88.0",
 		"@vscode/test-electron": "^2.2.3",
 		"@types/mocha": "^9.1.0",
 		"@types/node": "^16.18.34",

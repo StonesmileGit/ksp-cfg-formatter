@@ -1,8 +1,8 @@
 //! Parser and formatter for Kerbal Space Program config files, including Module Manager syntax
 #![warn(missing_docs)]
 /// Contains code to interface with TypeScript
-#[cfg(target_family = "wasm")]
-pub mod wasm_bindings;
+// #[cfg(target_family = "wasm")]
+// pub mod wasm_bindings;
 
 /// Contains the types of the parser
 pub mod parser;

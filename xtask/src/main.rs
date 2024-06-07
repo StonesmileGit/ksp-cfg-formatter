@@ -26,6 +26,7 @@ enum Platform {
     All,
     Windows,
     Unix,
+    Web,
 }
 
 #[derive(Clone)]
@@ -123,6 +124,11 @@ fn main() -> anyhow::Result<()> {
                 format!("../target/{target}/release/lsp-rs.exe"),
                 "./server/ksp-cfg-lsp.exe",
             )?;
+        } else if target.contains("wasm32") {
+            sh.copy_file(
+                format!("../target/{target}/release/lsp-rs.wasm"),
+                "./server/ksp-cfg-lsp.wasm",
+            )?;
         } else {
             sh.copy_file(
                 format!("../target/{target}/release/lsp-rs"),
@@ -167,6 +173,9 @@ fn get_targets(args: &Args) -> Vec<&str> {
         } else {
             targets.push("x86_64-pc-windows-msvc");
         }
+    }
+    if matches!(args.platform, Platform::Web) {
+        targets.push("wasm32-wasip1-threads");
     }
     targets
 }
